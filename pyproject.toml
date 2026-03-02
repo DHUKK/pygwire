@@ -1,0 +1,87 @@
+[project]
+name = "pygwire"
+version = "0.1.0"
+description = "Low-level PostgreSQL wire protocol (3.0 & 3.2) codec for Python"
+readme = "README.md"
+authors = [
+    { name = "DHUKK", email = "dennisjohnharrop@gmail.com" }
+]
+requires-python = ">=3.11"
+license = "MIT"
+keywords = ["postgresql", "wire-protocol", "codec", "sans-io", "database"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/DHUKK/pygwire"
+Documentation = "https://dhukk.github.io/pygwire"
+Repository = "https://github.com/DHUKK/pygwire"
+Issues = "https://github.com/DHUKK/pygwire/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "psycopg[binary]>=3.2.0",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=6.0",
+    "ruff>=0.15.5",
+]
+docs = [
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.5",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long
+    "SIM105", # contextlib.suppress
+    "SIM117", # nested with
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+]

@@ -1,0 +1,206 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint-and-format:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run ruff linting
+        run: uv run ruff check src/ tests/
+
+      - name: Run ruff formatting check
+        run: uv run ruff format --check src/ tests/
+
+      - name: Run mypy type checking
+        run: uv run mypy src/
+
+  unit-tests:
+    name: Unit Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    needs: lint-and-format
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run unit tests
+        run: uv run pytest tests/unit/ -v --tb=short
+
+  integration-tests:
+    name: Integration Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    needs: lint-and-format
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run integration tests
+        run: uv run pytest tests/integration/ -v --tb=short
+
+  proxy-functional-tests:
+    name: Proxy Functional Tests (PostgreSQL ${{ matrix.postgres-version }})
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres-version: [13, 14, 15, 16, 17, 18]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Compose
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start PostgreSQL and Proxy services
+        run: |
+          POSTGRES_VERSION=${{ matrix.postgres-version }} docker compose -f tests/infrastructure/docker-compose.yml up -d
+
+          # Wait for services to be healthy
+          echo "Waiting for services to be ready..."
+          for i in {1..30}; do
+            if docker inspect --format='{{.State.Health.Status}}' pygwire_test_pg 2>/dev/null | grep -q "healthy" && \
+               docker inspect --format='{{.State.Health.Status}}' pygwire_test_proxy 2>/dev/null | grep -q "healthy"; then
+              echo "✓ Services are ready"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "✗ Services failed to become healthy"
+              docker compose -f tests/infrastructure/docker-compose.yml logs
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run proxy functional tests
+        run: uv run pytest tests/proxy_functional/ -v --tb=short
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "=== Docker Compose Services ==="
+          docker compose -f tests/infrastructure/docker-compose.yml ps
+          echo ""
+          echo "=== Proxy logs ==="
+          docker compose -f tests/infrastructure/docker-compose.yml logs proxy --tail 100
+          echo ""
+          echo "=== PostgreSQL logs ==="
+          docker compose -f tests/infrastructure/docker-compose.yml logs postgres --tail 100
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f tests/infrastructure/docker-compose.yml down -v
+
+  test-summary:
+    name: Test Summary
+    needs: [lint-and-format, unit-tests, integration-tests, proxy-functional-tests]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Check results
+        run: |
+          echo "Job Results:"
+          echo "  Lint & Format: ${{ needs.lint-and-format.result }}"
+          echo "  Unit Tests: ${{ needs.unit-tests.result }}"
+          echo "  Integration Tests: ${{ needs.integration-tests.result }}"
+          echo "  Proxy Functional Tests: ${{ needs.proxy-functional-tests.result }}"
+          echo ""
+
+          if [ "${{ needs.lint-and-format.result }}" != "success" ]; then
+            echo "✗ Linting and formatting checks failed"
+            exit 1
+          fi
+
+          if [ "${{ needs.unit-tests.result }}" != "success" ]; then
+            echo "✗ Unit tests failed"
+            exit 1
+          fi
+
+          if [ "${{ needs.integration-tests.result }}" != "success" ]; then
+            echo "✗ Integration tests failed"
+            exit 1
+          fi
+
+          if [ "${{ needs.proxy-functional-tests.result }}" != "success" ]; then
+            echo "✗ Proxy functional tests failed"
+            exit 1
+          fi
+
+          echo "✓ All checks passed!"

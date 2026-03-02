@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-17}-alpine
+    container_name: pygwire_test_pg
+    environment:
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: pygwire_test
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
+    command: >
+      postgres
+      -c hba_file=/etc/postgresql/pg_hba.conf
+      -c log_connections=on
+      -c log_statement=all
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  proxy:
+    build:
+      context: ../..
+      dockerfile: tests/infrastructure/proxy/Dockerfile
+    container_name: pygwire_test_proxy
+    ports:
+      - "5433:5433"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PYTHONUNBUFFERED: "1"
+    restart: always  # Automatically restart on crash (strict mode exits)
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 5433 || exit 1"]
+      interval: 2s
+      timeout: 1s
+      retries: 10
+      start_period: 5s
