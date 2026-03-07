@@ -1095,7 +1095,7 @@
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">messages</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">read_all</span><span class="p">()</span>
 </code></pre></div>
 <h2 id="streaming-and-partial-messages">Streaming and partial messages<a class="headerlink" href="#streaming-and-partial-messages" title="Permanent link">&para;</a></h2>
-<p>The decoder handles arbitrarily chunked input. You can feed one byte at a time or megabytes at once -- it buffers internally until a complete message is available:</p>
+<p>The decoder handles arbitrarily chunked input. You can feed one byte at a time or megabytes at once and it will buffer internally until a complete message is available:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">BackendMessageDecoder</span><span class="p">()</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># These three feeds together form one complete message</span>
@@ -1109,8 +1109,8 @@
 <h2 id="startup-mode">Startup mode<a class="headerlink" href="#startup-mode" title="Permanent link">&para;</a></h2>
 <p>The PostgreSQL wire protocol uses two different framing formats:</p>
 <ol>
-<li><strong>Startup phase</strong> -- messages have no identifier byte (just length + payload)</li>
-<li><strong>Standard phase</strong> -- messages have an identifier byte + length + payload</li>
+<li><strong>Startup phase</strong>: messages have no identifier byte (just length + payload)</li>
+<li><strong>Standard phase</strong>: messages have an identifier byte + length + payload</li>
 </ol>
 <p>For server-side decoding, enable startup mode so the decoder knows to expect the identifier-less format first:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendMessageDecoder</span>
@@ -1119,9 +1119,9 @@
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">FrontendMessageDecoder</span><span class="p">(</span><span class="n">startup</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">first_data_from_client</span><span class="p">)</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span><span class="n">es</span> <span class="n">t</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="c1"># First message will be StartupMessage, SSLRequest, etc.</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="c1"># Decoder automatically switcho standard framing after StartupMessage</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="c1"># Decoder automatically switches to standard framing after StartupMessage</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
 </code></pre></div>
 <p>The decoder automatically switches from startup to standard framing after receiving a <code>StartupMessage</code>.</p>

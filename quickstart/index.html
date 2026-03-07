@@ -1072,7 +1072,7 @@
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">ReadyForQuery</span><span class="p">):</span>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Server ready (tx status: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
 </code></pre></div>
-<p>The decoder handles partial messages automatically -- if you feed half a message, it buffers internally until the rest arrives.</p>
+<p>The decoder handles partial messages automatically. If you feed half a message, it buffers internally until the rest arrives.</p>
 <h2 id="decoding-client-messages-serverproxy-side">Decoding client messages (server/proxy-side)<a class="headerlink" href="#decoding-client-messages-serverproxy-side" title="Permanent link">&para;</a></h2>
 <p>When building a server or proxy, use <code>FrontendMessageDecoder</code> with <code>startup=True</code> to handle the initial startup handshake:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendMessageDecoder</span>
@@ -1089,7 +1089,7 @@
 </code></pre></div>
 <div class="admonition info">
 <p class="admonition-title">Why <code>startup=True</code>?</p>
-<p>The PostgreSQL wire protocol has two framing formats. Startup messages (like <code>StartupMessage</code>, <code>SSLRequest</code>) have no identifier byte -- just a length and payload. After the startup phase, all messages use standard framing with an identifier byte. The <code>startup</code> flag tells the decoder which format to expect first.</p>
+<p>The PostgreSQL wire protocol has two framing formats. Startup messages (like <code>StartupMessage</code>, <code>SSLRequest</code>) have no identifier byte (just a length and payload). After the startup phase, all messages use standard framing with an identifier byte. The <code>startup</code> flag tells the decoder which format to expect first.</p>
 </div>
 <h2 id="encoding-messages">Encoding messages<a class="headerlink" href="#encoding-messages" title="Permanent link">&para;</a></h2>
 <p>All message classes have a <code>to_wire()</code> method that returns the complete wire-format bytes:</p>
@@ -1218,10 +1218,10 @@
 </div>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../guide/codec/">Codec guide</a> -- deep dive into the stream decoder</li>
-<li><a href="../guide/messages/">Messages guide</a> -- all message classes and their fields</li>
-<li><a href="../guide/state-machine/">State Machine guide</a> -- protocol phase tracking</li>
-<li><a href="../reference/core/">API Reference</a> -- complete API documentation</li>
+<li><a href="../guide/codec/">Codec guide</a>: deep dive into the stream decoder</li>
+<li><a href="../guide/messages/">Messages guide</a>: all message classes and their fields</li>
+<li><a href="../guide/state-machine/">State Machine guide</a>: protocol phase tracking</li>
+<li><a href="../reference/core/">API Reference</a>: complete API documentation</li>
 </ul>
 
 

@@ -1011,12 +1011,12 @@
 <p>Pygwire is a <strong>sans-I/O</strong> PostgreSQL wire protocol (v3.0 &amp; v3.2) codec. All codec and state machine logic is completely I/O-independent, making it portable across <code>asyncio</code>, <code>trio</code>, synchronous sockets, or any other transport.</p>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Sans-I/O design</strong> -- no I/O dependencies; bring your own transport</li>
-<li><strong>Zero-copy parsing</strong> -- uses <code>memoryview</code> for buffer slicing</li>
-<li><strong>Complete protocol coverage</strong> -- all PostgreSQL v3.0 and v3.2 wire protocol messages</li>
-<li><strong>Protocol state machines</strong> -- validate message sequences for both client and server roles</li>
-<li><strong>Zero dependencies</strong> -- no runtime dependencies</li>
-<li><strong>Fully typed</strong> -- ships with <code>py.typed</code> marker for PEP 561 support</li>
+<li><strong>Sans-I/O design</strong>: no I/O dependencies; bring your own transport</li>
+<li><strong>Zero-copy parsing</strong>: uses <code>memoryview</code> for buffer slicing</li>
+<li><strong>Complete protocol coverage</strong>: all PostgreSQL v3.0 and v3.2 wire protocol messages</li>
+<li><strong>Protocol state machines</strong>: validate message sequences for both client and server roles</li>
+<li><strong>Zero dependencies</strong>: no runtime dependencies</li>
+<li><strong>Fully typed</strong>: ships with <code>py.typed</code> marker for PEP 561 support</li>
 </ul>
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
 <p>Pygwire is organized into three layers:</p>

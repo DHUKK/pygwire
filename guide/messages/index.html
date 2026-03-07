@@ -1220,10 +1220,10 @@
 <p>Pygwire provides typed classes for every message in the PostgreSQL wire protocol (v3.0 and v3.2). All messages are available from <code>pygwire.messages</code> in a flat namespace.</p>
 <h2 id="message-hierarchy">Message hierarchy<a class="headerlink" href="#message-hierarchy" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>PGMessage (base)
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── FrontendMessage   -- sent by clients
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── BackendMessage    -- sent by servers
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── CommonMessage     -- bidirectional (e.g. CopyData)
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>└── SpecialMessage    -- startup-phase, no identifier byte
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── FrontendMessage   (sent by clients)
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── BackendMessage    (sent by servers)
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── CommonMessage     (bidirectional, e.g. CopyData)
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>└── SpecialMessage    (startup-phase, no identifier byte)
 </code></pre></div>
 <h2 id="encoding-messages">Encoding messages<a class="headerlink" href="#encoding-messages" title="Permanent link">&para;</a></h2>
 <p>Every message has a <code>to_wire()</code> method that returns the complete wire-format bytes:</p>
