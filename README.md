@@ -10,6 +10,9 @@
 
 </div>
 
+>[!WARNING]
+> **Early stage project.** Pygwire is under active development. The API is not yet stable and breaking changes should be expected between releases.
+
 ---
 
 Pygwire is a **sans-I/O** PostgreSQL wire protocol (v3.0 & v3.2) codec. All codec and state machine logic is completely I/O-independent, making it portable across `asyncio`, `trio`, synchronous sockets, or any other transport.
