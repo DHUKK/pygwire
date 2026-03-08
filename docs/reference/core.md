@@ -115,3 +115,70 @@ Tracks protocol state from the server's perspective. Same API as `FrontendStateM
 ### `StateMachineError`
 
 Raised when an invalid message is sent or received for the current phase. Subclass of `ProtocolError`.
+
+---
+
+## Connections
+
+The connection classes coordinate a decoder and state machine together, providing a higher-level sans-I/O API.
+
+### `Connection`
+
+Abstract base class. Use `FrontendConnection` or `BackendConnection`.
+
+**Methods:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `send(msg)` | `bytes` | Validate via state machine, encode to wire format, call `on_send()` hook |
+| `receive(data)` | `Iterator[PGMessage]` | Feed bytes to decoder, validate each message, call `on_receive()` hook |
+| `on_send(data)` | `None` | Hook called after encoding. Override to add I/O |
+| `on_receive(msg)` | `None` | Hook called after decoding. Override to add logging/metrics |
+
+**Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `phase` | `ConnectionPhase` | Current connection phase (delegates to state machine) |
+| `is_active` | `bool` | `True` if connection is not terminated or failed |
+
+### `FrontendConnection`
+
+Client-side connection. Uses `BackendMessageDecoder` + `FrontendStateMachine`.
+
+```python
+from pygwire import FrontendConnection
+
+conn = FrontendConnection()
+```
+
+### `BackendConnection`
+
+Server-side connection. Uses `FrontendMessageDecoder` + `BackendStateMachine`.
+
+```python
+from pygwire import BackendConnection
+
+conn = BackendConnection(startup=True)
+```
+
+**Parameters:**
+
+- `startup`: Whether to expect startup messages (default `True`). Set to `False` if the connection has already completed startup.
+
+### Subclassing for I/O
+
+Override `on_send()` and `on_receive()` to integrate with your transport:
+
+```python
+class SocketConnection(FrontendConnection):
+    def __init__(self, sock):
+        super().__init__()
+        self.sock = sock
+
+    def on_send(self, data: bytes) -> None:
+        self.sock.send(data)
+
+    def on_receive(self, msg: PGMessage) -> None:
+        print(f"Received: {type(msg).__name__}")
+```

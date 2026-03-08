@@ -82,7 +82,31 @@ wire_bytes = query.to_wire()
 socket.send(wire_bytes)
 ```
 
-### Tracking connection state
+### Using a connection (codec + state machine together)
+
+```python
+from pygwire import FrontendConnection, ConnectionPhase
+from pygwire.messages import StartupMessage, Query, DataRow
+
+conn = FrontendConnection()
+sock = socket.create_connection(("localhost", 5432))
+
+# Send startup
+sock.send(conn.send(StartupMessage(params={"user": "postgres", "database": "mydb"})))
+
+# Handle authentication
+while conn.phase != ConnectionPhase.READY:
+    for msg in conn.receive(sock.recv(4096)):
+        ...  # handle auth messages
+
+# Send a query and read results
+sock.send(conn.send(Query(query_string="SELECT 1")))
+for msg in conn.receive(sock.recv(4096)):
+    if isinstance(msg, DataRow):
+        print(msg.columns)
+```
+
+### Low-level: tracking connection state manually
 
 ```python
 from pygwire import FrontendStateMachine
@@ -101,13 +125,16 @@ print(sm.phase)  # ConnectionPhase.READY
 
 ## 🏗️ Architecture
 
-Pygwire is organized into three layers:
+Pygwire is organized into four layers, from low-level to high-level:
 
 | Layer | Module | Purpose |
 |-------|--------|---------|
 | **Messages** | `pygwire.messages` | Encode/decode all PostgreSQL protocol messages |
 | **Codec** | `pygwire.codec` | Incremental stream decoder with zero-copy framing |
 | **State Machine** | `pygwire.state_machine` | Protocol phase tracking and message validation |
+| **Connection** | `pygwire.connection` | Coordinated decoder + state machine (sans-I/O) |
+
+Use the lower layers independently for maximum control, or use **Connection** for a higher-level API that coordinates them together.
 
 >[!NOTE]
 > Pygwire follows PostgreSQL's naming convention — `backend` = `server`, `frontend` = `client`.

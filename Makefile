@@ -1,4 +1,4 @@
-.PHONY: help install test test-unit test-functional test-infra-up test-infra-down test-infra-logs test-infra-rebuild lint format typecheck check clean
+.PHONY: help install test test-unit test-functional test-infra-up test-infra-down test-infra-logs test-infra-rebuild lint format typecheck check clean serve-docs
 
 COMPOSE_FILE = tests/infrastructure/docker-compose.yml
 
@@ -66,6 +66,9 @@ typecheck: ## Run mypy type checker
 check: lint typecheck ## Run all checks (lint + typecheck)
 
 ci: check test ## Run all CI checks locally (lint, typecheck, tests)
+
+serve-docs: ## Serve documentation locally
+	uv run --group docs mkdocs serve
 
 clean: ## Clean up cache and temporary files
 	rm -rf .pytest_cache .mypy_cache .ruff_cache

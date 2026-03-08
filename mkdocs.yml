@@ -37,6 +37,7 @@ nav:
       - Installation: getting-started.md
       - Quick Start: quickstart.md
   - User Guide:
+      - Connection: guide/connection.md
       - Codec: guide/codec.md
       - Messages: guide/messages.md
       - State Machine: guide/state-machine.md
@@ -47,6 +48,7 @@ nav:
       - pygwire.messages: reference/messages.md
       - pygwire.constants: reference/constants.md
       - pygwire.state_machine: reference/state-machine.md
+      - pygwire.connection: reference/connection.md
   - Contributing: contributing.md
 
 markdown_extensions:

@@ -18,16 +18,16 @@ The authentication proxy acts as a middleman between PostgreSQL clients (like `p
 - **Middleware**: Build authentication layers or connection poolers
 - **Security**: Centralize database credentials instead of distributing them to clients
 
-## Design: Two-Phase Approach
+## Design
 
-This proxy uses a **two-phase design** that balances functionality with simplicity:
+The proxy uses pygwire's `Connection` classes, which coordinate decoding and state machine validation together throughout the entire connection lifecycle.
 
-### Phase 1: Authentication (With State Machines)
+### Authentication Phase
 
 During startup and authentication, the proxy actively participates in the protocol:
 
 - **Decodes messages** to intercept and handle authentication
-- **Uses state machines** to validate protocol flow and catch errors
+- **Uses state machines** (via Connection classes) to validate protocol flow and catch errors
 - **Constructs messages** to send trust auth to client, real auth to server
 
 ```mermaid
@@ -39,39 +39,25 @@ flowchart LR
     Client <-->|Trust Auth| Proxy
     Proxy <-->|MD5/SCRAM Auth| Server
 
-    Client -.->|BackendStateMachine<br/>validates auth flow| Proxy
-    Proxy -.->|FrontendStateMachine<br/>validates auth flow| Server
+    Client -.->|BackendConnection<br/>validates auth flow| Proxy
+    Proxy -.->|FrontendConnection<br/>validates auth flow| Server
 ```
 
-**State machine for client auth** (`BackendStateMachine`):
-- Created temporarily during client authentication
-- Validates message flow and catches protocol errors
-- Discarded after authentication completes
+### Query Phase
 
-**State machine for server auth** (`FrontendStateMachine`):
-- Created temporarily during server authentication
-- Validates message flow and catches protocol errors
-- Discarded after authentication completes
-
-### Phase 2: Query Phase (Decoding Only, No Validation)
-
-After authentication, the proxy switches to a simpler mode:
-
-- **Decodes and logs messages** for visibility and debugging
-- **No state machine validation** - messages are logged but not validated
-- **More efficient** - no validation overhead during high-volume query phase
+After authentication, the same Connection objects continue to decode, validate, log, and forward messages bidirectionally:
 
 ```mermaid
 flowchart LR
     Client["Client<br/>(psql)"]
-    Proxy["Proxy<br/><br/><i>Decode + Log</i><br/><i>(no validation)</i>"]
+    Proxy["Proxy<br/><br/><i>Decode + Validate + Log</i>"]
     Server["Server<br/>(Postgres)"]
 
     Client <--> Proxy
     Proxy <--> Server
 ```
 
-This design demonstrates that **state machines are most valuable during complex protocol phases** (authentication) but can be optional during straightforward phases (query/response). The logging remains valuable throughout for debugging.
+The Connection classes handle both phases. State machine validation catches protocol errors at any point, and message logging provides full visibility for debugging.
 
 ## Usage
 
@@ -159,10 +145,12 @@ Proxy logs show all protocol messages:
 
 ### Key Components
 
-**`PostgreSQLStream`** - High-level stream adapter that combines:
-- Async I/O (reading from/writing to streams)
-- Message decoding/encoding using pygwire's codec
-- Optional state machine tracking (enabled during authentication, disabled during query phase)
+**`AsyncFrontendConnection` / `AsyncBackendConnection`** - Async wrappers around pygwire's `FrontendConnection` and `BackendConnection` classes that add:
+
+- Async I/O via `asyncio.StreamReader` / `asyncio.StreamWriter`
+- `on_send()` hook to automatically write to the stream
+- `recv_messages()` async generator for reading and decoding messages
+- State machine tracking built in via the `Connection` base class
 
 **`ProxyConnection`** - Manages a single client connection:
 - Connects and authenticates to real PostgreSQL server
@@ -173,8 +161,8 @@ Proxy logs show all protocol messages:
 
 The proxy supports SSL/TLS connections to the backend server:
 
-```python title="examples/auth_proxy.py" linenums="360"
---8<-- "examples/auth_proxy.py:360:384"
+```python title="examples/auth_proxy.py" linenums="365"
+--8<-- "examples/auth_proxy.py:365:388"
 ```
 
 ### Authentication
@@ -182,26 +170,26 @@ The proxy supports SSL/TLS connections to the backend server:
 The proxy supports multiple authentication methods when connecting to the backend server:
 
 **MD5 Password Authentication:**
-```python title="examples/auth_proxy.py" linenums="394"
---8<-- "examples/auth_proxy.py:394:406"
+```python title="examples/auth_proxy.py" linenums="399"
+--8<-- "examples/auth_proxy.py:399:410"
 ```
 
 **SCRAM-SHA-256 Authentication:**
-```python title="examples/auth_proxy.py" linenums="407"
---8<-- "examples/auth_proxy.py:407:431"
+```python title="examples/auth_proxy.py" linenums="412"
+--8<-- "examples/auth_proxy.py:412:435"
 ```
 
-During authentication, a state machine validates the protocol flow. After authentication completes, the proxy switches to decoding-only mode for better performance.
+The Connection classes validate the protocol flow via their built-in state machines throughout the entire connection lifecycle.
 
 ### Message Forwarding
 
-After authentication, messages are decoded and logged but not validated by state machines:
+After authentication, messages continue to be decoded, validated, and logged as they are forwarded:
 
-```python title="examples/auth_proxy.py" linenums="256"
---8<-- "examples/auth_proxy.py:256:283"
+```python title="examples/auth_proxy.py" linenums="272"
+--8<-- "examples/auth_proxy.py:272:320"
 ```
 
-This approach keeps the valuable logging for debugging while removing the overhead of state machine validation during the query phase.
+The Connection classes coordinate decoding and state machine validation automatically, so the proxy code only needs to log and forward.
 
 ## Source Code
 
@@ -209,6 +197,7 @@ The complete source code is available at [`examples/auth_proxy.py`](https://gith
 
 ## Further Reading
 
+- [Connection Guide](../guide/connection.md)
 - [PostgreSQL Wire Protocol](https://www.postgresql.org/docs/current/protocol.html)
 - [State Machine Guide](../guide/state-machine.md)
 - [Codec Guide](../guide/codec.md)

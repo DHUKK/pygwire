@@ -6,6 +6,11 @@ from .codec import (
     BackendMessageDecoder,
     FrontendMessageDecoder,
 )
+from .connection import (
+    BackendConnection,
+    Connection,
+    FrontendConnection,
+)
 from .constants import ProtocolVersion, TransactionStatus
 from .state_machine import (
     BackendStateMachine,
@@ -19,6 +24,9 @@ __version__ = version("pygwire")
 __all__ = [
     "FrontendMessageDecoder",
     "BackendMessageDecoder",
+    "Connection",
+    "FrontendConnection",
+    "BackendConnection",
     "ProtocolVersion",
     "TransactionStatus",
     "BackendStateMachine",

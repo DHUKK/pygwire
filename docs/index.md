@@ -21,18 +21,51 @@ Pygwire is a **sans-I/O** PostgreSQL wire protocol (v3.0 & v3.2) codec. All code
 
 ## Architecture
 
-Pygwire is organized into three layers:
+Pygwire is organized into four layers, from low-level to high-level:
 
 | Layer | Module | Purpose |
 |-------|--------|---------|
 | **Messages** | `pygwire.messages` | Encode/decode all PostgreSQL protocol messages |
 | **Codec** | `pygwire.codec` | Incremental stream decoder with zero-copy framing |
 | **State Machine** | `pygwire.state_machine` | Protocol phase tracking and message validation |
+| **Connection** | `pygwire.connection` | Coordinated decoder + state machine (sans-I/O) |
+
+Use the lower layers independently for maximum control, or use **Connection** for a higher-level API that coordinates them together.
 
 !!! note "PostgreSQL naming convention"
     Pygwire follows PostgreSQL's naming convention: **backend** = server, **frontend** = client.
 
 ## Quick example
+
+### Using Connection (recommended starting point)
+
+The `FrontendConnection` class coordinates a decoder and state machine together:
+
+```python
+from pygwire import FrontendConnection, ConnectionPhase
+from pygwire.messages import StartupMessage, Query, DataRow
+
+conn = FrontendConnection()
+sock = socket.create_connection(("localhost", 5432))
+
+# Send startup
+sock.send(conn.send(StartupMessage(params={"user": "postgres", "database": "mydb"})))
+
+# Handle authentication using state machine phases
+while conn.phase != ConnectionPhase.READY:
+    for msg in conn.receive(sock.recv(4096)):
+        ...  # handle auth messages
+
+# Send a query and read results
+sock.send(conn.send(Query(query_string="SELECT 1")))
+for msg in conn.receive(sock.recv(4096)):
+    if isinstance(msg, DataRow):
+        print(msg.columns)
+```
+
+### Using the low-level API
+
+For maximum control, use the codec, messages, and state machine independently:
 
 ```python
 from pygwire import BackendMessageDecoder
@@ -58,3 +91,21 @@ Pygwire's core never reads from or writes to sockets, files, or any other I/O so
 3. **Encode** messages to bytes and send them yourself
 
 This means pygwire works identically with `asyncio`, `trio`, plain sockets, or even in-memory buffers for testing. The [sans-I/O manifesto](https://sans-io.readthedocs.io/) describes this pattern in detail.
+
+The `Connection` classes follow the same principle. They coordinate protocol state internally but never perform I/O. Subclass and override `on_send()` and `on_receive()` to integrate with your transport layer:
+
+```python
+class SocketConnection(FrontendConnection):
+    def __init__(self, sock):
+        super().__init__()
+        self.sock = sock
+
+    def on_send(self, data: bytes) -> None:
+        self.sock.send(data)
+
+    def on_receive(self, msg: PGMessage) -> None:
+        print(f"Received: {type(msg).__name__}")
+
+conn = SocketConnection(sock)
+conn.send(Query(query_string="SELECT 1"))  # automatically sends to socket
+```

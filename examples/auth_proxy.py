@@ -12,23 +12,14 @@ PostgreSQL server:
 2. **Proxy → Server**: Proxy authenticates to the real server using MD5 or SCRAM-SHA-256
 3. **Message Forwarding**: All messages are decoded, logged, and forwarded
 
-## Design Note
+## Design
 
-This proxy uses **two distinct phases**:
+The proxy uses pygwire's Connection classes throughout:
 
-### Authentication Phase (Uses State Machines)
-- **Decodes messages** to actively participate in authentication
-- **Uses state machines** to track and validate the authentication flow
-- **Constructs messages** to send trust auth to client and real auth to server
-
-### Query Phase (Decoding Only, No State Tracking)
-- **Decodes and logs messages** for visibility and debugging
-- **No state machine validation** - messages are logged but not validated
-- **More efficient** - validation overhead removed after authentication
-
-This design demonstrates that state machines are most valuable during complex
-protocol phases (authentication) but can be optional during straightforward
-phases (query/response). The logging remains valuable throughout.
+- **Authentication phase**: The proxy actively participates in the protocol,
+  constructing messages to send trust auth to the client and real auth to the server.
+- **Query phase**: Messages are decoded, validated, logged, and forwarded
+  bidirectionally between client and server.
 
 ## Use Cases
 
@@ -67,10 +58,10 @@ import logging
 import os
 import ssl
 import sys
+from collections.abc import AsyncIterator
 
-from pygwire import codec, messages
+from pygwire import BackendConnection, FrontendConnection, messages
 from pygwire.constants import TransactionStatus
-from pygwire.state_machine import BackendStateMachine, FrontendStateMachine
 
 logging.basicConfig(
     level=logging.INFO,
@@ -80,92 +71,102 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class PostgreSQLStream:
-    """High-level stream adapter that handles reading/writing PostgreSQL messages with state tracking.
+class AsyncFrontendConnection(FrontendConnection):
+    """Async wrapper for FrontendConnection with automatic I/O.
 
-    This combines:
-    - Async I/O (reading from/writing to streams)
-    - Message decoding/encoding
-    - Automatic state machine tracking for the local side
-
-    This makes proxy code much simpler - just call read_message() and send_message().
+    Adds asyncio StreamReader/StreamWriter support to FrontendConnection.
     """
 
     def __init__(
         self,
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
-        decoder: codec.FrontendMessageDecoder | codec.BackendMessageDecoder,
-        state_machine: FrontendStateMachine | BackendStateMachine | None = None,
         connection_id: str = "unknown",
     ):
-        """Initialize a PostgreSQL stream.
+        super().__init__()
+        self._reader = reader
+        self._writer = writer
+        self.connection_id = connection_id
 
-        Args:
-            reader: Async stream reader for incoming data
-            writer: Async stream writer for outgoing data
-            decoder: Message decoder (Frontend or Backend)
-            state_machine: State machine for tracking our side of the connection (optional)
-            connection_id: Connection identifier for logging (optional)
-        """
-        self.reader = reader
-        self.writer = writer
-        self._decoder = decoder
-        self._state_machine = state_machine
-        self._connection_id = connection_id
-
-    async def read_message(self) -> messages.PGMessage | None:
-        """Read and decode next message from stream with automatic state tracking.
-
-        Returns None if stream is closed.
-        """
-        msg = self._read_buffered()
-        if msg is not None:
-            return msg
-
-        data = await self.reader.read(8192)
-        if not data:
-            return None
-
-        self._decoder.feed(data)
-        return self._read_buffered()
-
-    def _read_buffered(self) -> messages.PGMessage | None:
-        """Read next buffered message and track in state machine.
-
-        When reading from stream, we receive the message from the remote side.
-        """
-        msg = self._decoder.read()
-        if msg is None:
-            return None
-
-        if self._state_machine is not None:
-            self._state_machine.receive(msg)  # type: ignore[arg-type]
-
-        return msg
+    def on_send(self, data: bytes) -> None:
+        """Write data to stream (buffered, will be sent on next drain)."""
+        self._writer.write(data)
 
     async def send_message(self, msg: messages.PGMessage) -> None:
-        """Encode and send message to stream with automatic state tracking.
+        """Send message and flush to stream."""
+        self.send(msg)
+        await self._writer.drain()
 
-        When sending to stream, we are sending the message to the remote side.
-        """
-        if self._state_machine is not None:
-            self._state_machine.send(msg)  # type: ignore[arg-type]
+    async def recv_messages(self) -> AsyncIterator[messages.PGMessage]:
+        """Receive data and yield decoded messages."""
+        data = await self._reader.read(8192)
+        if not data:
+            return
+        for msg in self.receive(data):
+            yield msg
 
-        self.writer.write(msg.to_wire())
-        await self.writer.drain()
+    async def send_raw(self, data: bytes) -> None:
+        """Send raw bytes to stream (for special cases like SSL negotiation)."""
+        self._writer.write(data)
+        await self._writer.drain()
 
-    async def forward_raw(self, data: bytes) -> None:
-        """Forward raw bytes to stream (for transparent proxying)."""
-        self.writer.write(data)
-        await self.writer.drain()
+    async def close(self) -> None:
+        """Close the connection."""
+        self._writer.close()
+        await self._writer.wait_closed()
+
+
+class AsyncBackendConnection(BackendConnection):
+    """Async wrapper for BackendConnection with automatic I/O.
+
+    Adds asyncio StreamReader/StreamWriter support to BackendConnection.
+    """
+
+    def __init__(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        connection_id: str = "unknown",
+        startup: bool = True,
+    ):
+        super().__init__(startup=startup)
+        self._reader = reader
+        self._writer = writer
+        self.connection_id = connection_id
+
+    def on_send(self, data: bytes) -> None:
+        """Write data to stream (buffered, will be sent on next drain)."""
+        self._writer.write(data)
+
+    async def send_message(self, msg: messages.PGMessage) -> None:
+        """Send message and flush to stream."""
+        self.send(msg)
+        await self._writer.drain()
+
+    async def recv_messages(self) -> AsyncIterator[messages.PGMessage]:
+        """Receive data and yield decoded messages."""
+        data = await self._reader.read(8192)
+        if not data:
+            return
+        for msg in self.receive(data):
+            yield msg
+
+    async def send_raw(self, data: bytes) -> None:
+        """Send raw bytes to stream (for special cases like SSL negotiation)."""
+        self._writer.write(data)
+        await self._writer.drain()
+
+    async def close(self) -> None:
+        """Close the connection."""
+        self._writer.close()
+        await self._writer.wait_closed()
 
 
 class ProxyConnection:
     """Handles a single client connection, proxying to the PostgreSQL server.
 
-    Uses state machines during authentication phase for validation, then switches
-    to decoding-only mode (with logging) for the query phase.
+    Uses Connection classes that coordinate decoding and state machine validation
+    throughout the entire connection lifecycle.
     """
 
     def __init__(
@@ -192,36 +193,51 @@ class ProxyConnection:
         self.connection_id = f"{self.client_addr[0]}:{self.client_addr[1]}"
         self.ssl_negotiated = False
 
-        # Client stream for decoding messages from client (no state machine for proxy phase)
-        self.client_stream = PostgreSQLStream(
+        # Client connection for decoding messages from client
+        # We act as the server receiving frontend messages
+        self.client_conn = AsyncBackendConnection(
             client_reader,
             client_writer,
-            codec.FrontendMessageDecoder(startup=True),
-            state_machine=None,  # No state tracking needed during proxy phase
             connection_id=self.connection_id,
+            startup=True,
         )
 
         # Server connection (will be set during connection)
         self.server_reader: asyncio.StreamReader | None = None
         self.server_writer: asyncio.StreamWriter | None = None
-        self.server_stream: PostgreSQLStream | None = None
+        self.server_conn: AsyncFrontendConnection | None = None
 
         self.server_authenticated = False
         self.client_startup_params: dict[str, str] = {}
         self.server_parameters: list[messages.ParameterStatus] = []
         self.server_backend_key: messages.BackendKeyData | None = None
 
-    async def handle(self):
+    async def handle(self) -> None:
         """Main proxy loop."""
         logger.info(f"[{self.connection_id}] New connection from {self.client_addr}")
 
         try:
+            # Read first message to determine connection type
+            first_msg = None
+            async for decoded_msg in self.client_conn.recv_messages():
+                first_msg = decoded_msg
+                break
+
+            if first_msg is None:
+                logger.error(f"[{self.connection_id}] Client disconnected before sending message")
+                return
+
+            # Handle CancelRequest on separate connection
+            if isinstance(first_msg, messages.CancelRequest):
+                await self._handle_cancel_request(first_msg)
+                return
+
             await self._connect_and_auth_to_server()
             if not self.server_authenticated:
                 logger.error(f"[{self.connection_id}] Failed to authenticate to server")
                 return
 
-            await self._handle_client_trust_auth()
+            await self._handle_client_trust_auth(first_msg)
 
             client_to_server = asyncio.create_task(
                 self._proxy_client_to_server(), name="client_to_server"
@@ -253,80 +269,69 @@ class ProxyConnection:
         finally:
             await self._cleanup()
 
-    async def _proxy_client_to_server(self):
+    async def _proxy_client_to_server(self) -> None:
         """Proxy messages from client to server (frontend messages)."""
         try:
             while True:
-                data = await self.client_stream.reader.read(8192)
-                if not data:
-                    logger.info(f"[{self.connection_id}] Client disconnected")
+                has_messages = False
+                try:
+                    async for msg in self.client_conn.recv_messages():
+                        has_messages = True
+                        await self._handle_frontend_message(msg)
+                        # Forward message to server
+                        if self.server_conn:
+                            await self.server_conn.send_message(msg)
+                except Exception as e:
+                    logger.error(f"[{self.connection_id}] Error decoding frontend message: {e}")
                     break
 
-                self.client_stream._decoder.feed(data)
-                while True:
-                    try:
-                        msg = self.client_stream._read_buffered()
-                        if msg is None:
-                            break
-                        await self._handle_frontend_message(msg)
-                        # Forward message to server to update its state machines
-                        if self.server_stream:
-                            await self.server_stream.send_message(msg)
-                    except Exception as e:
-                        logger.error(f"[{self.connection_id}] Error decoding frontend message: {e}")
-                        break
+                if not has_messages:
+                    logger.info(f"[{self.connection_id}] Client disconnected")
+                    break
 
         except asyncio.CancelledError:
             raise
         except Exception as e:
             logger.error(f"[{self.connection_id}] Client->Server proxy error: {e}", exc_info=True)
 
-    async def _proxy_server_to_client(self):
-        """Proxy messages from server to client (backend messages).
-
-        Decodes and logs messages for visibility, but no state machine validation.
-        """
+    async def _proxy_server_to_client(self) -> None:
+        """Proxy messages from server to client (backend messages)."""
         try:
-            assert self.server_stream is not None
+            assert self.server_conn is not None
             while True:
-                data = await self.server_stream.reader.read(8192)
-                if not data:
-                    logger.info(f"[{self.connection_id}] Server disconnected")
+                has_messages = False
+                try:
+                    async for msg in self.server_conn.recv_messages():
+                        has_messages = True
+                        await self._handle_backend_message(msg)
+                        # Forward message to client
+                        await self.client_conn.send_message(msg)
+                except Exception as e:
+                    logger.error(f"[{self.connection_id}] Error decoding backend message: {e}")
                     break
 
-                self.server_stream._decoder.feed(data)
-                while True:
-                    try:
-                        msg = self.server_stream._read_buffered()
-                        if msg is None:
-                            break
-                        await self._handle_backend_message(msg)
-                        # Forward message to client (no state machine validation)
-                        await self.client_stream.send_message(msg)
-                    except Exception as e:
-                        logger.error(f"[{self.connection_id}] Error decoding backend message: {e}")
-                        break
+                if not has_messages:
+                    logger.info(f"[{self.connection_id}] Server disconnected")
+                    break
 
         except asyncio.CancelledError:
             raise
         except Exception as e:
             logger.error(f"[{self.connection_id}] Server->Client proxy error: {e}", exc_info=True)
 
-    async def _handle_frontend_message(
-        self, msg: messages.PGMessage
-    ) -> None:
-        """Process a frontend message through the state machines."""
+    async def _handle_frontend_message(self, msg: messages.PGMessage) -> None:
+        """Log a frontend message."""
         msg_name = type(msg).__name__
 
         logger.info(f"[{self.connection_id}] → {msg_name} {self._format_message(msg)}")
 
     async def _handle_backend_message(self, msg: messages.PGMessage) -> None:
-        """Process a backend message through the state machines."""
+        """Log a backend message."""
         msg_name = type(msg).__name__
 
         logger.info(f"[{self.connection_id}] ← {msg_name} {self._format_message(msg)}")
 
-    def _format_message(self, msg) -> str:
+    def _format_message(self, msg: messages.PGMessage) -> str:
         """Format message details for logging."""
         if isinstance(msg, messages.SSLRequest):
             return "(SSL negotiation request)"
@@ -346,7 +351,7 @@ class ProxyConnection:
             return f"(status={msg.status.name})"
         return ""
 
-    async def _connect_to_server(self):
+    async def _connect_to_server(self) -> None:
         """Establish connection to server, optionally with SSL."""
         self.server_reader, self.server_writer = await asyncio.open_connection(
             self.server_host, self.server_port
@@ -357,7 +362,7 @@ class ProxyConnection:
 
         logger.info(f"[{self.connection_id}] Connected to server")
 
-    async def _negotiate_ssl(self):
+    async def _negotiate_ssl(self) -> None:
         """Negotiate SSL/TLS with the server."""
         assert self.server_writer is not None
         assert self.server_reader is not None
@@ -366,7 +371,7 @@ class ProxyConnection:
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
 
-        # Send SSL request directly (no state tracking needed for this)
+        # Send SSL request directly (before connection object is created)
         ssl_req = messages.SSLRequest()
         self.server_writer.write(ssl_req.to_wire())
         await self.server_writer.drain()
@@ -382,18 +387,18 @@ class ProxyConnection:
         await self.server_writer.start_tls(ssl_context, server_hostname=self.server_host)
         logger.info(f"[{self.connection_id}] SSL handshake complete")
 
-    async def _authenticate_cleartext(self, stream: PostgreSQLStream):
+    async def _authenticate_cleartext(self, conn: AsyncFrontendConnection) -> None:
         """Handle cleartext password authentication."""
         logger.info(f"[{self.connection_id}] Server requesting cleartext password")
         if not self.server_password:
             raise RuntimeError("No password provided for cleartext auth")
 
         pwd_msg = messages.PasswordMessage(password=self.server_password)
-        await stream.send_message(pwd_msg)
+        await conn.send_message(pwd_msg)
 
     async def _authenticate_md5(
-        self, msg: messages.AuthenticationMD5Password, stream: PostgreSQLStream
-    ):
+        self, msg: messages.AuthenticationMD5Password, conn: AsyncFrontendConnection
+    ) -> None:
         """Handle MD5 password authentication."""
         logger.info(f"[{self.connection_id}] Server requesting MD5 password")
         if not self.server_password:
@@ -402,10 +407,10 @@ class ProxyConnection:
         user = self.server_user or "postgres"
         md5_password = compute_md5_password(self.server_password, user, msg.salt)
         pwd_msg = messages.PasswordMessage(password=md5_password)
-        await stream.send_message(pwd_msg)
+        await conn.send_message(pwd_msg)
 
     async def _authenticate_scram_start(
-        self, msg: messages.AuthenticationSASL, stream: PostgreSQLStream
+        self, msg: messages.AuthenticationSASL, conn: AsyncFrontendConnection
     ) -> dict[str, str]:
         """Start SCRAM-SHA-256 authentication."""
         logger.info(f"[{self.connection_id}] Server requesting SASL auth: {msg.mechanisms}")
@@ -420,7 +425,7 @@ class ProxyConnection:
         sasl_msg = messages.SASLInitialResponse(
             mechanism="SCRAM-SHA-256", data=client_first.encode("utf-8")
         )
-        await stream.send_message(sasl_msg)
+        await conn.send_message(sasl_msg)
 
         return {
             "username": user,
@@ -430,8 +435,11 @@ class ProxyConnection:
         }
 
     async def _authenticate_scram_continue(
-        self, msg: messages.AuthenticationSASLContinue, sasl_state: dict[str, str], stream: PostgreSQLStream
-    ):
+        self,
+        msg: messages.AuthenticationSASLContinue,
+        sasl_state: dict[str, str],
+        conn: AsyncFrontendConnection,
+    ) -> None:
         """Continue SCRAM-SHA-256 authentication."""
         logger.info(f"[{self.connection_id}] SASL continue")
 
@@ -444,24 +452,20 @@ class ProxyConnection:
         )
 
         sasl_msg = messages.SASLResponse(data=client_final.encode("utf-8"))
-        await stream.send_message(sasl_msg)
+        await conn.send_message(sasl_msg)
 
-    async def _connect_and_auth_to_server(self):
-        """Connect to server and authenticate.
-
-        Uses a temporary state machine for validation during authentication phase only.
-        """
+    async def _connect_and_auth_to_server(self) -> None:
+        """Connect to server and authenticate."""
         try:
             await self._connect_to_server()
 
             assert self.server_reader is not None
             assert self.server_writer is not None
 
-            auth_stream = PostgreSQLStream(
+            # Create frontend connection to server (we're acting as client)
+            auth_conn = AsyncFrontendConnection(
                 self.server_reader,
                 self.server_writer,
-                codec.BackendMessageDecoder(),
-                state_machine=FrontendStateMachine(),
                 connection_id=self.connection_id,
             )
 
@@ -472,99 +476,110 @@ class ProxyConnection:
                     "database": self.server_database or "postgres",
                 }
             )
-            await auth_stream.send_message(startup)
+            await auth_conn.send_message(startup)
             logger.info(f"[{self.connection_id}] Sent startup to server")
 
             sasl_state: dict[str, str] | None = None
 
             while not self.server_authenticated:
-                msg = await auth_stream.read_message()
-                if msg is None:
+                has_messages = False
+                async for msg in auth_conn.recv_messages():
+                    has_messages = True
+                    logger.info(f"[{self.connection_id}] Server auth: {type(msg).__name__}")
+
+                    if isinstance(msg, messages.AuthenticationCleartextPassword):
+                        await self._authenticate_cleartext(auth_conn)
+
+                    elif isinstance(msg, messages.AuthenticationMD5Password):
+                        await self._authenticate_md5(msg, auth_conn)
+
+                    elif isinstance(msg, messages.AuthenticationSASL):
+                        sasl_state = await self._authenticate_scram_start(msg, auth_conn)
+
+                    elif isinstance(msg, messages.AuthenticationSASLContinue):
+                        if sasl_state is None:
+                            raise RuntimeError("No SASL state for continue")
+                        await self._authenticate_scram_continue(msg, sasl_state, auth_conn)
+
+                    elif isinstance(msg, messages.AuthenticationSASLFinal):
+                        logger.info(f"[{self.connection_id}] SCRAM-SHA-256 authentication complete")
+
+                    elif isinstance(msg, messages.AuthenticationOk):
+                        logger.info(f"[{self.connection_id}] Server authenticated!")
+
+                    elif isinstance(msg, messages.ParameterStatus):
+                        self.server_parameters.append(msg)
+
+                    elif isinstance(msg, messages.BackendKeyData):
+                        self.server_backend_key = msg
+
+                    elif isinstance(msg, messages.ReadyForQuery):
+                        self.server_authenticated = True
+                        logger.info(f"[{self.connection_id}] Server authentication complete")
+                        break
+
+                    elif isinstance(msg, messages.ErrorResponse):
+                        severity = msg.fields.get("S", "?")
+                        message = msg.fields.get("M", "?")
+                        logger.error(
+                            f"[{self.connection_id}] Server auth error: {severity} - {message}"
+                        )
+                        return
+
+                if not has_messages:
                     logger.error(f"[{self.connection_id}] Server disconnected during auth")
                     return
 
-                logger.info(f"[{self.connection_id}] Server auth: {type(msg).__name__}")
-
-                if isinstance(msg, messages.AuthenticationCleartextPassword):
-                    await self._authenticate_cleartext(auth_stream)
-
-                elif isinstance(msg, messages.AuthenticationMD5Password):
-                    await self._authenticate_md5(msg, auth_stream)
-
-                elif isinstance(msg, messages.AuthenticationSASL):
-                    sasl_state = await self._authenticate_scram_start(msg, auth_stream)
-
-                elif isinstance(msg, messages.AuthenticationSASLContinue):
-                    if sasl_state is None:
-                        raise RuntimeError("No SASL state for continue")
-                    await self._authenticate_scram_continue(msg, sasl_state, auth_stream)
-
-                elif isinstance(msg, messages.AuthenticationSASLFinal):
-                    logger.info(f"[{self.connection_id}] SCRAM-SHA-256 authentication complete")
-
-                elif isinstance(msg, messages.AuthenticationOk):
-                    logger.info(f"[{self.connection_id}] Server authenticated!")
-
-                elif isinstance(msg, messages.ParameterStatus):
-                    self.server_parameters.append(msg)
-
-                elif isinstance(msg, messages.BackendKeyData):
-                    self.server_backend_key = msg
-
-                elif isinstance(msg, messages.ReadyForQuery):
-                    self.server_authenticated = True
-                    logger.info(f"[{self.connection_id}] Server authentication complete")
+                if self.server_authenticated:
                     break
 
-                elif isinstance(msg, messages.ErrorResponse):
-                    severity = msg.fields.get("S", "?")
-                    message = msg.fields.get("M", "?")
-                    logger.error(
-                        f"[{self.connection_id}] Server auth error: {severity} - {message}"
-                    )
-                    return
-
-            # After authentication, create new stream without state machine for proxy phase
-            self.server_stream = PostgreSQLStream(
-                self.server_reader,
-                self.server_writer,
-                codec.BackendMessageDecoder(),
-                state_machine=None,  # No state tracking during proxy phase
-                connection_id=self.connection_id,
-            )
-            logger.info(f"[{self.connection_id}] Auth complete, switching to decoding-only mode")
+            # Reuse the connection for the proxy phase
+            self.server_conn = auth_conn
 
         except Exception as e:
             logger.error(f"[{self.connection_id}] Error connecting to server: {e}", exc_info=True)
 
-    async def _handle_client_trust_auth(self):
+    async def _handle_cancel_request(self, msg: messages.CancelRequest) -> None:
+        """Handle a CancelRequest by forwarding it to the server.
+
+        CancelRequest arrives on a separate out-of-band connection that should
+        forward the cancel and close immediately without going through normal auth/proxy flow.
+        """
+        logger.info(
+            f"[{self.connection_id}] CancelRequest: forwarding to server (pid={msg.process_id})"
+        )
+        try:
+            _, cancel_writer = await asyncio.open_connection(self.server_host, self.server_port)
+            cancel_writer.write(msg.to_wire())
+            await cancel_writer.drain()
+            cancel_writer.close()
+            await cancel_writer.wait_closed()
+            logger.info(f"[{self.connection_id}] CancelRequest forwarded successfully")
+        except Exception as e:
+            logger.error(f"[{self.connection_id}] Error forwarding CancelRequest: {e}")
+
+    async def _handle_client_trust_auth(self, msg: messages.PGMessage) -> None:
         """Handle client startup with trust authentication.
 
-        Uses a local state machine for validation during authentication phase only.
+        Args:
+            msg: The first message from the client (already read to check for CancelRequest)
         """
         try:
-            auth_stream = PostgreSQLStream(
-                self.client_stream.reader,
-                self.client_stream.writer,
-                self.client_stream._decoder,
-                state_machine=BackendStateMachine(),
-                connection_id=self.connection_id,
-            )
-
-            msg = await auth_stream.read_message()
-            if msg is None:
-                logger.error(f"[{self.connection_id}] Client disconnected before startup")
-                return
-
             if isinstance(msg, messages.SSLRequest):
                 logger.info(
                     f"[{self.connection_id}] Client requesting SSL (rejecting, not supported in auth proxy mode)"
                 )
-                await auth_stream.forward_raw(messages.SSLResponse.NOT_SUPPORTED.value)
-                msg = await auth_stream.read_message()
-                if msg is None:
+                await self.client_conn.send_raw(messages.SSLResponse.NOT_SUPPORTED.value)
+
+                new_msg: messages.PGMessage | None = None
+                async for decoded_msg in self.client_conn.recv_messages():
+                    new_msg = decoded_msg
+                    break  # Get first message
+
+                if new_msg is None:
                     logger.error(f"[{self.connection_id}] Client disconnected after SSL rejection")
                     return
+                msg = new_msg
 
             if not isinstance(msg, messages.StartupMessage):
                 logger.error(
@@ -579,38 +594,35 @@ class ProxyConnection:
 
             # Send authentication messages with state machine validation
             auth_ok = messages.AuthenticationOk()
-            await auth_stream.send_message(auth_ok)
+            await self.client_conn.send_message(auth_ok)
 
             for param in self.server_parameters:
-                await auth_stream.send_message(param)
+                await self.client_conn.send_message(param)
 
             if self.server_backend_key:
-                await auth_stream.send_message(self.server_backend_key)
+                await self.client_conn.send_message(self.server_backend_key)
 
             ready = messages.ReadyForQuery(status=TransactionStatus.IDLE)
-            await auth_stream.send_message(ready)
+            await self.client_conn.send_message(ready)
 
             logger.info(f"[{self.connection_id}] Client authenticated with trust auth")
-            logger.info(f"[{self.connection_id}] Auth complete, switching to decoding-only mode")
 
         except Exception as e:
             logger.error(f"[{self.connection_id}] Error handling client auth: {e}", exc_info=True)
 
-    async def _cleanup(self):
+    async def _cleanup(self) -> None:
         """Clean up connections."""
         logger.info(f"[{self.connection_id}] Closing connection")
 
-        if self.client_stream:
+        if self.client_conn:
             try:
-                self.client_stream.writer.close()
-                await self.client_stream.writer.wait_closed()
+                await self.client_conn.close()
             except Exception:
                 pass
 
-        if self.server_stream:
+        if self.server_conn:
             try:
-                self.server_stream.writer.close()
-                await self.server_stream.writer.wait_closed()
+                await self.server_conn.close()
             except Exception:
                 pass
 
@@ -623,10 +635,10 @@ async def start_proxy(
     server_user: str | None = None,
     server_password: str | None = None,
     server_database: str | None = None,
-):
+) -> None:
     """Start the proxy server."""
 
-    async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         connection = ProxyConnection(
             reader,
             writer,
@@ -652,7 +664,7 @@ async def start_proxy(
         await server.serve_forever()
 
 
-def main():
+def main() -> None:
     proxy_port = int(os.getenv("PROXY_PORT", "5433"))
     server_host = os.getenv("PROXY_SERVER_HOST", "localhost")
     server_port = int(os.getenv("PROXY_SERVER_PORT", "5432"))

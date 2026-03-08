@@ -13,19 +13,39 @@ Requirements:
 
 import hashlib
 import socket
+from collections.abc import Iterator
 
-from pygwire import BackendMessageDecoder, FrontendStateMachine
+from pygwire import FrontendConnection
 from pygwire.messages import (
     AuthenticationMD5Password,
-    AuthenticationOk,
     DataRow,
     PasswordMessage,
+    PGMessage,
     Query,
-    ReadyForQuery,
     StartupMessage,
     Terminate,
 )
 from pygwire.state_machine import ConnectionPhase
+
+
+class SocketConnection(FrontendConnection):
+    """Example of adding I/O directly via hooks.
+
+    This subclass overrides the hooks to automatically send/receive via socket.
+    """
+
+    def __init__(self, sock: socket.socket) -> None:
+        super().__init__()
+        self.sock = sock
+
+    def on_send(self, data: bytes) -> None:
+        """Automatically send data to socket."""
+        self.sock.send(data)
+
+    def recv_messages(self) -> Iterator[PGMessage]:
+        """Convenience method: receive data and yield decoded messages."""
+        data = self.sock.recv(4096)
+        yield from self.receive(data)
 
 
 def compute_md5_password(password: str, username: str, salt: bytes) -> str:
@@ -42,53 +62,30 @@ def compute_md5_password(password: str, username: str, salt: bytes) -> str:
 
 
 sock = socket.create_connection(("localhost", 5432))
-decoder = BackendMessageDecoder()
-sm = FrontendStateMachine()
+conn = SocketConnection(sock)
 
 # 1. Send startup
 startup = StartupMessage(params={"user": "postgres", "database": "postgres"})
-sock.send(startup.to_wire())
-sm.send(startup)
+conn.send(startup)
 
 # 2. Handle authentication
-authenticated = False
-while not authenticated:
-    decoder.feed(sock.recv(4096))
-    for msg in decoder:
-        sm.receive(msg)
-
+while conn.phase != ConnectionPhase.READY:
+    for msg in conn.recv_messages():
         if isinstance(msg, AuthenticationMD5Password):
             md5_hash = compute_md5_password("postgres", "postgres", msg.salt)
             pwd_msg = PasswordMessage(password=md5_hash)
-            sock.send(pwd_msg.to_wire())
-            sm.send(pwd_msg)
-
-        elif isinstance(msg, AuthenticationOk):
-            authenticated = True
-
-        elif isinstance(msg, ReadyForQuery):
-            break
-
-    if sm.phase == ConnectionPhase.READY:
-        break
+            conn.send(pwd_msg)
 
 # 3. Send a query
 query = Query(query_string="SELECT 1 AS num")
-sock.send(query.to_wire())
-sm.send(query)
+conn.send(query)
 
 # 4. Read results
-while True:
-    decoder.feed(sock.recv(4096))
-    for msg in decoder:
-        sm.receive(msg)
+while conn.phase == ConnectionPhase.SIMPLE_QUERY:  # type: ignore[comparison-overlap]
+    for msg in conn.recv_messages():
         if isinstance(msg, DataRow):
             print(f"Result: {msg.columns}")
-        if isinstance(msg, ReadyForQuery):
-            break
-    if sm.phase == ConnectionPhase.READY:
-        break
 
 # 5. Disconnect
-sock.send(Terminate().to_wire())
+conn.send(Terminate())
 sock.close()

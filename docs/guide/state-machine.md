@@ -96,3 +96,6 @@ frontend_sm.receive(server_msg) # Client received it
 ```
 
 Both state machines should stay in the same phase. A mismatch indicates a protocol violation.
+
+!!! tip "Connection classes"
+    If you don't need to manage the decoder and state machine separately, use `FrontendConnection` or `BackendConnection` from `pygwire.connection`. They coordinate both for you automatically. See the [Connection guide](connection.md) for details.
