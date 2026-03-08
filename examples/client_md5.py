@@ -28,6 +28,7 @@ from pygwire.messages import (
 from pygwire.state_machine import ConnectionPhase
 
 
+# --8<-- [start:socket_connection]
 class SocketConnection(FrontendConnection):
     """Example of adding I/O directly via hooks.
 
@@ -46,8 +47,10 @@ class SocketConnection(FrontendConnection):
         """Convenience method: receive data and yield decoded messages."""
         data = self.sock.recv(4096)
         yield from self.receive(data)
+# --8<-- [end:socket_connection]
 
 
+# --8<-- [start:md5_hash]
 def compute_md5_password(password: str, username: str, salt: bytes) -> str:
     """Compute PostgreSQL MD5 password hash.
 
@@ -59,8 +62,10 @@ def compute_md5_password(password: str, username: str, salt: bytes) -> str:
     inner = hashlib.md5(f"{password}{username}".encode()).hexdigest()
     outer = hashlib.md5(f"{inner}".encode() + salt).hexdigest()
     return f"md5{outer}"
+# --8<-- [end:md5_hash]
 
 
+# --8<-- [start:client_flow]
 sock = socket.create_connection(("localhost", 5432))
 conn = SocketConnection(sock)
 
@@ -89,3 +94,4 @@ while conn.phase == ConnectionPhase.SIMPLE_QUERY:  # type: ignore[comparison-ove
 # 5. Disconnect
 conn.send(Terminate())
 sock.close()
+# --8<-- [end:client_flow]

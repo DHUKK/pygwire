@@ -1,4 +1,4 @@
-# pygwire.constants
+# Constants
 
 Protocol-level enums and constants.
 
@@ -26,7 +26,7 @@ Protocol-level enums and constants.
 
 ## `FrontendMessageType`
 
-`StrEnum` of single-byte identifiers for client → server messages.
+`StrEnum` of single-byte identifiers for client-to-server messages.
 
 | Member | Value | Description |
 |--------|-------|-------------|
@@ -47,7 +47,7 @@ Protocol-level enums and constants.
 
 ## `BackendMessageType`
 
-`StrEnum` of single-byte identifiers for server → client messages.
+`StrEnum` of single-byte identifiers for server-to-client messages.
 
 | Member | Value | Description |
 |--------|-------|-------------|

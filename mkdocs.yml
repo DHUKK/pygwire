@@ -9,15 +9,15 @@ theme:
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: blue grey
-      accent: teal
+      primary: indigo
+      accent: light blue
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: blue grey
-      accent: teal
+      primary: indigo
+      accent: light blue
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
@@ -33,22 +33,23 @@ theme:
 
 nav:
   - Home: index.md
-  - Getting Started:
-      - Installation: getting-started.md
-      - Quick Start: quickstart.md
-  - User Guide:
-      - Connection: guide/connection.md
-      - Codec: guide/codec.md
-      - Messages: guide/messages.md
-      - State Machine: guide/state-machine.md
+  - Quick Start: quickstart.md
+  - API Reference:
+      - Connection: reference/connection.md
+      - Codec: reference/codec.md
+      - Messages:
+          - Overview: reference/messages/index.md
+          - Startup: reference/messages/startup.md
+          - Authentication: reference/messages/auth.md
+          - Simple Query: reference/messages/simple-query.md
+          - Extended Query: reference/messages/extended-query.md
+          - COPY: reference/messages/copy.md
+          - Errors and Notices: reference/messages/errors.md
+          - Miscellaneous: reference/messages/misc.md
+      - State Machine: reference/state-machine.md
+      - Constants: reference/constants.md
   - Examples:
       - Authentication Proxy: examples/auth-proxy.md
-  - API Reference:
-      - pygwire: reference/core.md
-      - pygwire.messages: reference/messages.md
-      - pygwire.constants: reference/constants.md
-      - pygwire.state_machine: reference/state-machine.md
-      - pygwire.connection: reference/connection.md
   - Contributing: contributing.md
 
 markdown_extensions:

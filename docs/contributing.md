@@ -1,10 +1,8 @@
 # Contributing
 
-Thanks for your interest in contributing to pygwire!
-
 ## Development setup
 
-pygwire uses [uv](https://docs.astral.sh/uv/) as its package manager.
+Pygwire uses [uv](https://docs.astral.sh/uv/) as its package manager.
 
 ```bash
 git clone https://github.com/DHUKK/pygwire.git
@@ -37,7 +35,7 @@ uv run pytest tests/proxy_functional/ -v
 docker compose -f tests/infrastructure/docker-compose.yml down -v
 ```
 
-Test against a specific PostgreSQL version (13-18):
+Test against a specific PostgreSQL version (13 through 18):
 
 ```bash
 POSTGRES_VERSION=15 docker compose -f tests/infrastructure/docker-compose.yml up -d
@@ -60,14 +58,14 @@ uv run mypy src/
 
 ## Pull request guidelines
 
-1. Run `make check` and `make test` before submitting
-2. Add tests for new functionality
-3. Follow existing code patterns and naming conventions
-4. Keep PRs focused: one feature or fix per PR
+1. Run `make check` and `make test` before submitting.
+2. Add tests for new functionality.
+3. Follow existing code patterns and naming conventions.
+4. Keep PRs focused. One feature or fix per PR.
 
 ## Project conventions
 
-- **PostgreSQL naming**: "backend" = server, "frontend" = client
-- **Private modules**: message implementations live in `_*.py` files; the public API is `pygwire.messages`
-- **Sans-I/O**: the core library must not perform any I/O operations
-- **Zero-copy**: use `memoryview` for buffer slicing in hot paths
+- **PostgreSQL naming.** "backend" = server, "frontend" = client.
+- **Private modules.** Message implementations live in `_*.py` files. The public API is `pygwire.messages`.
+- **Sans-I/O.** The core library must not perform any I/O operations.
+- **Zero-copy.** Use `memoryview` for buffer slicing in hot paths.

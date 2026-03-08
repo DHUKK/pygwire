@@ -11,16 +11,16 @@
 
 ---
 
-Pygwire is a **sans-I/O** PostgreSQL wire protocol (v3.0 & v3.2) codec. All codec and state machine logic is completely I/O-independent, making it portable across `asyncio`, `trio`, synchronous sockets, or any other transport.
+Pygwire is a **sans-I/O** PostgreSQL wire protocol (v3.0 and v3.2) codec. All codec and state machine logic is I/O-independent, making it portable across `asyncio`, `trio`, synchronous sockets, or any other transport.
 
 ## Features
 
-- **Sans-I/O design**: no I/O dependencies; bring your own transport
-- **Zero-copy parsing**: uses `memoryview` for buffer slicing
-- **Complete protocol coverage**: all PostgreSQL v3.0 and v3.2 wire protocol messages
-- **Protocol state machines**: validate message sequences for both client and server roles
-- **Zero dependencies**: no runtime dependencies
-- **Fully typed**: ships with `py.typed` marker for PEP 561 support
+- **Sans-I/O design.** No I/O dependencies. Bring your own transport.
+- **Zero-copy parsing.** Uses `memoryview` for buffer slicing.
+- **Complete protocol coverage.** All PostgreSQL v3.0 and v3.2 wire protocol messages.
+- **Protocol state machines.** Validate message sequences for both client and server roles.
+- **Zero dependencies.** No runtime dependencies.
+- **Fully typed.** Ships with `py.typed` marker for PEP 561 support.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ Pygwire is organized into four layers, from low-level to high-level:
 
 | Layer | Module | Purpose |
 |-------|--------|---------|
-| **Messages** | `pygwire.messages` | Encode/decode all PostgreSQL protocol messages |
+| **Messages** | `pygwire.messages` | Encode and decode all PostgreSQL protocol messages |
 | **Codec** | `pygwire.codec` | Incremental stream decoder with zero-copy framing |
 | **State Machine** | `pygwire.state_machine` | Protocol phase tracking and message validation |
 | **Connection** | `pygwire.connection` | Coordinated decoder + state machine (sans-I/O) |
@@ -40,11 +40,13 @@ Use the lower layers independently for maximum control, or use **Connection** fo
 
 ## Quick example
 
-### Using Connection (recommended starting point)
+### Using Connection (recommended)
 
-The `FrontendConnection` class coordinates a decoder and state machine together:
+`FrontendConnection` coordinates a decoder and state machine together:
 
 ```python
+import socket
+
 from pygwire import FrontendConnection, ConnectionPhase
 from pygwire.messages import StartupMessage, Query, DataRow
 
@@ -54,7 +56,7 @@ sock = socket.create_connection(("localhost", 5432))
 # Send startup
 sock.send(conn.send(StartupMessage(params={"user": "postgres", "database": "mydb"})))
 
-# Handle authentication using state machine phases
+# Handle authentication
 while conn.phase != ConnectionPhase.READY:
     for msg in conn.receive(sock.recv(4096)):
         ...  # handle auth messages
@@ -98,8 +100,13 @@ This means pygwire works identically with `asyncio`, `trio`, plain sockets, or e
 The `Connection` classes follow the same principle. They coordinate protocol state internally but never perform I/O. Subclass and override `on_send()` and `on_receive()` to integrate with your transport layer:
 
 ```python
+import socket
+
+from pygwire import FrontendConnection
+from pygwire.messages import PGMessage, Query
+
 class SocketConnection(FrontendConnection):
-    def __init__(self, sock):
+    def __init__(self, sock: socket.socket) -> None:
         super().__init__()
         self.sock = sock
 

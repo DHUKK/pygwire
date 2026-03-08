@@ -1,10 +1,49 @@
 # Quick Start
 
-This guide walks through pygwire from low-level building blocks up to the higher-level Connection class.
+## Installation
+
+Requires Python 3.11+. No runtime dependencies.
+
+=== "pip"
+
+    ```bash
+    pip install pygwire
+    ```
+
+=== "uv"
+
+    ```bash
+    uv add pygwire
+    ```
+
+=== "poetry"
+
+    ```bash
+    poetry add pygwire
+    ```
+
+=== "From source"
+
+    ```bash
+    git clone https://github.com/DHUKK/pygwire.git
+    cd pygwire
+    pip install .
+    ```
+
+Verify the installation:
+
+```python
+from pygwire.messages import Query
+
+query = Query(query_string="SELECT 1")
+print(query.to_wire())  # Raw wire protocol bytes
+```
+
+---
 
 ## Decoding server messages (client-side)
 
-When building a PostgreSQL client, use `BackendMessageDecoder` to parse messages from the server:
+Use `BackendMessageDecoder` to parse messages from a PostgreSQL server:
 
 ```python
 from pygwire import BackendMessageDecoder
@@ -12,11 +51,10 @@ from pygwire.messages import AuthenticationOk
 
 decoder = BackendMessageDecoder()
 
-# Feed raw bytes received from the server (any chunk size)
-auth_ok = AuthenticationOk()
-decoder.feed(auth_ok.to_wire())
+# Feed raw bytes received from the server
+decoder.feed(AuthenticationOk().to_wire())
 
-# Iterate over fully decoded messages
+# Iterate over decoded messages
 for msg in decoder:
     print(f"Decoded: {type(msg).__name__}")  # "Decoded: AuthenticationOk"
 ```
@@ -25,7 +63,7 @@ The decoder handles partial messages automatically. If you feed half a message, 
 
 ## Decoding client messages (server/proxy-side)
 
-When building a server or proxy, use `FrontendMessageDecoder` with `startup=True` to handle the initial startup handshake:
+Use `FrontendMessageDecoder` with `startup=True` to handle the initial startup handshake:
 
 ```python
 from pygwire import FrontendMessageDecoder
@@ -51,7 +89,7 @@ for msg in decoder:
 ```
 
 !!! info "Why `startup=True`?"
-    The PostgreSQL wire protocol has two framing formats. Startup messages (like `StartupMessage`, `SSLRequest`) have no identifier byte (just a length and payload). After the startup phase, all messages use standard framing with an identifier byte. The `startup` flag tells the decoder which format to expect first.
+    The PostgreSQL wire protocol has two framing formats. Startup messages (`StartupMessage`, `SSLRequest`) have no identifier byte. After the startup phase, all messages use standard framing with an identifier byte. The `startup` flag tells the decoder which format to expect first.
 
 ## Encoding messages
 
@@ -102,15 +140,14 @@ sm.receive(BackendKeyData(process_id=1234, secret_key=b"\x00\x00\x00\x01"))
 sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
 print(sm.phase)  # ConnectionPhase.READY
 
-# The state machine raises StateMachineError if you
-# try to send a message that's invalid for the current phase
+# Raises StateMachineError for messages invalid in the current phase
 sm.send(Query(query_string="SELECT 1"))
 print(sm.phase)  # ConnectionPhase.SIMPLE_QUERY
 ```
 
 ## Using Connection (decoder + state machine together)
 
-The `Connection` class coordinates a decoder and state machine into a single object with `send()` and `receive()` methods. This removes the boilerplate of managing them separately:
+The `Connection` class coordinates a decoder and state machine into a single object. This removes the boilerplate of managing them separately:
 
 ```python
 from pygwire import FrontendConnection, ConnectionPhase
@@ -143,25 +180,37 @@ for msg in conn.receive(server_data):
 print(conn.phase)  # ConnectionPhase.READY
 ```
 
-Subclass and override `on_send()` / `on_receive()` to integrate with your transport. See the [Connection guide](guide/connection.md) for details.
+Subclass and override `on_send()` / `on_receive()` to integrate with your transport. See the [Connection reference](reference/connection.md) for details.
 
-## Putting it together
+## Complete example
 
-Here's a complete runnable example showing a client connection with MD5 authentication using `FrontendConnection`:
+A client connection with MD5 authentication using `FrontendConnection`:
 
-```python title="examples/client_md5.py"
---8<-- "examples/client_md5.py:14:"
+```python
+--8<-- "examples/client_md5.py:client_flow"
+```
+
+This uses a `SocketConnection` subclass that sends data via `on_send()`:
+
+```python
+--8<-- "examples/client_md5.py:socket_connection"
+```
+
+And the MD5 hash helper:
+
+```python
+--8<-- "examples/client_md5.py:md5_hash"
 ```
 
 [View full example on GitHub](https://github.com/DHUKK/pygwire/blob/main/examples/client_md5.py)
 
 !!! note "Authentication modes"
-    This example uses MD5 password authentication. For SCRAM-SHA-256 or other authentication methods, see the [authentication proxy example](examples/auth-proxy.md) for a complete implementation.
+    This example uses MD5 password authentication. For SCRAM-SHA-256 or other methods, see the [authentication proxy example](examples/auth-proxy.md).
 
 ## Next steps
 
-- [Connection guide](guide/connection.md): coordinated decoder + state machine
-- [Codec guide](guide/codec.md): deep dive into the stream decoder
-- [Messages guide](guide/messages.md): all message classes and their fields
-- [State Machine guide](guide/state-machine.md): protocol phase tracking
-- [API Reference](reference/core.md): complete API documentation
+- [Connection](reference/connection.md): coordinated decoder + state machine
+- [Codec](reference/codec.md): stream decoder details
+- [Messages](reference/messages/index.md): all message classes and fields
+- [State Machine](reference/state-machine.md): protocol phase tracking
+- [Constants](reference/constants.md): enums and identifiers

@@ -1,34 +1,34 @@
 # Authentication Proxy
 
-This example demonstrates how to build a PostgreSQL proxy that handles authentication on behalf of clients, allowing them to connect without providing credentials.
+This example builds a PostgreSQL proxy that handles authentication on behalf of clients, allowing them to connect without providing credentials.
 
 ## Overview
 
 The authentication proxy acts as a middleman between PostgreSQL clients (like `psql`) and a real PostgreSQL server:
 
-1. **Client → Proxy**: Clients connect using `trust` authentication (no password required)
-2. **Proxy → Server**: Proxy authenticates to the real server using `MD5` or `SCRAM-SHA-256`
+1. **Client to Proxy**: Clients connect using `trust` authentication (no password required)
+2. **Proxy to Server**: Proxy authenticates to the real server using MD5 or SCRAM-SHA-256
 3. **Message Forwarding**: All messages are decoded, logged, and forwarded
 
-## Use Cases
+## Use cases
 
-- **Testing**: Validate pygwire's codec and state machines for authentication flows
-- **Learning**: Understand PostgreSQL authentication protocols (`MD5`, `SCRAM-SHA-256`, `trust`)
-- **Debugging**: Inspect all protocol messages with full visibility
-- **Middleware**: Build authentication layers or connection poolers
-- **Security**: Centralize database credentials instead of distributing them to clients
+- **Testing.** Validate pygwire's codec and state machines for authentication flows.
+- **Learning.** Understand PostgreSQL authentication protocols (MD5, SCRAM-SHA-256, trust).
+- **Debugging.** Inspect all protocol messages with full visibility.
+- **Middleware.** Build authentication layers or connection poolers.
+- **Security.** Centralize database credentials instead of distributing them to clients.
 
 ## Design
 
-The proxy uses pygwire's `Connection` classes, which coordinate decoding and state machine validation together throughout the entire connection lifecycle.
+The proxy uses pygwire's `Connection` classes, which coordinate decoding and state machine validation throughout the entire connection lifecycle.
 
-### Authentication Phase
+### Authentication phase
 
 During startup and authentication, the proxy actively participates in the protocol:
 
-- **Decodes messages** to intercept and handle authentication
-- **Uses state machines** (via Connection classes) to validate protocol flow and catch errors
-- **Constructs messages** to send trust auth to client, real auth to server
+- Decodes messages to intercept and handle authentication
+- Uses state machines (via Connection classes) to validate protocol flow and catch errors
+- Constructs messages to send trust auth to client, real auth to server
 
 ```mermaid
 flowchart LR
@@ -43,7 +43,7 @@ flowchart LR
     Proxy -.->|FrontendConnection<br/>validates auth flow| Server
 ```
 
-### Query Phase
+### Query phase
 
 After authentication, the same Connection objects continue to decode, validate, log, and forward messages bidirectionally:
 
@@ -75,7 +75,7 @@ export PROXY_SERVER_PASSWORD=mypassword             # Server password
 export PROXY_SERVER_DATABASE=mydb                   # Server database
 ```
 
-### Running the Proxy
+### Running the proxy
 
 ```bash
 python examples/auth_proxy.py
@@ -90,7 +90,7 @@ Output:
 11:06:54 [INFO] Press Ctrl+C to stop
 ```
 
-### Connecting Through the Proxy
+### Connecting through the proxy
 
 Connect with any PostgreSQL client without providing credentials:
 
@@ -109,7 +109,7 @@ conn = psycopg2.connect(
 )
 ```
 
-### Example Session
+### Example session
 
 ```bash
 $ psql -h localhost -p 5433 -U testuser testdb
@@ -141,23 +141,24 @@ Proxy logs show all protocol messages:
 11:07:05 [INFO] [127.0.0.1:65244] ← ReadyForQuery (status=IDLE)
 ```
 
-## Implementation Details
+## Implementation details
 
-### Key Components
+### Key components
 
-**`AsyncFrontendConnection` / `AsyncBackendConnection`** - Async wrappers around pygwire's `FrontendConnection` and `BackendConnection` classes that add:
+**`AsyncFrontendConnection` / `AsyncBackendConnection`**: Async wrappers around pygwire's `FrontendConnection` and `BackendConnection` classes that add:
 
 - Async I/O via `asyncio.StreamReader` / `asyncio.StreamWriter`
 - `on_send()` hook to automatically write to the stream
 - `recv_messages()` async generator for reading and decoding messages
 - State machine tracking built in via the `Connection` base class
 
-**`ProxyConnection`** - Manages a single client connection:
+**`ProxyConnection`**: Manages a single client connection:
+
 - Connects and authenticates to real PostgreSQL server
 - Handles client startup with `trust` authentication
 - Proxies messages bidirectionally with decoding and logging
 
-### SSL Negotiation
+### SSL negotiation
 
 The proxy supports SSL/TLS connections to the backend server:
 
@@ -167,7 +168,7 @@ The proxy supports SSL/TLS connections to the backend server:
 
 ### Authentication
 
-The proxy supports multiple authentication methods when connecting to the backend server:
+The proxy supports multiple authentication methods when connecting to the backend server.
 
 **MD5 Password Authentication:**
 ```python title="examples/auth_proxy.py" linenums="399"
@@ -181,7 +182,7 @@ The proxy supports multiple authentication methods when connecting to the backen
 
 The Connection classes validate the protocol flow via their built-in state machines throughout the entire connection lifecycle.
 
-### Message Forwarding
+### Message forwarding
 
 After authentication, messages continue to be decoded, validated, and logged as they are forwarded:
 
@@ -191,13 +192,13 @@ After authentication, messages continue to be decoded, validated, and logged as 
 
 The Connection classes coordinate decoding and state machine validation automatically, so the proxy code only needs to log and forward.
 
-## Source Code
+## Source code
 
 The complete source code is available at [`examples/auth_proxy.py`](https://github.com/DHUKK/pygwire/blob/main/examples/auth_proxy.py).
 
-## Further Reading
+## Further reading
 
-- [Connection Guide](../guide/connection.md)
+- [Connection reference](../reference/connection.md)
 - [PostgreSQL Wire Protocol](https://www.postgresql.org/docs/current/protocol.html)
-- [State Machine Guide](../guide/state-machine.md)
-- [Codec Guide](../guide/codec.md)
+- [State Machine reference](../reference/state-machine.md)
+- [Codec reference](../reference/codec.md)
