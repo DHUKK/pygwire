@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://dhukk.github.io/pygwire/guide/state-machine/">
+        <link rel="canonical" href="https://dhukk.github.io/pygwire/reference/codec/">
       
       
-        <link rel="prev" href="../messages/">
+        <link rel="prev" href="../connection/">
       
       
-        <link rel="next" href="../../examples/auth-proxy/">
+        <link rel="next" href="../messages/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>State Machine - pygwire</title>
+        <title>Codec - pygwire</title>
       
     
     
@@ -69,7 +69,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="teal">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="light-blue">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#state-machine" class="md-skip">
+        <a href="#codec" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              State Machine
+              Codec
             
           </span>
         </div>
@@ -127,7 +127,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
     
       <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -137,7 +137,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue-grey" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
     
       <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -286,86 +286,6 @@
   
   
   
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Getting Started
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Getting Started
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../getting-started/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../../quickstart/" class="md-nav__link">
         
@@ -383,14 +303,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -427,7 +339,7 @@
   <span class="md-ellipsis">
     
   
-    User Guide
+    API Reference
   
 
     
@@ -443,7 +355,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    User Guide
+    API Reference
   
 
           </label>
@@ -481,62 +393,6 @@
                 
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../codec/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Codec
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../messages/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Messages
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
     
   
   
@@ -556,7 +412,7 @@
   <span class="md-ellipsis">
     
   
-    State Machine
+    Codec
   
 
     
@@ -574,7 +430,7 @@
   <span class="md-ellipsis">
     
   
-    State Machine
+    Codec
   
 
     
@@ -600,10 +456,65 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#decoders" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        Decoders
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backendmessagedecoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BackendMessageDecoder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frontendmessagedecoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FrontendMessageDecoder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Properties
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#iteration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iteration
       
     </span>
   </a>
@@ -622,10 +533,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#connection-phases" class="md-nav__link">
+  <a href="#streaming-and-partial-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Connection phases
+        Streaming and partial messages
       
     </span>
   </a>
@@ -633,10 +544,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#error-handling" class="md-nav__link">
+  <a href="#startup-mode" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Error handling
+        Startup mode
       
     </span>
   </a>
@@ -644,10 +555,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#proxy-usage" class="md-nav__link">
+  <a href="#buffer-management" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Proxy usage
+        Buffer management
       
     </span>
   </a>
@@ -658,6 +569,343 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Messages
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Messages
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages/startup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Startup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages/auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages/simple-query/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simple Query
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages/extended-query/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extended Query
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages/copy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    COPY
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors and Notices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages/misc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Miscellaneous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state-machine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State Machine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../constants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Constants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -763,205 +1011,6 @@
   
   
   
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    API Reference
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    API Reference
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/core/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/messages/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.messages
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/constants/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.constants
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/state-machine/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.state_machine
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/connection/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.connection
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../../contributing/" class="md-nav__link">
         
@@ -1010,10 +1059,65 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#decoders" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        Decoders
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backendmessagedecoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BackendMessageDecoder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frontendmessagedecoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FrontendMessageDecoder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Properties
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#iteration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iteration
       
     </span>
   </a>
@@ -1032,10 +1136,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#connection-phases" class="md-nav__link">
+  <a href="#streaming-and-partial-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Connection phases
+        Streaming and partial messages
       
     </span>
   </a>
@@ -1043,10 +1147,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#error-handling" class="md-nav__link">
+  <a href="#startup-mode" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Error handling
+        Startup mode
       
     </span>
   </a>
@@ -1054,10 +1158,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#proxy-usage" class="md-nav__link">
+  <a href="#buffer-management" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Proxy usage
+        Buffer management
       
     </span>
   </a>
@@ -1084,158 +1188,173 @@
   
 
 
-<h1 id="state-machine">State Machine<a class="headerlink" href="#state-machine" title="Permanent link">&para;</a></h1>
-<p>The state machine tracks the PostgreSQL connection lifecycle and validates that messages are sent and received in the correct order for the current protocol phase.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>There are two state machines, one for each role:</p>
+<h1 id="codec">Codec<a class="headerlink" href="#codec" title="Permanent link">&para;</a></h1>
+<p>The codec module provides incremental stream decoders that parse raw bytes into typed message objects.</p>
+<h2 id="decoders">Decoders<a class="headerlink" href="#decoders" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>State Machine</th>
-<th>Role</th>
+<th>Decoder</th>
+<th>Direction</th>
 <th>Use case</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>FrontendStateMachine</code></td>
-<td>Client</td>
-<td>Validate client-side protocol flow</td>
+<td><code>BackendMessageDecoder</code></td>
+<td>Server to Client</td>
+<td>Building a client or proxy</td>
 </tr>
 <tr>
-<td><code>BackendStateMachine</code></td>
-<td>Server</td>
-<td>Validate server-side protocol flow</td>
+<td><code>FrontendMessageDecoder</code></td>
+<td>Client to Server</td>
+<td>Building a server or proxy</td>
 </tr>
 </tbody>
 </table>
-<p>Both track the current <code>ConnectionPhase</code> and raise <code>StateMachineError</code> if an invalid message is sent or received.</p>
-<h2 id="basic-usage">Basic usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendStateMachine</span><span class="p">,</span> <span class="n">ConnectionPhase</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">StartupMessage</span><span class="p">,</span> <span class="n">Query</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">sm</span> <span class="o">=</span> <span class="n">FrontendStateMachine</span><span class="p">()</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">sm</span><span class="o">.</span><span class="n">phase</span><span class="p">)</span>  <span class="c1"># ConnectionPhase.STARTUP</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Record messages as you send/receive them</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">sm</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">StartupMessage</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;user&quot;</span><span class="p">:</span> <span class="s2">&quot;postgres&quot;</span><span class="p">,</span> <span class="s2">&quot;database&quot;</span><span class="p">:</span> <span class="s2">&quot;mydb&quot;</span><span class="p">}))</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">sm</span><span class="o">.</span><span class="n">phase</span><span class="p">)</span>  <span class="c1"># ConnectionPhase.AUTHENTICATING</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">sm</span><span class="o">.</span><span class="n">receive</span><span class="p">(</span><span class="n">auth_ok</span><span class="p">)</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">sm</span><span class="o">.</span><span class="n">receive</span><span class="p">(</span><span class="n">parameter_status</span><span class="p">)</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">sm</span><span class="o">.</span><span class="n">receive</span><span class="p">(</span><span class="n">backend_key_data</span><span class="p">)</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">sm</span><span class="o">.</span><span class="n">receive</span><span class="p">(</span><span class="n">ready_for_query</span><span class="p">)</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">sm</span><span class="o">.</span><span class="n">phase</span><span class="p">)</span>  <span class="c1"># ConnectionPhase.READY</span>
+<p>Both share the same API.</p>
+<hr />
+<h2 id="backendmessagedecoder"><code>BackendMessageDecoder</code><a class="headerlink" href="#backendmessagedecoder" title="Permanent link">&para;</a></h2>
+<p>Decoder for backend (server to client) messages.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackendMessageDecoder</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">BackendMessageDecoder</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">max_message_size</span><span class="o">=</span><span class="mi">1073741824</span><span class="p">)</span>
 </code></pre></div>
-<h2 id="connection-phases">Connection phases<a class="headerlink" href="#connection-phases" title="Permanent link">&para;</a></h2>
-<p>The <code>ConnectionPhase</code> enum tracks where you are in the protocol lifecycle:</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>max_message_size</code> (<code>int</code>, default 1 GB): Maximum allowed message size in bytes. Raises <code>ProtocolError</code> if a message declares a length exceeding this value.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>BackendMessageDecoder</code> has no <code>startup</code> parameter. Backend messages always use standard framing (identifier byte + length + payload).</p>
+</div>
+<hr />
+<h2 id="frontendmessagedecoder"><code>FrontendMessageDecoder</code><a class="headerlink" href="#frontendmessagedecoder" title="Permanent link">&para;</a></h2>
+<p>Decoder for frontend (client to server) messages.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendMessageDecoder</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">FrontendMessageDecoder</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">startup</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">max_message_size</span><span class="o">=</span><span class="mi">1073741824</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>startup</code> (<code>bool</code>, default <code>False</code>): If <code>True</code>, expect identifier-less startup messages first. The decoder switches to standard framing automatically after receiving a <code>StartupMessage</code>.</li>
+<li><code>max_message_size</code> (<code>int</code>, default 1 GB): Maximum allowed message size in bytes.</li>
+</ul>
+<p>For server-side usage, set <code>startup=True</code> to handle the initial startup handshake where messages lack an identifier byte.</p>
+<hr />
+<h2 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Phase</th>
+<th>Method</th>
+<th>Returns</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>STARTUP</code></td>
-<td>Initial state, waiting for startup message</td>
+<td><code>feed(data)</code></td>
+<td><code>None</code></td>
+<td>Append bytes to the internal buffer and parse complete messages</td>
 </tr>
 <tr>
-<td><code>SSL_NEGOTIATION</code></td>
-<td>SSL/TLS negotiation in progress</td>
+<td><code>read()</code></td>
+<td><code>PGMessage \| None</code></td>
+<td>Return next decoded message, or <code>None</code></td>
 </tr>
 <tr>
-<td><code>GSS_NEGOTIATION</code></td>
-<td>GSS encryption negotiation in progress</td>
+<td><code>read_all()</code></td>
+<td><code>list[PGMessage]</code></td>
+<td>Drain and return all decoded messages</td>
 </tr>
 <tr>
-<td><code>AUTHENTICATING</code></td>
-<td>Authentication exchange</td>
-</tr>
-<tr>
-<td><code>INITIALIZATION</code></td>
-<td>Post-auth setup (ParameterStatus, BackendKeyData)</td>
-</tr>
-<tr>
-<td><code>READY</code></td>
-<td>Idle, ready for queries</td>
-</tr>
-<tr>
-<td><code>SIMPLE_QUERY</code></td>
-<td>Simple query protocol active</td>
-</tr>
-<tr>
-<td><code>EXTENDED_QUERY</code></td>
-<td>Extended query protocol active</td>
-</tr>
-<tr>
-<td><code>COPY_IN</code></td>
-<td>COPY FROM stdin active</td>
-</tr>
-<tr>
-<td><code>COPY_OUT</code></td>
-<td>COPY TO stdout active</td>
-</tr>
-<tr>
-<td><code>COPY_BOTH</code></td>
-<td>Bidirectional copy (replication)</td>
-</tr>
-<tr>
-<td><code>FUNCTION_CALL</code></td>
-<td>Legacy function call active</td>
-</tr>
-<tr>
-<td><code>TERMINATING</code></td>
-<td>Terminate message sent</td>
-</tr>
-<tr>
-<td><code>TERMINATED</code></td>
-<td>Connection closed</td>
-</tr>
-<tr>
-<td><code>FAILED</code></td>
-<td>Unrecoverable error</td>
+<td><code>clear()</code></td>
+<td><code>None</code></td>
+<td>Discard all buffered data and pending messages</td>
 </tr>
 </tbody>
 </table>
-<h2 id="error-handling">Error handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h2>
-<p>The state machine raises <code>StateMachineError</code> when a message is invalid for the current phase:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendStateMachine</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">Query</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.state_machine</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateMachineError</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">sm</span> <span class="o">=</span> <span class="n">FrontendStateMachine</span><span class="p">()</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="c1"># Can&#39;t send a query before completing startup</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">sm</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">query_string</span><span class="o">=</span><span class="s2">&quot;SELECT 1&quot;</span><span class="p">))</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">except</span> <span class="n">StateMachineError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<h2 id="properties">Properties<a class="headerlink" href="#properties" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>in_startup</code></td>
+<td><code>bool</code></td>
+<td><code>True</code> while expecting startup-phase messages</td>
+</tr>
+<tr>
+<td><code>buffered</code></td>
+<td><code>int</code></td>
+<td>Number of unprocessed bytes in the buffer</td>
+</tr>
+</tbody>
+</table>
+<h2 id="iteration">Iteration<a class="headerlink" href="#iteration" title="Permanent link">&para;</a></h2>
+<p>Both decoders implement <code>__iter__</code> and <code>__next__</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">raw_bytes</span><span class="p">)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
 </code></pre></div>
-<h2 id="proxy-usage">Proxy usage<a class="headerlink" href="#proxy-usage" title="Permanent link">&para;</a></h2>
-<p>A proxy needs state machines for both sides. The auth proxy example shows how to use dual state machines to validate protocol flow from both perspectives:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendStateMachine</span><span class="p">,</span> <span class="n">BackendStateMachine</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Track client-side protocol flow</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">frontend_sm</span> <span class="o">=</span> <span class="n">FrontendStateMachine</span><span class="p">()</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Track server-side protocol flow</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">backend_sm</span> <span class="o">=</span> <span class="n">BackendStateMachine</span><span class="p">()</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># When a client message arrives:</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">frontend_sm</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">client_msg</span><span class="p">)</span>    <span class="c1"># Client sent it</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">backend_sm</span><span class="o">.</span><span class="n">receive</span><span class="p">(</span><span class="n">client_msg</span><span class="p">)</span>  <span class="c1"># Server received it</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="c1"># When a server message arrives:</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">backend_sm</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">server_msg</span><span class="p">)</span>     <span class="c1"># Server sent it</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">frontend_sm</span><span class="o">.</span><span class="n">receive</span><span class="p">(</span><span class="n">server_msg</span><span class="p">)</span> <span class="c1"># Client received it</span>
+<hr />
+<h2 id="basic-usage">Basic usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackendMessageDecoder</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">BackendMessageDecoder</span><span class="p">()</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># Feed bytes from your transport layer</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">raw_bytes</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># Read messages one at a time</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">msg</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># Or iterate over all available messages</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="c1"># Or drain all at once</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="n">messages</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">read_all</span><span class="p">()</span>
 </code></pre></div>
-<p>Both state machines should stay in the same phase. A mismatch indicates a protocol violation.</p>
-<div class="admonition tip">
-<p class="admonition-title">Connection classes</p>
-<p>If you don't need to manage the decoder and state machine separately, use <code>FrontendConnection</code> or <code>BackendConnection</code> from <code>pygwire.connection</code>. They coordinate both for you automatically. See the <a href="../connection/">Connection guide</a> for details.</p>
-</div>
+<h2 id="streaming-and-partial-messages">Streaming and partial messages<a class="headerlink" href="#streaming-and-partial-messages" title="Permanent link">&para;</a></h2>
+<p>The decoder handles arbitrarily chunked input. Feed one byte at a time or megabytes at once. It buffers internally until a complete message is available:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">BackendMessageDecoder</span><span class="p">()</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># These three feeds together form one complete message</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">first_chunk</span><span class="p">)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">second_chunk</span><span class="p">)</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">third_chunk</span><span class="p">)</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># Now the complete message is available</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">msg</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+</code></pre></div>
+<h2 id="startup-mode">Startup mode<a class="headerlink" href="#startup-mode" title="Permanent link">&para;</a></h2>
+<p>The PostgreSQL wire protocol uses two framing formats:</p>
+<ol>
+<li><strong>Startup phase</strong>: messages have no identifier byte (length + payload only)</li>
+<li><strong>Standard phase</strong>: messages have an identifier byte + length + payload</li>
+</ol>
+<p>For server-side decoding, enable startup mode:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendMessageDecoder</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">FrontendMessageDecoder</span><span class="p">(</span><span class="n">startup</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">first_data_from_client</span><span class="p">)</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="c1"># First message will be StartupMessage, SSLRequest, etc.</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="c1"># Decoder switches to standard framing after StartupMessage</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="buffer-management">Buffer management<a class="headerlink" href="#buffer-management" title="Permanent link">&para;</a></h2>
+<p>The decoder uses <code>memoryview</code> for zero-copy payload slicing. It automatically compacts its internal buffer when consumed data exceeds 4 KB. You do not need to manage the buffer yourself.</p>
+<p>To discard all buffered data and pending messages:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">decoder</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</code></pre></div>
 
 
 

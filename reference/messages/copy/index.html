@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://dhukk.github.io/pygwire/guide/codec/">
+        <link rel="canonical" href="https://dhukk.github.io/pygwire/reference/messages/copy/">
       
       
-        <link rel="prev" href="../connection/">
+        <link rel="prev" href="../extended-query/">
       
       
-        <link rel="next" href="../messages/">
+        <link rel="next" href="../errors/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
-        <title>Codec - pygwire</title>
+        <title>COPY - pygwire</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,7 +53,7 @@
       
     
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -69,7 +69,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="teal">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="light-blue">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#codec" class="md-skip">
+        <a href="#copy-messages" class="md-skip">
           Skip to content
         </a>
       
@@ -94,7 +94,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="pygwire" class="md-header__button md-logo" aria-label="pygwire" data-md-component="logo">
+    <a href="../../.." title="pygwire" class="md-header__button md-logo" aria-label="pygwire" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Codec
+              COPY
             
           </span>
         </div>
@@ -127,7 +127,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
     
       <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -137,7 +137,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue-grey" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
     
       <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -230,7 +230,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="pygwire" class="md-nav__button md-logo" aria-label="pygwire" data-md-component="logo">
+    <a href="../../.." title="pygwire" class="md-nav__button md-logo" aria-label="pygwire" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -260,7 +260,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href="../../.." class="md-nav__link">
         
   
   
@@ -286,88 +286,8 @@
   
   
   
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Getting Started
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Getting Started
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
-      <a href="../../getting-started/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../quickstart/" class="md-nav__link">
+      <a href="../../../quickstart/" class="md-nav__link">
         
   
   
@@ -383,14 +303,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -427,7 +339,7 @@
   <span class="md-ellipsis">
     
   
-    User Guide
+    API Reference
   
 
     
@@ -443,7 +355,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    User Guide
+    API Reference
   
 
           </label>
@@ -456,7 +368,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../connection/" class="md-nav__link">
+      <a href="../../connection/" class="md-nav__link">
         
   
   
@@ -464,6 +376,225 @@
     
   
     Connection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../codec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Codec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Messages
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Messages
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../startup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Startup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../simple-query/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simple Query
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extended-query/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extended Query
   
 
     
@@ -500,7 +631,7 @@
   <span class="md-ellipsis">
     
   
-    Codec
+    COPY
   
 
     
@@ -518,7 +649,7 @@
   <span class="md-ellipsis">
     
   
-    Codec
+    COPY
   
 
     
@@ -544,68 +675,119 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#decoders" class="md-nav__link">
+  <a href="#backend-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decoders
+        Backend messages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backend messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#copyinresponse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CopyInResponse
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#copyoutresponse" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Basic usage
+        CopyOutResponse
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#streaming-and-partial-messages" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#copybothresponse" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Streaming and partial messages
+        CopyBothResponse
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#startup-mode" class="md-nav__link">
+  <a href="#bidirectional-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Startup mode
+        Bidirectional messages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bidirectional messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#copydata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CopyData
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#properties" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#copydone" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Properties
+        CopyDone
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#buffer-management" class="md-nav__link">
+  <a href="#frontend-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Buffer management
+        Frontend messages
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Frontend messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#copyfail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CopyFail
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -625,14 +807,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../messages/" class="md-nav__link">
+      <a href="../errors/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Messages
+    Errors and Notices
   
 
     
@@ -653,7 +835,43 @@
   
   
     <li class="md-nav__item">
-      <a href="../state-machine/" class="md-nav__link">
+      <a href="../misc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Miscellaneous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../state-machine/" class="md-nav__link">
         
   
   
@@ -661,6 +879,34 @@
     
   
     State Machine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../constants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Constants
   
 
     
@@ -740,7 +986,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../examples/auth-proxy/" class="md-nav__link">
+      <a href="../../../examples/auth-proxy/" class="md-nav__link">
         
   
   
@@ -774,207 +1020,8 @@
   
   
   
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    API Reference
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    API Reference
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
-      <a href="../../reference/core/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/messages/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.messages
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/constants/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.constants
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/state-machine/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.state_machine
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/connection/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.connection
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../../../contributing/" class="md-nav__link">
         
   
   
@@ -1021,68 +1068,119 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#decoders" class="md-nav__link">
+  <a href="#backend-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decoders
+        Backend messages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backend messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#copyinresponse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CopyInResponse
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#copyoutresponse" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Basic usage
+        CopyOutResponse
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#streaming-and-partial-messages" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#copybothresponse" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Streaming and partial messages
+        CopyBothResponse
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#startup-mode" class="md-nav__link">
+  <a href="#bidirectional-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Startup mode
+        Bidirectional messages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bidirectional messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#copydata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CopyData
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#properties" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#copydone" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Properties
+        CopyDone
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#buffer-management" class="md-nav__link">
+  <a href="#frontend-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Buffer management
+        Frontend messages
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Frontend messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#copyfail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CopyFail
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1106,90 +1204,162 @@
   
 
 
-<h1 id="codec">Codec<a class="headerlink" href="#codec" title="Permanent link">&para;</a></h1>
-<p>The codec module provides incremental stream decoders that parse raw bytes into typed message objects. This is the main entry point for most pygwire usage.</p>
-<h2 id="decoders">Decoders<a class="headerlink" href="#decoders" title="Permanent link">&para;</a></h2>
-<p>There are two decoders, one for each direction of the PostgreSQL protocol:</p>
+<h1 id="copy-messages">COPY Messages<a class="headerlink" href="#copy-messages" title="Permanent link">&para;</a></h1>
+<p>Messages used during the COPY protocol for bulk data transfer.</p>
 <table>
 <thead>
 <tr>
-<th>Decoder</th>
+<th>Message</th>
 <th>Direction</th>
-<th>Use case</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>BackendMessageDecoder</code></td>
-<td>Server → Client</td>
-<td>Building a client or proxy</td>
+<td><code>CopyInResponse</code></td>
+<td>Backend</td>
+<td>Ready for COPY IN data</td>
 </tr>
 <tr>
-<td><code>FrontendMessageDecoder</code></td>
-<td>Client → Server</td>
-<td>Building a server or proxy</td>
+<td><code>CopyOutResponse</code></td>
+<td>Backend</td>
+<td>Starting COPY OUT data</td>
+</tr>
+<tr>
+<td><code>CopyBothResponse</code></td>
+<td>Backend</td>
+<td>Bidirectional copy (streaming replication)</td>
+</tr>
+<tr>
+<td><code>CopyData</code></td>
+<td>Both</td>
+<td>COPY data chunk</td>
+</tr>
+<tr>
+<td><code>CopyDone</code></td>
+<td>Both</td>
+<td>COPY complete</td>
+</tr>
+<tr>
+<td><code>CopyFail</code></td>
+<td>Frontend</td>
+<td>Abort COPY with error</td>
 </tr>
 </tbody>
 </table>
-<p>Both share the same API.</p>
-<h2 id="basic-usage">Basic usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackendMessageDecoder</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">BackendMessageDecoder</span><span class="p">()</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Feed bytes from your transport layer</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">raw_bytes</span><span class="p">)</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># Read messages one at a time</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">msg</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Or iterate over all available messages</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Or drain all at once</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">messages</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">read_all</span><span class="p">()</span>
-</code></pre></div>
-<h2 id="streaming-and-partial-messages">Streaming and partial messages<a class="headerlink" href="#streaming-and-partial-messages" title="Permanent link">&para;</a></h2>
-<p>The decoder handles arbitrarily chunked input. You can feed one byte at a time or megabytes at once and it will buffer internally until a complete message is available:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">BackendMessageDecoder</span><span class="p">()</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># These three feeds together form one complete message</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">first_chunk</span><span class="p">)</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">second_chunk</span><span class="p">)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">third_chunk</span><span class="p">)</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="c1"># Now the complete message is available</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">msg</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-</code></pre></div>
-<h2 id="startup-mode">Startup mode<a class="headerlink" href="#startup-mode" title="Permanent link">&para;</a></h2>
-<p>The PostgreSQL wire protocol uses two different framing formats:</p>
-<ol>
-<li><strong>Startup phase</strong>: messages have no identifier byte (just length + payload)</li>
-<li><strong>Standard phase</strong>: messages have an identifier byte + length + payload</li>
-</ol>
-<p>For server-side decoding, enable startup mode so the decoder knows to expect the identifier-less format first:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendMessageDecoder</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Server receiving client connections</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">FrontendMessageDecoder</span><span class="p">(</span><span class="n">startup</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">first_data_from_client</span><span class="p">)</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="c1"># First message will be StartupMessage, SSLRequest, etc.</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="c1"># Decoder automatically switches to standard framing after StartupMessage</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
-</code></pre></div>
-<p>The decoder automatically switches from startup to standard framing after receiving a <code>StartupMessage</code>.</p>
-<h2 id="properties">Properties<a class="headerlink" href="#properties" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">decoder</span><span class="o">.</span><span class="n">in_startup</span>  <span class="c1"># True while expecting startup-phase messages</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">decoder</span><span class="o">.</span><span class="n">buffered</span>    <span class="c1"># Number of unprocessed bytes in the buffer</span>
-</code></pre></div>
-<h2 id="buffer-management">Buffer management<a class="headerlink" href="#buffer-management" title="Permanent link">&para;</a></h2>
-<p>The decoder uses <code>memoryview</code> for zero-copy payload slicing and automatically compacts its internal buffer when consumed data exceeds 4KB. You don't need to manage the buffer yourself.</p>
-<p>To discard all buffered data and pending messages:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">decoder</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</code></pre></div>
+<hr />
+<h2 id="backend-messages">Backend messages<a class="headerlink" href="#backend-messages" title="Permanent link">&para;</a></h2>
+<h3 id="copyinresponse"><code>CopyInResponse</code><a class="headerlink" href="#copyinresponse" title="Permanent link">&para;</a></h3>
+<p>Server is ready to receive COPY data from the client.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>overall_format</code></td>
+<td><code>int</code></td>
+<td>Overall format (0 = text, 1 = binary)</td>
+</tr>
+<tr>
+<td><code>col_formats</code></td>
+<td><code>list[int]</code></td>
+<td>Per-column format codes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="copyoutresponse"><code>CopyOutResponse</code><a class="headerlink" href="#copyoutresponse" title="Permanent link">&para;</a></h3>
+<p>Server is about to send COPY data to the client.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>overall_format</code></td>
+<td><code>int</code></td>
+<td>Overall format (0 = text, 1 = binary)</td>
+</tr>
+<tr>
+<td><code>col_formats</code></td>
+<td><code>list[int]</code></td>
+<td>Per-column format codes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="copybothresponse"><code>CopyBothResponse</code><a class="headerlink" href="#copybothresponse" title="Permanent link">&para;</a></h3>
+<p>Bidirectional COPY mode (used in streaming replication).</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>overall_format</code></td>
+<td><code>int</code></td>
+<td>Overall format (0 = text, 1 = binary)</td>
+</tr>
+<tr>
+<td><code>col_formats</code></td>
+<td><code>list[int]</code></td>
+<td>Per-column format codes</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="bidirectional-messages">Bidirectional messages<a class="headerlink" href="#bidirectional-messages" title="Permanent link">&para;</a></h2>
+<h3 id="copydata"><code>CopyData</code><a class="headerlink" href="#copydata" title="Permanent link">&para;</a></h3>
+<p>A chunk of COPY data. Sent by the client during COPY IN, by the server during COPY OUT, and by both during COPY BOTH.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>data</code></td>
+<td><code>bytes</code></td>
+<td>COPY data chunk</td>
+</tr>
+</tbody>
+</table>
+<h3 id="copydone"><code>CopyDone</code><a class="headerlink" href="#copydone" title="Permanent link">&para;</a></h3>
+<p>Signals that COPY data transfer is complete. No fields.</p>
+<hr />
+<h2 id="frontend-messages">Frontend messages<a class="headerlink" href="#frontend-messages" title="Permanent link">&para;</a></h2>
+<h3 id="copyfail"><code>CopyFail</code><a class="headerlink" href="#copyfail" title="Permanent link">&para;</a></h3>
+<p>Client aborts the COPY operation with an error.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>error_message</code></td>
+<td><code>str</code></td>
+<td>Error message</td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -1247,10 +1417,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "content.tabs.link", "navigation.sections", "navigation.top", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["content.code.copy", "content.tabs.link", "navigation.sections", "navigation.top", "search.highlight", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

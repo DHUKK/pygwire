@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://dhukk.github.io/pygwire/guide/messages/">
+        <link rel="canonical" href="https://dhukk.github.io/pygwire/reference/messages/extended-query/">
       
       
-        <link rel="prev" href="../codec/">
+        <link rel="prev" href="../simple-query/">
       
       
-        <link rel="next" href="../state-machine/">
+        <link rel="next" href="../copy/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
-        <title>Messages - pygwire</title>
+        <title>Extended Query - pygwire</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,7 +53,7 @@
       
     
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -69,7 +69,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="teal">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="light-blue">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#messages" class="md-skip">
+        <a href="#extended-query-messages" class="md-skip">
           Skip to content
         </a>
       
@@ -94,7 +94,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="pygwire" class="md-header__button md-logo" aria-label="pygwire" data-md-component="logo">
+    <a href="../../.." title="pygwire" class="md-header__button md-logo" aria-label="pygwire" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Messages
+              Extended Query
             
           </span>
         </div>
@@ -127,7 +127,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
     
       <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -137,7 +137,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue-grey" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
     
       <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -230,7 +230,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="pygwire" class="md-nav__button md-logo" aria-label="pygwire" data-md-component="logo">
+    <a href="../../.." title="pygwire" class="md-nav__button md-logo" aria-label="pygwire" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -260,7 +260,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href="../../.." class="md-nav__link">
         
   
   
@@ -286,88 +286,8 @@
   
   
   
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Getting Started
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Getting Started
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
-      <a href="../../getting-started/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../quickstart/" class="md-nav__link">
+      <a href="../../../quickstart/" class="md-nav__link">
         
   
   
@@ -383,14 +303,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -427,7 +339,7 @@
   <span class="md-ellipsis">
     
   
-    User Guide
+    API Reference
   
 
     
@@ -443,7 +355,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    User Guide
+    API Reference
   
 
           </label>
@@ -456,7 +368,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../connection/" class="md-nav__link">
+      <a href="../../connection/" class="md-nav__link">
         
   
   
@@ -484,7 +396,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../codec/" class="md-nav__link">
+      <a href="../../codec/" class="md-nav__link">
         
   
   
@@ -492,6 +404,169 @@
     
   
     Codec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Messages
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Messages
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../startup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Startup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../simple-query/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simple Query
   
 
     
@@ -528,7 +603,7 @@
   <span class="md-ellipsis">
     
   
-    Messages
+    Extended Query
   
 
     
@@ -546,7 +621,7 @@
   <span class="md-ellipsis">
     
   
-    Messages
+    Extended Query
   
 
     
@@ -572,55 +647,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#message-hierarchy" class="md-nav__link">
+  <a href="#frontend-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Message hierarchy
+        Frontend messages
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#encoding-messages" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Encoding messages
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decoding-messages" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decoding messages
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#messages-by-protocol-phase" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Messages by protocol phase
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Messages by protocol phase">
+    <nav class="md-nav" aria-label="Frontend messages">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#startup" class="md-nav__link">
+  <a href="#parse" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Startup
+        Parse
       
     </span>
   </a>
@@ -628,10 +670,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#authentication" class="md-nav__link">
+  <a href="#bind" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Authentication
+        Bind
       
     </span>
   </a>
@@ -639,10 +681,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#simple-query-protocol" class="md-nav__link">
+  <a href="#describe" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Simple query protocol
+        Describe
       
     </span>
   </a>
@@ -650,10 +692,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#extended-query-protocol" class="md-nav__link">
+  <a href="#execute" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Extended query protocol
+        Execute
       
     </span>
   </a>
@@ -661,10 +703,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#copy-protocol" class="md-nav__link">
+  <a href="#close" class="md-nav__link">
     <span class="md-ellipsis">
       
-        COPY protocol
+        Close
       
     </span>
   </a>
@@ -672,10 +714,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#errors-and-notices" class="md-nav__link">
+  <a href="#sync" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Errors and notices
+        Sync
       
     </span>
   </a>
@@ -683,21 +725,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#notifications-and-status" class="md-nav__link">
+  <a href="#flush" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Notifications and status
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#miscellaneous" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Miscellaneous
+        Flush
       
     </span>
   </a>
@@ -710,13 +741,85 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#lookup-functions" class="md-nav__link">
+  <a href="#backend-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Lookup functions
+        Backend messages
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Backend messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parsecomplete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ParseComplete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bindcomplete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BindComplete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#closecomplete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CloseComplete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameterdescription" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ParameterDescription
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nodata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NoData
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#portalsuspended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PortalSuspended
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -736,7 +839,99 @@
   
   
     <li class="md-nav__item">
-      <a href="../state-machine/" class="md-nav__link">
+      <a href="../copy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    COPY
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors and Notices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../misc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Miscellaneous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../state-machine/" class="md-nav__link">
         
   
   
@@ -744,6 +939,34 @@
     
   
     State Machine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../constants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Constants
   
 
     
@@ -823,7 +1046,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../examples/auth-proxy/" class="md-nav__link">
+      <a href="../../../examples/auth-proxy/" class="md-nav__link">
         
   
   
@@ -857,207 +1080,8 @@
   
   
   
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    API Reference
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    API Reference
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
-      <a href="../../reference/core/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/messages/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.messages
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/constants/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.constants
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/state-machine/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.state_machine
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/connection/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.connection
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../../../contributing/" class="md-nav__link">
         
   
   
@@ -1104,55 +1128,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#message-hierarchy" class="md-nav__link">
+  <a href="#frontend-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Message hierarchy
+        Frontend messages
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#encoding-messages" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Encoding messages
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decoding-messages" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decoding messages
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#messages-by-protocol-phase" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Messages by protocol phase
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Messages by protocol phase">
+    <nav class="md-nav" aria-label="Frontend messages">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#startup" class="md-nav__link">
+  <a href="#parse" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Startup
+        Parse
       
     </span>
   </a>
@@ -1160,10 +1151,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#authentication" class="md-nav__link">
+  <a href="#bind" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Authentication
+        Bind
       
     </span>
   </a>
@@ -1171,10 +1162,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#simple-query-protocol" class="md-nav__link">
+  <a href="#describe" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Simple query protocol
+        Describe
       
     </span>
   </a>
@@ -1182,10 +1173,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#extended-query-protocol" class="md-nav__link">
+  <a href="#execute" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Extended query protocol
+        Execute
       
     </span>
   </a>
@@ -1193,10 +1184,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#copy-protocol" class="md-nav__link">
+  <a href="#close" class="md-nav__link">
     <span class="md-ellipsis">
       
-        COPY protocol
+        Close
       
     </span>
   </a>
@@ -1204,10 +1195,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#errors-and-notices" class="md-nav__link">
+  <a href="#sync" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Errors and notices
+        Sync
       
     </span>
   </a>
@@ -1215,21 +1206,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#notifications-and-status" class="md-nav__link">
+  <a href="#flush" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Notifications and status
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#miscellaneous" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Miscellaneous
+        Flush
       
     </span>
   </a>
@@ -1242,13 +1222,85 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#lookup-functions" class="md-nav__link">
+  <a href="#backend-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Lookup functions
+        Backend messages
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Backend messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parsecomplete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ParseComplete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bindcomplete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BindComplete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#closecomplete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CloseComplete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameterdescription" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ParameterDescription
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nodata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NoData
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#portalsuspended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PortalSuspended
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1272,194 +1324,8 @@
   
 
 
-<h1 id="messages">Messages<a class="headerlink" href="#messages" title="Permanent link">&para;</a></h1>
-<p>Pygwire provides typed classes for every message in the PostgreSQL wire protocol (v3.0 and v3.2). All messages are available from <code>pygwire.messages</code> in a flat namespace.</p>
-<h2 id="message-hierarchy">Message hierarchy<a class="headerlink" href="#message-hierarchy" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>PGMessage (base)
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── FrontendMessage   (sent by clients)
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── BackendMessage    (sent by servers)
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── CommonMessage     (bidirectional, e.g. CopyData)
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>└── SpecialMessage    (startup-phase, no identifier byte)
-</code></pre></div>
-<h2 id="encoding-messages">Encoding messages<a class="headerlink" href="#encoding-messages" title="Permanent link">&para;</a></h2>
-<p>Every message has a <code>to_wire()</code> method that returns the complete wire-format bytes:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">Query</span><span class="p">,</span> <span class="n">StartupMessage</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Standard message: identifier + length + payload</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="n">query_string</span><span class="o">=</span><span class="s2">&quot;SELECT 1&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">wire_bytes</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">to_wire</span><span class="p">()</span>  <span class="c1"># b&#39;Q\x00\x00\x00\rSELECT 1\x00&#39;</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Startup message: length + payload (no identifier)</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">startup</span> <span class="o">=</span> <span class="n">StartupMessage</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;user&quot;</span><span class="p">:</span> <span class="s2">&quot;postgres&quot;</span><span class="p">,</span> <span class="s2">&quot;database&quot;</span><span class="p">:</span> <span class="s2">&quot;mydb&quot;</span><span class="p">})</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">wire_bytes</span> <span class="o">=</span> <span class="n">startup</span><span class="o">.</span><span class="n">to_wire</span><span class="p">()</span>  <span class="c1"># b&#39;\x00\x00\x00%\x00\x03\x00\x00user\x00postgres\x00database\x00mydb\x00\x00&#39;</span>
-</code></pre></div>
-<h2 id="decoding-messages">Decoding messages<a class="headerlink" href="#decoding-messages" title="Permanent link">&para;</a></h2>
-<p>Messages are typically decoded by the <a href="../codec/">codec</a>, but you can also decode manually:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">Query</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Decode from a memoryview payload (after framing is stripped)</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">msg</span> <span class="o">=</span> <span class="n">Query</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="nb">memoryview</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;SELECT 1</span><span class="se">\x00</span><span class="s1">&#39;</span><span class="p">))</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">query_string</span><span class="p">)</span>  <span class="c1"># SELECT 1</span>
-</code></pre></div>
-<h2 id="messages-by-protocol-phase">Messages by protocol phase<a class="headerlink" href="#messages-by-protocol-phase" title="Permanent link">&para;</a></h2>
-<h3 id="startup">Startup<a class="headerlink" href="#startup" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Message</th>
-<th>Direction</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>StartupMessage</code></td>
-<td>Frontend</td>
-<td>Connection initialization with parameters</td>
-</tr>
-<tr>
-<td><code>SSLRequest</code></td>
-<td>Frontend</td>
-<td>Request SSL/TLS negotiation</td>
-</tr>
-<tr>
-<td><code>GSSEncRequest</code></td>
-<td>Frontend</td>
-<td>Request GSS encryption</td>
-</tr>
-<tr>
-<td><code>CancelRequest</code></td>
-<td>Frontend</td>
-<td>Cancel a running query</td>
-</tr>
-</tbody>
-</table>
-<h3 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Message</th>
-<th>Direction</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>SSLResponse</code></td>
-<td>Backend</td>
-<td>Response to SSL negotiation</td>
-</tr>
-<tr>
-<td><code>AuthenticationOk</code></td>
-<td>Backend</td>
-<td>Authentication successful</td>
-</tr>
-<tr>
-<td><code>AuthenticationCleartextPassword</code></td>
-<td>Backend</td>
-<td>Request cleartext password</td>
-</tr>
-<tr>
-<td><code>AuthenticationMD5Password</code></td>
-<td>Backend</td>
-<td>Request MD5 password (includes salt)</td>
-</tr>
-<tr>
-<td><code>AuthenticationSASL</code></td>
-<td>Backend</td>
-<td>Start SASL authentication</td>
-</tr>
-<tr>
-<td><code>AuthenticationSASLContinue</code></td>
-<td>Backend</td>
-<td>SASL challenge data</td>
-</tr>
-<tr>
-<td><code>AuthenticationSASLFinal</code></td>
-<td>Backend</td>
-<td>SASL completion data</td>
-</tr>
-<tr>
-<td><code>AuthenticationGSS</code></td>
-<td>Backend</td>
-<td>Request GSS authentication</td>
-</tr>
-<tr>
-<td><code>AuthenticationGSSContinue</code></td>
-<td>Backend</td>
-<td>GSS continuation data</td>
-</tr>
-<tr>
-<td><code>AuthenticationSSPI</code></td>
-<td>Backend</td>
-<td>Request SSPI authentication</td>
-</tr>
-<tr>
-<td><code>AuthenticationKerberosV5</code></td>
-<td>Backend</td>
-<td>Request Kerberos V5 (legacy)</td>
-</tr>
-<tr>
-<td><code>PasswordMessage</code></td>
-<td>Frontend</td>
-<td>Password response</td>
-</tr>
-<tr>
-<td><code>SASLInitialResponse</code></td>
-<td>Frontend</td>
-<td>SASL initial response</td>
-</tr>
-<tr>
-<td><code>SASLResponse</code></td>
-<td>Frontend</td>
-<td>SASL continuation response</td>
-</tr>
-</tbody>
-</table>
-<h3 id="simple-query-protocol">Simple query protocol<a class="headerlink" href="#simple-query-protocol" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Message</th>
-<th>Direction</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Query</code></td>
-<td>Frontend</td>
-<td>SQL query string</td>
-</tr>
-<tr>
-<td><code>RowDescription</code></td>
-<td>Backend</td>
-<td>Column metadata</td>
-</tr>
-<tr>
-<td><code>DataRow</code></td>
-<td>Backend</td>
-<td>One row of data</td>
-</tr>
-<tr>
-<td><code>CommandComplete</code></td>
-<td>Backend</td>
-<td>Query finished (includes tag like <code>SELECT 1</code>)</td>
-</tr>
-<tr>
-<td><code>EmptyQueryResponse</code></td>
-<td>Backend</td>
-<td>Empty query string received</td>
-</tr>
-<tr>
-<td><code>ReadyForQuery</code></td>
-<td>Backend</td>
-<td>Server ready for next command</td>
-</tr>
-</tbody>
-</table>
-<p><code>RowDescription</code> contains a list of <code>FieldDescription</code> objects with column metadata (name, type OID, etc.).</p>
-<h3 id="extended-query-protocol">Extended query protocol<a class="headerlink" href="#extended-query-protocol" title="Permanent link">&para;</a></h3>
+<h1 id="extended-query-messages">Extended Query Messages<a class="headerlink" href="#extended-query-messages" title="Permanent link">&para;</a></h1>
+<p>The extended query protocol separates parsing, binding, and execution into distinct steps. Supports prepared statements, parameterized queries, and pipelining.</p>
 <table>
 <thead>
 <tr>
@@ -1536,141 +1402,207 @@
 </tr>
 </tbody>
 </table>
-<h3 id="copy-protocol">COPY protocol<a class="headerlink" href="#copy-protocol" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Message</th>
-<th>Direction</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>CopyInResponse</code></td>
-<td>Backend</td>
-<td>Ready for COPY IN data</td>
-</tr>
-<tr>
-<td><code>CopyOutResponse</code></td>
-<td>Backend</td>
-<td>Starting COPY OUT data</td>
-</tr>
-<tr>
-<td><code>CopyBothResponse</code></td>
-<td>Backend</td>
-<td>Bidirectional copy (replication)</td>
-</tr>
-<tr>
-<td><code>CopyData</code></td>
-<td>Both</td>
-<td>COPY data chunk</td>
-</tr>
-<tr>
-<td><code>CopyDone</code></td>
-<td>Both</td>
-<td>COPY complete</td>
-</tr>
-<tr>
-<td><code>CopyFail</code></td>
-<td>Frontend</td>
-<td>Abort COPY with error</td>
-</tr>
-</tbody>
-</table>
-<h3 id="errors-and-notices">Errors and notices<a class="headerlink" href="#errors-and-notices" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Message</th>
-<th>Direction</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ErrorResponse</code></td>
-<td>Backend</td>
-<td>Error with severity, code, message, etc.</td>
-</tr>
-<tr>
-<td><code>NoticeResponse</code></td>
-<td>Backend</td>
-<td>Warning or informational notice</td>
-</tr>
-</tbody>
-</table>
-<p>Both <code>ErrorResponse</code> and <code>NoticeResponse</code> have a <code>fields</code> dict with keys like <code>'S'</code> (severity), <code>'M'</code> (message), <code>'C'</code> (SQLSTATE code).</p>
-<h3 id="notifications-and-status">Notifications and status<a class="headerlink" href="#notifications-and-status" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Message</th>
-<th>Direction</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NotificationResponse</code></td>
-<td>Backend</td>
-<td>LISTEN/NOTIFY notification</td>
-</tr>
-<tr>
-<td><code>ParameterStatus</code></td>
-<td>Backend</td>
-<td>Runtime parameter changed</td>
-</tr>
-</tbody>
-</table>
-<h3 id="miscellaneous">Miscellaneous<a class="headerlink" href="#miscellaneous" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Message</th>
-<th>Direction</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>BackendKeyData</code></td>
-<td>Backend</td>
-<td>Process ID and secret key for cancellation</td>
-</tr>
-<tr>
-<td><code>NegotiateProtocolVersion</code></td>
-<td>Backend</td>
-<td>Protocol version negotiation</td>
-</tr>
-<tr>
-<td><code>FunctionCall</code></td>
-<td>Frontend</td>
-<td>Server function invocation (legacy)</td>
-</tr>
-<tr>
-<td><code>FunctionCallResponse</code></td>
-<td>Backend</td>
-<td>Function result</td>
-</tr>
-<tr>
-<td><code>Terminate</code></td>
-<td>Frontend</td>
-<td>Close connection</td>
-</tr>
-</tbody>
-</table>
-<h2 id="lookup-functions">Lookup functions<a class="headerlink" href="#lookup-functions" title="Permanent link">&para;</a></h2>
-<p>For advanced use cases, you can look up message classes by their wire identifier:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">lookup_backend</span><span class="p">,</span> <span class="n">lookup_frontend</span><span class="p">,</span> <span class="n">lookup_special</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Look up by single-byte identifier</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">msg_cls</span> <span class="o">=</span> <span class="n">lookup_backend</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>    <span class="c1"># RowDescription</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">msg_cls</span> <span class="o">=</span> <span class="n">lookup_frontend</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;Q&quot;</span><span class="p">)</span>   <span class="c1"># Query</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Look up startup messages by version code</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">msg_cls</span> <span class="o">=</span> <span class="n">lookup_special</span><span class="p">(</span><span class="mh">0x00030000</span><span class="p">)</span>  <span class="c1"># StartupMessage (v3.0)</span>
+<p>Typical flow:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Client                    Server
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  │                         │
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  │──── Parse ─────────────&gt;│
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  │──── Bind ──────────────&gt;│
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  │──── Describe (Portal) ─&gt;│
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  │──── Execute ───────────&gt;│
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  │──── Sync ──────────────&gt;│
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  │                         │
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>  │&lt;─── ParseComplete ──────│
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>  │&lt;─── BindComplete ───────│
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>  │&lt;─── RowDescription ─────│
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>  │&lt;─── DataRow ────────────│
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>  │&lt;─── CommandComplete ────│
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>  │&lt;─── ReadyForQuery ──────│
 </code></pre></div>
+<hr />
+<h2 id="frontend-messages">Frontend messages<a class="headerlink" href="#frontend-messages" title="Permanent link">&para;</a></h2>
+<h3 id="parse"><code>Parse</code><a class="headerlink" href="#parse" title="Permanent link">&para;</a></h3>
+<p>Prepare a SQL statement.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>statement</code></td>
+<td><code>str</code></td>
+<td>Prepared statement name (empty string = unnamed)</td>
+</tr>
+<tr>
+<td><code>query</code></td>
+<td><code>str</code></td>
+<td>SQL query with <code>$1</code>, <code>$2</code> placeholders</td>
+</tr>
+<tr>
+<td><code>param_types</code></td>
+<td><code>list[int]</code></td>
+<td>Parameter type OIDs (0 = let server infer)</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">Parse</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">msg</span> <span class="o">=</span> <span class="n">Parse</span><span class="p">(</span><span class="n">statement</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">query</span><span class="o">=</span><span class="s2">&quot;SELECT $1::int&quot;</span><span class="p">,</span> <span class="n">param_types</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</code></pre></div>
+<h3 id="bind"><code>Bind</code><a class="headerlink" href="#bind" title="Permanent link">&para;</a></h3>
+<p>Bind parameter values to a prepared statement, creating a portal.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>portal</code></td>
+<td><code>str</code></td>
+<td>Portal name (empty string = unnamed)</td>
+</tr>
+<tr>
+<td><code>statement</code></td>
+<td><code>str</code></td>
+<td>Prepared statement name</td>
+</tr>
+<tr>
+<td><code>param_formats</code></td>
+<td><code>list[int]</code></td>
+<td>Parameter format codes (0 = text, 1 = binary)</td>
+</tr>
+<tr>
+<td><code>param_values</code></td>
+<td><code>list[bytes \| None]</code></td>
+<td>Parameter values (<code>None</code> for NULL)</td>
+</tr>
+<tr>
+<td><code>result_formats</code></td>
+<td><code>list[int]</code></td>
+<td>Result column format codes</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bind</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">msg</span> <span class="o">=</span> <span class="n">Bind</span><span class="p">(</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">portal</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">statement</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">param_formats</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">param_values</span><span class="o">=</span><span class="p">[</span><span class="sa">b</span><span class="s2">&quot;42&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">result_formats</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="describe"><code>Describe</code><a class="headerlink" href="#describe" title="Permanent link">&para;</a></h3>
+<p>Request metadata for a statement or portal.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kind</code></td>
+<td><code>str</code></td>
+<td><code>"S"</code> for statement, <code>"P"</code> for portal</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Statement or portal name</td>
+</tr>
+</tbody>
+</table>
+<h3 id="execute"><code>Execute</code><a class="headerlink" href="#execute" title="Permanent link">&para;</a></h3>
+<p>Execute a portal.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>portal</code></td>
+<td><code>str</code></td>
+<td>Portal name</td>
+</tr>
+<tr>
+<td><code>max_rows</code></td>
+<td><code>int</code></td>
+<td>Max rows to return (0 = unlimited)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="close"><code>Close</code><a class="headerlink" href="#close" title="Permanent link">&para;</a></h3>
+<p>Close a statement or portal.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kind</code></td>
+<td><code>str</code></td>
+<td><code>"S"</code> for statement, <code>"P"</code> for portal</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Statement or portal name</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sync"><code>Sync</code><a class="headerlink" href="#sync" title="Permanent link">&para;</a></h3>
+<p>Marks the end of an extended query batch. The server processes all preceding messages and responds with <code>ReadyForQuery</code>. No fields.</p>
+<h3 id="flush"><code>Flush</code><a class="headerlink" href="#flush" title="Permanent link">&para;</a></h3>
+<p>Request the server to flush its output buffer without ending the batch. No fields.</p>
+<hr />
+<h2 id="backend-messages">Backend messages<a class="headerlink" href="#backend-messages" title="Permanent link">&para;</a></h2>
+<h3 id="parsecomplete"><code>ParseComplete</code><a class="headerlink" href="#parsecomplete" title="Permanent link">&para;</a></h3>
+<p>Parse succeeded. No fields.</p>
+<h3 id="bindcomplete"><code>BindComplete</code><a class="headerlink" href="#bindcomplete" title="Permanent link">&para;</a></h3>
+<p>Bind succeeded. No fields.</p>
+<h3 id="closecomplete"><code>CloseComplete</code><a class="headerlink" href="#closecomplete" title="Permanent link">&para;</a></h3>
+<p>Close succeeded. No fields.</p>
+<h3 id="parameterdescription"><code>ParameterDescription</code><a class="headerlink" href="#parameterdescription" title="Permanent link">&para;</a></h3>
+<p>Parameter type information for a prepared statement.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type_oids</code></td>
+<td><code>list[int]</code></td>
+<td>Parameter type OIDs</td>
+</tr>
+</tbody>
+</table>
+<h3 id="nodata"><code>NoData</code><a class="headerlink" href="#nodata" title="Permanent link">&para;</a></h3>
+<p>The statement will not return rows. No fields.</p>
+<h3 id="portalsuspended"><code>PortalSuspended</code><a class="headerlink" href="#portalsuspended" title="Permanent link">&para;</a></h3>
+<p>Portal execution was suspended (the <code>max_rows</code> limit in <code>Execute</code> was reached). No fields.</p>
 
 
 
@@ -1728,10 +1660,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "content.tabs.link", "navigation.sections", "navigation.top", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["content.code.copy", "content.tabs.link", "navigation.sections", "navigation.top", "search.highlight", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
