@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://dhukk.github.io/pygwire/reference/constants/">
+        <link rel="canonical" href="https://dhukk.github.io/pygwire/reference/connection/">
       
       
-        <link rel="prev" href="../messages/">
+        <link rel="prev" href="../state-machine/">
       
       
-        <link rel="next" href="../state-machine/">
+        <link rel="next" href="../../contributing/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>pygwire.constants - pygwire</title>
+        <title>pygwire.connection - pygwire</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#pygwireconstants" class="md-skip">
+        <a href="#pygwireconnection" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              pygwire.constants
+              pygwire.connection
             
           </span>
         </div>
@@ -767,37 +767,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    pygwire.constants
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../constants/" class="md-nav__link">
         
   
   
@@ -813,70 +786,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#protocolversion" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ProtocolVersion
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#transactionstatus" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TransactionStatus
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#frontendmessagetype" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        FrontendMessageType
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#backendmessagetype" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        BackendMessageType
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -914,10 +823,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../connection/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pygwire.connection
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -933,6 +869,165 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Connection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sendmsg-pgmessage-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        send(msg: PGMessage) -&gt; bytes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#receivedata-bytes-iteratorpgmessage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        receive(data: bytes) -&gt; Iterator[PGMessage]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#on_senddata-bytes-none" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        on_send(data: bytes) -&gt; None
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#on_receivemsg-pgmessage-none" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        on_receive(msg: PGMessage) -&gt; None
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Properties
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Properties">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-connectionphase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        phase -&gt; ConnectionPhase
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is_active-bool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_active -&gt; bool
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frontendconnection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FrontendConnection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backendconnection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BackendConnection
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -999,10 +1094,127 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#protocolversion" class="md-nav__link">
+  <a href="#connection" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ProtocolVersion
+        Connection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Connection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sendmsg-pgmessage-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        send(msg: PGMessage) -&gt; bytes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#receivedata-bytes-iteratorpgmessage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        receive(data: bytes) -&gt; Iterator[PGMessage]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#on_senddata-bytes-none" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        on_send(data: bytes) -&gt; None
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#on_receivemsg-pgmessage-none" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        on_receive(msg: PGMessage) -&gt; None
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Properties
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Properties">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-connectionphase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        phase -&gt; ConnectionPhase
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is_active-bool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_active -&gt; bool
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frontendconnection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FrontendConnection
       
     </span>
   </a>
@@ -1010,32 +1222,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#transactionstatus" class="md-nav__link">
+  <a href="#backendconnection" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TransactionStatus
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#frontendmessagetype" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        FrontendMessageType
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#backendmessagetype" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        BackendMessageType
+        BackendConnection
       
     </span>
   </a>
@@ -1062,290 +1252,46 @@
   
 
 
-<h1 id="pygwireconstants">pygwire.constants<a class="headerlink" href="#pygwireconstants" title="Permanent link">&para;</a></h1>
-<p>Protocol-level enums and constants.</p>
-<h2 id="protocolversion"><code>ProtocolVersion</code><a class="headerlink" href="#protocolversion" title="Permanent link">&para;</a></h2>
-<p><code>IntEnum</code> of PostgreSQL protocol version codes. Used in <code>StartupMessage</code> and special request messages.</p>
-<table>
-<thead>
-<tr>
-<th>Member</th>
-<th>Value</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>V3_0</code></td>
-<td><code>0x00030000</code></td>
-<td>Standard protocol (PostgreSQL 7.4+)</td>
-</tr>
-<tr>
-<td><code>V3_2</code></td>
-<td><code>0x00030002</code></td>
-<td>Extended protocol with variable-length cancel keys (PostgreSQL 18+)</td>
-</tr>
-<tr>
-<td><code>SSL_REQUEST</code></td>
-<td><code>80877103</code></td>
-<td>SSL/TLS negotiation request</td>
-</tr>
-<tr>
-<td><code>CANCEL_REQUEST</code></td>
-<td><code>80877102</code></td>
-<td>Query cancellation request</td>
-</tr>
-<tr>
-<td><code>GSSENC_REQUEST</code></td>
-<td><code>80877104</code></td>
-<td>GSS encryption request</td>
-</tr>
-</tbody>
-</table>
-<h2 id="transactionstatus"><code>TransactionStatus</code><a class="headerlink" href="#transactionstatus" title="Permanent link">&para;</a></h2>
-<p><code>StrEnum</code> of transaction status indicators returned in <code>ReadyForQuery</code> messages.</p>
-<table>
-<thead>
-<tr>
-<th>Member</th>
-<th>Value</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>IDLE</code></td>
-<td><code>"I"</code></td>
-<td>Not in a transaction</td>
-</tr>
-<tr>
-<td><code>IN_TRANSACTION</code></td>
-<td><code>"T"</code></td>
-<td>In a transaction block</td>
-</tr>
-<tr>
-<td><code>ERROR_TRANSACTION</code></td>
-<td><code>"E"</code></td>
-<td>In a failed transaction block</td>
-</tr>
-</tbody>
-</table>
-<h2 id="frontendmessagetype"><code>FrontendMessageType</code><a class="headerlink" href="#frontendmessagetype" title="Permanent link">&para;</a></h2>
-<p><code>StrEnum</code> of single-byte identifiers for client → server messages.</p>
-<table>
-<thead>
-<tr>
-<th>Member</th>
-<th>Value</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>BIND</code></td>
-<td><code>"B"</code></td>
-<td>Bind parameters to statement</td>
-</tr>
-<tr>
-<td><code>CLOSE</code></td>
-<td><code>"C"</code></td>
-<td>Close statement or portal</td>
-</tr>
-<tr>
-<td><code>COPY_DATA</code></td>
-<td><code>"d"</code></td>
-<td>COPY data chunk</td>
-</tr>
-<tr>
-<td><code>COPY_DONE</code></td>
-<td><code>"c"</code></td>
-<td>COPY complete</td>
-</tr>
-<tr>
-<td><code>COPY_FAIL</code></td>
-<td><code>"f"</code></td>
-<td>Abort COPY</td>
-</tr>
-<tr>
-<td><code>DESCRIBE</code></td>
-<td><code>"D"</code></td>
-<td>Describe statement or portal</td>
-</tr>
-<tr>
-<td><code>EXECUTE</code></td>
-<td><code>"E"</code></td>
-<td>Execute portal</td>
-</tr>
-<tr>
-<td><code>FLUSH</code></td>
-<td><code>"H"</code></td>
-<td>Flush output</td>
-</tr>
-<tr>
-<td><code>FUNCTION_CALL</code></td>
-<td><code>"F"</code></td>
-<td>Legacy function call</td>
-</tr>
-<tr>
-<td><code>PARSE</code></td>
-<td><code>"P"</code></td>
-<td>Parse SQL statement</td>
-</tr>
-<tr>
-<td><code>PASSWORD</code></td>
-<td><code>"p"</code></td>
-<td>Password / SASL response</td>
-</tr>
-<tr>
-<td><code>QUERY</code></td>
-<td><code>"Q"</code></td>
-<td>Simple query</td>
-</tr>
-<tr>
-<td><code>SYNC</code></td>
-<td><code>"S"</code></td>
-<td>Synchronization point</td>
-</tr>
-<tr>
-<td><code>TERMINATE</code></td>
-<td><code>"X"</code></td>
-<td>Close connection</td>
-</tr>
-</tbody>
-</table>
-<h2 id="backendmessagetype"><code>BackendMessageType</code><a class="headerlink" href="#backendmessagetype" title="Permanent link">&para;</a></h2>
-<p><code>StrEnum</code> of single-byte identifiers for server → client messages.</p>
-<table>
-<thead>
-<tr>
-<th>Member</th>
-<th>Value</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>AUTHENTICATION</code></td>
-<td><code>"R"</code></td>
-<td>Authentication request/response</td>
-</tr>
-<tr>
-<td><code>BACKEND_KEY_DATA</code></td>
-<td><code>"K"</code></td>
-<td>Process ID and secret key</td>
-</tr>
-<tr>
-<td><code>BIND_COMPLETE</code></td>
-<td><code>"2"</code></td>
-<td>Bind succeeded</td>
-</tr>
-<tr>
-<td><code>CLOSE_COMPLETE</code></td>
-<td><code>"3"</code></td>
-<td>Close succeeded</td>
-</tr>
-<tr>
-<td><code>COMMAND_COMPLETE</code></td>
-<td><code>"C"</code></td>
-<td>Command finished</td>
-</tr>
-<tr>
-<td><code>COPY_DATA</code></td>
-<td><code>"d"</code></td>
-<td>COPY data chunk</td>
-</tr>
-<tr>
-<td><code>COPY_DONE</code></td>
-<td><code>"c"</code></td>
-<td>COPY complete</td>
-</tr>
-<tr>
-<td><code>COPY_IN_RESPONSE</code></td>
-<td><code>"G"</code></td>
-<td>Ready for COPY IN</td>
-</tr>
-<tr>
-<td><code>COPY_OUT_RESPONSE</code></td>
-<td><code>"H"</code></td>
-<td>Starting COPY OUT</td>
-</tr>
-<tr>
-<td><code>COPY_BOTH_RESPONSE</code></td>
-<td><code>"W"</code></td>
-<td>Bidirectional copy</td>
-</tr>
-<tr>
-<td><code>DATA_ROW</code></td>
-<td><code>"D"</code></td>
-<td>Result row</td>
-</tr>
-<tr>
-<td><code>EMPTY_QUERY_RESPONSE</code></td>
-<td><code>"I"</code></td>
-<td>Empty query</td>
-</tr>
-<tr>
-<td><code>ERROR_RESPONSE</code></td>
-<td><code>"E"</code></td>
-<td>Error</td>
-</tr>
-<tr>
-<td><code>FUNCTION_CALL_RESPONSE</code></td>
-<td><code>"V"</code></td>
-<td>Function result</td>
-</tr>
-<tr>
-<td><code>NEGOTIATE_PROTOCOL_VERSION</code></td>
-<td><code>"v"</code></td>
-<td>Version negotiation</td>
-</tr>
-<tr>
-<td><code>NO_DATA</code></td>
-<td><code>"n"</code></td>
-<td>No data to return</td>
-</tr>
-<tr>
-<td><code>NOTICE_RESPONSE</code></td>
-<td><code>"N"</code></td>
-<td>Warning or notice</td>
-</tr>
-<tr>
-<td><code>NOTIFICATION_RESPONSE</code></td>
-<td><code>"A"</code></td>
-<td>Async notification</td>
-</tr>
-<tr>
-<td><code>PARAMETER_DESCRIPTION</code></td>
-<td><code>"t"</code></td>
-<td>Parameter type info</td>
-</tr>
-<tr>
-<td><code>PARAMETER_STATUS</code></td>
-<td><code>"S"</code></td>
-<td>Runtime parameter</td>
-</tr>
-<tr>
-<td><code>PARSE_COMPLETE</code></td>
-<td><code>"1"</code></td>
-<td>Parse succeeded</td>
-</tr>
-<tr>
-<td><code>PORTAL_SUSPENDED</code></td>
-<td><code>"s"</code></td>
-<td>Portal suspended</td>
-</tr>
-<tr>
-<td><code>READY_FOR_QUERY</code></td>
-<td><code>"Z"</code></td>
-<td>Ready for next command</td>
-</tr>
-<tr>
-<td><code>ROW_DESCRIPTION</code></td>
-<td><code>"T"</code></td>
-<td>Column metadata</td>
-</tr>
-</tbody>
-</table>
+<h1 id="pygwireconnection">pygwire.connection<a class="headerlink" href="#pygwireconnection" title="Permanent link">&para;</a></h1>
+<p>Sans-I/O connection coordination classes.</p>
+<h2 id="connection"><code>Connection</code><a class="headerlink" href="#connection" title="Permanent link">&para;</a></h2>
+<p>Abstract base class that coordinates a message decoder and state machine. Use <code>FrontendConnection</code> or <code>BackendConnection</code>.</p>
+<h3 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h3>
+<h4 id="sendmsg-pgmessage-bytes"><code>send(msg: PGMessage) -&gt; bytes</code><a class="headerlink" href="#sendmsg-pgmessage-bytes" title="Permanent link">&para;</a></h4>
+<p>Validate the message against the state machine, encode it to wire format, and call <code>on_send()</code>. Returns the wire-format bytes.</p>
+<p>Raises <code>StateMachineError</code> if the message is not valid for the current phase.</p>
+<h4 id="receivedata-bytes-iteratorpgmessage"><code>receive(data: bytes) -&gt; Iterator[PGMessage]</code><a class="headerlink" href="#receivedata-bytes-iteratorpgmessage" title="Permanent link">&para;</a></h4>
+<p>Feed raw bytes to the decoder and yield decoded messages. Each message is validated against the state machine, and <code>on_receive()</code> is called.</p>
+<p>Raises <code>StateMachineError</code> if a decoded message is not valid for the current phase.</p>
+<h4 id="on_senddata-bytes-none"><code>on_send(data: bytes) -&gt; None</code><a class="headerlink" href="#on_senddata-bytes-none" title="Permanent link">&para;</a></h4>
+<p>Hook called after encoding a message. Override to add I/O (e.g., write to socket) or logging.</p>
+<p>Default implementation does nothing.</p>
+<h4 id="on_receivemsg-pgmessage-none"><code>on_receive(msg: PGMessage) -&gt; None</code><a class="headerlink" href="#on_receivemsg-pgmessage-none" title="Permanent link">&para;</a></h4>
+<p>Hook called after decoding and validating a message. Override to add logging, metrics, or custom handling.</p>
+<p>Default implementation does nothing.</p>
+<h3 id="properties">Properties<a class="headerlink" href="#properties" title="Permanent link">&para;</a></h3>
+<h4 id="phase-connectionphase"><code>phase -&gt; ConnectionPhase</code><a class="headerlink" href="#phase-connectionphase" title="Permanent link">&para;</a></h4>
+<p>Current connection phase (delegates to the underlying state machine).</p>
+<h4 id="is_active-bool"><code>is_active -&gt; bool</code><a class="headerlink" href="#is_active-bool" title="Permanent link">&para;</a></h4>
+<p><code>True</code> if the connection has not terminated or failed.</p>
+<hr />
+<h2 id="frontendconnection"><code>FrontendConnection</code><a class="headerlink" href="#frontendconnection" title="Permanent link">&para;</a></h2>
+<p>Client-side connection. Uses <code>BackendMessageDecoder</code> to decode server messages and <code>FrontendStateMachine</code> to track client-side protocol state.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendConnection</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">conn</span> <span class="o">=</span> <span class="n">FrontendConnection</span><span class="p">()</span>
+</code></pre></div>
+<hr />
+<h2 id="backendconnection"><code>BackendConnection</code><a class="headerlink" href="#backendconnection" title="Permanent link">&para;</a></h2>
+<p>Server-side connection. Uses <code>FrontendMessageDecoder</code> to decode client messages and <code>BackendStateMachine</code> to track server-side protocol state.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackendConnection</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">conn</span> <span class="o">=</span> <span class="n">BackendConnection</span><span class="p">(</span><span class="n">startup</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>startup</code> (<code>bool</code>, default <code>True</code>): Whether to expect startup messages. Set to <code>False</code> if the connection has already completed startup (e.g., for connection pooling).</li>
+</ul>
 
 
 

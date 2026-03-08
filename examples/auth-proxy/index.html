@@ -454,6 +454,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guide/connection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guide/codec/" class="md-nav__link">
         
   
@@ -681,22 +709,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#design-two-phase-approach" class="md-nav__link">
+  <a href="#design" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Design: Two-Phase Approach
+        Design
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Design: Two-Phase Approach">
+    <nav class="md-nav" aria-label="Design">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#phase-1-authentication-with-state-machines" class="md-nav__link">
+  <a href="#authentication-phase" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 1: Authentication (With State Machines)
+        Authentication Phase
       
     </span>
   </a>
@@ -704,10 +732,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#phase-2-query-phase-decoding-only-no-validation" class="md-nav__link">
+  <a href="#query-phase" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 2: Query Phase (Decoding Only, No Validation)
+        Query Phase
       
     </span>
   </a>
@@ -1043,6 +1071,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/connection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pygwire.connection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1126,22 +1182,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#design-two-phase-approach" class="md-nav__link">
+  <a href="#design" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Design: Two-Phase Approach
+        Design
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Design: Two-Phase Approach">
+    <nav class="md-nav" aria-label="Design">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#phase-1-authentication-with-state-machines" class="md-nav__link">
+  <a href="#authentication-phase" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 1: Authentication (With State Machines)
+        Authentication Phase
       
     </span>
   </a>
@@ -1149,10 +1205,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#phase-2-query-phase-decoding-only-no-validation" class="md-nav__link">
+  <a href="#query-phase" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 2: Query Phase (Decoding Only, No Validation)
+        Query Phase
       
     </span>
   </a>
@@ -1345,13 +1401,13 @@
 <li><strong>Middleware</strong>: Build authentication layers or connection poolers</li>
 <li><strong>Security</strong>: Centralize database credentials instead of distributing them to clients</li>
 </ul>
-<h2 id="design-two-phase-approach">Design: Two-Phase Approach<a class="headerlink" href="#design-two-phase-approach" title="Permanent link">&para;</a></h2>
-<p>This proxy uses a <strong>two-phase design</strong> that balances functionality with simplicity:</p>
-<h3 id="phase-1-authentication-with-state-machines">Phase 1: Authentication (With State Machines)<a class="headerlink" href="#phase-1-authentication-with-state-machines" title="Permanent link">&para;</a></h3>
+<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
+<p>The proxy uses pygwire's <code>Connection</code> classes, which coordinate decoding and state machine validation together throughout the entire connection lifecycle.</p>
+<h3 id="authentication-phase">Authentication Phase<a class="headerlink" href="#authentication-phase" title="Permanent link">&para;</a></h3>
 <p>During startup and authentication, the proxy actively participates in the protocol:</p>
 <ul>
 <li><strong>Decodes messages</strong> to intercept and handle authentication</li>
-<li><strong>Uses state machines</strong> to validate protocol flow and catch errors</li>
+<li><strong>Uses state machines</strong> (via Connection classes) to validate protocol flow and catch errors</li>
 <li><strong>Constructs messages</strong> to send trust auth to client, real auth to server</li>
 </ul>
 <pre class="mermaid"><code>flowchart LR
@@ -1362,31 +1418,18 @@
     Client &lt;--&gt;|Trust Auth| Proxy
     Proxy &lt;--&gt;|MD5/SCRAM Auth| Server
 
-    Client -.-&gt;|BackendStateMachine&lt;br/&gt;validates auth flow| Proxy
-    Proxy -.-&gt;|FrontendStateMachine&lt;br/&gt;validates auth flow| Server</code></pre>
-<p><strong>State machine for client auth</strong> (<code>BackendStateMachine</code>):
-- Created temporarily during client authentication
-- Validates message flow and catches protocol errors
-- Discarded after authentication completes</p>
-<p><strong>State machine for server auth</strong> (<code>FrontendStateMachine</code>):
-- Created temporarily during server authentication
-- Validates message flow and catches protocol errors
-- Discarded after authentication completes</p>
-<h3 id="phase-2-query-phase-decoding-only-no-validation">Phase 2: Query Phase (Decoding Only, No Validation)<a class="headerlink" href="#phase-2-query-phase-decoding-only-no-validation" title="Permanent link">&para;</a></h3>
-<p>After authentication, the proxy switches to a simpler mode:</p>
-<ul>
-<li><strong>Decodes and logs messages</strong> for visibility and debugging</li>
-<li><strong>No state machine validation</strong> - messages are logged but not validated</li>
-<li><strong>More efficient</strong> - no validation overhead during high-volume query phase</li>
-</ul>
+    Client -.-&gt;|BackendConnection&lt;br/&gt;validates auth flow| Proxy
+    Proxy -.-&gt;|FrontendConnection&lt;br/&gt;validates auth flow| Server</code></pre>
+<h3 id="query-phase">Query Phase<a class="headerlink" href="#query-phase" title="Permanent link">&para;</a></h3>
+<p>After authentication, the same Connection objects continue to decode, validate, log, and forward messages bidirectionally:</p>
 <pre class="mermaid"><code>flowchart LR
     Client["Client&lt;br/&gt;(psql)"]
-    Proxy["Proxy&lt;br/&gt;&lt;br/&gt;&lt;i&gt;Decode + Log&lt;/i&gt;&lt;br/&gt;&lt;i&gt;(no validation)&lt;/i&gt;"]
+    Proxy["Proxy&lt;br/&gt;&lt;br/&gt;&lt;i&gt;Decode + Validate + Log&lt;/i&gt;"]
     Server["Server&lt;br/&gt;(Postgres)"]
 
     Client &lt;--&gt; Proxy
     Proxy &lt;--&gt; Server</code></pre>
-<p>This design demonstrates that <strong>state machines are most valuable during complex protocol phases</strong> (authentication) but can be optional during straightforward phases (query/response). The logging remains valuable throughout for debugging.</p>
+<p>The Connection classes handle both phases. State machine validation catches protocol errors at any point, and message logging provides full visibility for debugging.</p>
 <h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
 <h3 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h3>
 <p>Configure the proxy using environment variables:</p>
@@ -1451,22 +1494,20 @@
 </code></pre></div>
 <h2 id="implementation-details">Implementation Details<a class="headerlink" href="#implementation-details" title="Permanent link">&para;</a></h2>
 <h3 id="key-components">Key Components<a class="headerlink" href="#key-components" title="Permanent link">&para;</a></h3>
-<p><strong><code>PostgreSQLStream</code></strong> - High-level stream adapter that combines:
-- Async I/O (reading from/writing to streams)
-- Message decoding/encoding using pygwire's codec
-- Optional state machine tracking (enabled during authentication, disabled during query phase)</p>
+<p><strong><code>AsyncFrontendConnection</code> / <code>AsyncBackendConnection</code></strong> - Async wrappers around pygwire's <code>FrontendConnection</code> and <code>BackendConnection</code> classes that add:</p>
+<ul>
+<li>Async I/O via <code>asyncio.StreamReader</code> / <code>asyncio.StreamWriter</code></li>
+<li><code>on_send()</code> hook to automatically write to the stream</li>
+<li><code>recv_messages()</code> async generator for reading and decoding messages</li>
+<li>State machine tracking built in via the <code>Connection</code> base class</li>
+</ul>
 <p><strong><code>ProxyConnection</code></strong> - Manages a single client connection:
 - Connects and authenticates to real PostgreSQL server
 - Handles client startup with <code>trust</code> authentication
 - Proxies messages bidirectionally with decoding and logging</p>
 <h3 id="ssl-negotiation">SSL Negotiation<a class="headerlink" href="#ssl-negotiation" title="Permanent link">&para;</a></h3>
 <p>The proxy supports SSL/TLS connections to the backend server:</p>
-<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">examples/auth_proxy.py</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-360">360</a></span>
-<span class="normal"><a href="#__codelineno-6-361">361</a></span>
-<span class="normal"><a href="#__codelineno-6-362">362</a></span>
-<span class="normal"><a href="#__codelineno-6-363">363</a></span>
-<span class="normal"><a href="#__codelineno-6-364">364</a></span>
-<span class="normal"><a href="#__codelineno-6-365">365</a></span>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">examples/auth_proxy.py</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-365">365</a></span>
 <span class="normal"><a href="#__codelineno-6-366">366</a></span>
 <span class="normal"><a href="#__codelineno-6-367">367</a></span>
 <span class="normal"><a href="#__codelineno-6-368">368</a></span>
@@ -1484,65 +1525,65 @@
 <span class="normal"><a href="#__codelineno-6-380">380</a></span>
 <span class="normal"><a href="#__codelineno-6-381">381</a></span>
 <span class="normal"><a href="#__codelineno-6-382">382</a></span>
-<span class="normal"><a href="#__codelineno-6-383">383</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-6-360" name="__codelineno-6-360"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_negotiate_ssl</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<a id="__codelineno-6-361" name="__codelineno-6-361"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Negotiate SSL/TLS with the server.&quot;&quot;&quot;</span>
-<a id="__codelineno-6-362" name="__codelineno-6-362"></a>        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_writer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-<a id="__codelineno-6-363" name="__codelineno-6-363"></a>        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-<a id="__codelineno-6-364" name="__codelineno-6-364"></a>
-<a id="__codelineno-6-365" name="__codelineno-6-365"></a>        <span class="n">ssl_context</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">()</span>
-<a id="__codelineno-6-366" name="__codelineno-6-366"></a>        <span class="n">ssl_context</span><span class="o">.</span><span class="n">check_hostname</span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-6-367" name="__codelineno-6-367"></a>        <span class="n">ssl_context</span><span class="o">.</span><span class="n">verify_mode</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">CERT_NONE</span>
-<a id="__codelineno-6-368" name="__codelineno-6-368"></a>
-<a id="__codelineno-6-369" name="__codelineno-6-369"></a>        <span class="c1"># Send SSL request directly (no state tracking needed for this)</span>
-<a id="__codelineno-6-370" name="__codelineno-6-370"></a>        <span class="n">ssl_req</span> <span class="o">=</span> <span class="n">messages</span><span class="o">.</span><span class="n">SSLRequest</span><span class="p">()</span>
-<a id="__codelineno-6-371" name="__codelineno-6-371"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">server_writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ssl_req</span><span class="o">.</span><span class="n">to_wire</span><span class="p">())</span>
-<a id="__codelineno-6-372" name="__codelineno-6-372"></a>        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_writer</span><span class="o">.</span><span class="n">drain</span><span class="p">()</span>
+<span class="normal"><a href="#__codelineno-6-383">383</a></span>
+<span class="normal"><a href="#__codelineno-6-384">384</a></span>
+<span class="normal"><a href="#__codelineno-6-385">385</a></span>
+<span class="normal"><a href="#__codelineno-6-386">386</a></span>
+<span class="normal"><a href="#__codelineno-6-387">387</a></span>
+<span class="normal"><a href="#__codelineno-6-388">388</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-6-365" name="__codelineno-6-365"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_negotiate_ssl</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-6-366" name="__codelineno-6-366"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Negotiate SSL/TLS with the server.&quot;&quot;&quot;</span>
+<a id="__codelineno-6-367" name="__codelineno-6-367"></a>        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_writer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-6-368" name="__codelineno-6-368"></a>        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-6-369" name="__codelineno-6-369"></a>
+<a id="__codelineno-6-370" name="__codelineno-6-370"></a>        <span class="n">ssl_context</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">()</span>
+<a id="__codelineno-6-371" name="__codelineno-6-371"></a>        <span class="n">ssl_context</span><span class="o">.</span><span class="n">check_hostname</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-6-372" name="__codelineno-6-372"></a>        <span class="n">ssl_context</span><span class="o">.</span><span class="n">verify_mode</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">CERT_NONE</span>
 <a id="__codelineno-6-373" name="__codelineno-6-373"></a>
-<a id="__codelineno-6-374" name="__codelineno-6-374"></a>        <span class="c1"># Read SSL response (single byte, not a full message)</span>
-<a id="__codelineno-6-375" name="__codelineno-6-375"></a>        <span class="n">response_byte</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_reader</span><span class="o">.</span><span class="n">readexactly</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-6-376" name="__codelineno-6-376"></a>        <span class="n">ssl_response</span> <span class="o">=</span> <span class="n">messages</span><span class="o">.</span><span class="n">SSLResponse</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">response_byte</span><span class="p">)</span>
-<a id="__codelineno-6-377" name="__codelineno-6-377"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Server SSL response: </span><span class="si">{</span><span class="n">ssl_response</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-374" name="__codelineno-6-374"></a>        <span class="c1"># Send SSL request directly (before connection object is created)</span>
+<a id="__codelineno-6-375" name="__codelineno-6-375"></a>        <span class="n">ssl_req</span> <span class="o">=</span> <span class="n">messages</span><span class="o">.</span><span class="n">SSLRequest</span><span class="p">()</span>
+<a id="__codelineno-6-376" name="__codelineno-6-376"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">server_writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ssl_req</span><span class="o">.</span><span class="n">to_wire</span><span class="p">())</span>
+<a id="__codelineno-6-377" name="__codelineno-6-377"></a>        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_writer</span><span class="o">.</span><span class="n">drain</span><span class="p">()</span>
 <a id="__codelineno-6-378" name="__codelineno-6-378"></a>
-<a id="__codelineno-6-379" name="__codelineno-6-379"></a>        <span class="k">if</span> <span class="n">ssl_response</span> <span class="o">!=</span> <span class="n">messages</span><span class="o">.</span><span class="n">SSLResponse</span><span class="o">.</span><span class="n">SUPPORTED</span><span class="p">:</span>
-<a id="__codelineno-6-380" name="__codelineno-6-380"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Server does not support SSL&quot;</span><span class="p">)</span>
-<a id="__codelineno-6-381" name="__codelineno-6-381"></a>
-<a id="__codelineno-6-382" name="__codelineno-6-382"></a>        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_writer</span><span class="o">.</span><span class="n">start_tls</span><span class="p">(</span><span class="n">ssl_context</span><span class="p">,</span> <span class="n">server_hostname</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">server_host</span><span class="p">)</span>
-<a id="__codelineno-6-383" name="__codelineno-6-383"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] SSL handshake complete&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-379" name="__codelineno-6-379"></a>        <span class="c1"># Read SSL response (single byte, not a full message)</span>
+<a id="__codelineno-6-380" name="__codelineno-6-380"></a>        <span class="n">response_byte</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_reader</span><span class="o">.</span><span class="n">readexactly</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-6-381" name="__codelineno-6-381"></a>        <span class="n">ssl_response</span> <span class="o">=</span> <span class="n">messages</span><span class="o">.</span><span class="n">SSLResponse</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">response_byte</span><span class="p">)</span>
+<a id="__codelineno-6-382" name="__codelineno-6-382"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Server SSL response: </span><span class="si">{</span><span class="n">ssl_response</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-383" name="__codelineno-6-383"></a>
+<a id="__codelineno-6-384" name="__codelineno-6-384"></a>        <span class="k">if</span> <span class="n">ssl_response</span> <span class="o">!=</span> <span class="n">messages</span><span class="o">.</span><span class="n">SSLResponse</span><span class="o">.</span><span class="n">SUPPORTED</span><span class="p">:</span>
+<a id="__codelineno-6-385" name="__codelineno-6-385"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Server does not support SSL&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-386" name="__codelineno-6-386"></a>
+<a id="__codelineno-6-387" name="__codelineno-6-387"></a>        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_writer</span><span class="o">.</span><span class="n">start_tls</span><span class="p">(</span><span class="n">ssl_context</span><span class="p">,</span> <span class="n">server_hostname</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">server_host</span><span class="p">)</span>
+<a id="__codelineno-6-388" name="__codelineno-6-388"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] SSL handshake complete&quot;</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
 <h3 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h3>
 <p>The proxy supports multiple authentication methods when connecting to the backend server:</p>
 <p><strong>MD5 Password Authentication:</strong>
-<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">examples/auth_proxy.py</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-7-394">394</a></span>
-<span class="normal"><a href="#__codelineno-7-395">395</a></span>
-<span class="normal"><a href="#__codelineno-7-396">396</a></span>
-<span class="normal"><a href="#__codelineno-7-397">397</a></span>
-<span class="normal"><a href="#__codelineno-7-398">398</a></span>
-<span class="normal"><a href="#__codelineno-7-399">399</a></span>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">examples/auth_proxy.py</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-7-399">399</a></span>
 <span class="normal"><a href="#__codelineno-7-400">400</a></span>
 <span class="normal"><a href="#__codelineno-7-401">401</a></span>
 <span class="normal"><a href="#__codelineno-7-402">402</a></span>
 <span class="normal"><a href="#__codelineno-7-403">403</a></span>
 <span class="normal"><a href="#__codelineno-7-404">404</a></span>
-<span class="normal"><a href="#__codelineno-7-405">405</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-7-394" name="__codelineno-7-394"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_authenticate_md5</span><span class="p">(</span>
-<a id="__codelineno-7-395" name="__codelineno-7-395"></a>        <span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">messages</span><span class="o">.</span><span class="n">AuthenticationMD5Password</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="n">PostgreSQLStream</span>
-<a id="__codelineno-7-396" name="__codelineno-7-396"></a>    <span class="p">):</span>
-<a id="__codelineno-7-397" name="__codelineno-7-397"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle MD5 password authentication.&quot;&quot;&quot;</span>
-<a id="__codelineno-7-398" name="__codelineno-7-398"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Server requesting MD5 password&quot;</span><span class="p">)</span>
-<a id="__codelineno-7-399" name="__codelineno-7-399"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_password</span><span class="p">:</span>
-<a id="__codelineno-7-400" name="__codelineno-7-400"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No password provided for MD5 auth&quot;</span><span class="p">)</span>
-<a id="__codelineno-7-401" name="__codelineno-7-401"></a>
-<a id="__codelineno-7-402" name="__codelineno-7-402"></a>        <span class="n">user</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_user</span> <span class="ow">or</span> <span class="s2">&quot;postgres&quot;</span>
-<a id="__codelineno-7-403" name="__codelineno-7-403"></a>        <span class="n">md5_password</span> <span class="o">=</span> <span class="n">compute_md5_password</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">server_password</span><span class="p">,</span> <span class="n">user</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">salt</span><span class="p">)</span>
-<a id="__codelineno-7-404" name="__codelineno-7-404"></a>        <span class="n">pwd_msg</span> <span class="o">=</span> <span class="n">messages</span><span class="o">.</span><span class="n">PasswordMessage</span><span class="p">(</span><span class="n">password</span><span class="o">=</span><span class="n">md5_password</span><span class="p">)</span>
-<a id="__codelineno-7-405" name="__codelineno-7-405"></a>        <span class="k">await</span> <span class="n">stream</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">pwd_msg</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-7-405">405</a></span>
+<span class="normal"><a href="#__codelineno-7-406">406</a></span>
+<span class="normal"><a href="#__codelineno-7-407">407</a></span>
+<span class="normal"><a href="#__codelineno-7-408">408</a></span>
+<span class="normal"><a href="#__codelineno-7-409">409</a></span>
+<span class="normal"><a href="#__codelineno-7-410">410</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-7-399" name="__codelineno-7-399"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_authenticate_md5</span><span class="p">(</span>
+<a id="__codelineno-7-400" name="__codelineno-7-400"></a>        <span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">messages</span><span class="o">.</span><span class="n">AuthenticationMD5Password</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">AsyncFrontendConnection</span>
+<a id="__codelineno-7-401" name="__codelineno-7-401"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-7-402" name="__codelineno-7-402"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle MD5 password authentication.&quot;&quot;&quot;</span>
+<a id="__codelineno-7-403" name="__codelineno-7-403"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Server requesting MD5 password&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-404" name="__codelineno-7-404"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_password</span><span class="p">:</span>
+<a id="__codelineno-7-405" name="__codelineno-7-405"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No password provided for MD5 auth&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-406" name="__codelineno-7-406"></a>
+<a id="__codelineno-7-407" name="__codelineno-7-407"></a>        <span class="n">user</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_user</span> <span class="ow">or</span> <span class="s2">&quot;postgres&quot;</span>
+<a id="__codelineno-7-408" name="__codelineno-7-408"></a>        <span class="n">md5_password</span> <span class="o">=</span> <span class="n">compute_md5_password</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">server_password</span><span class="p">,</span> <span class="n">user</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">salt</span><span class="p">)</span>
+<a id="__codelineno-7-409" name="__codelineno-7-409"></a>        <span class="n">pwd_msg</span> <span class="o">=</span> <span class="n">messages</span><span class="o">.</span><span class="n">PasswordMessage</span><span class="p">(</span><span class="n">password</span><span class="o">=</span><span class="n">md5_password</span><span class="p">)</span>
+<a id="__codelineno-7-410" name="__codelineno-7-410"></a>        <span class="k">await</span> <span class="n">conn</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">pwd_msg</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div></p>
 <p><strong>SCRAM-SHA-256 Authentication:</strong>
-<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">examples/auth_proxy.py</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-8-407">407</a></span>
-<span class="normal"><a href="#__codelineno-8-408">408</a></span>
-<span class="normal"><a href="#__codelineno-8-409">409</a></span>
-<span class="normal"><a href="#__codelineno-8-410">410</a></span>
-<span class="normal"><a href="#__codelineno-8-411">411</a></span>
-<span class="normal"><a href="#__codelineno-8-412">412</a></span>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">examples/auth_proxy.py</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-8-412">412</a></span>
 <span class="normal"><a href="#__codelineno-8-413">413</a></span>
 <span class="normal"><a href="#__codelineno-8-414">414</a></span>
 <span class="normal"><a href="#__codelineno-8-415">415</a></span>
@@ -1560,51 +1601,40 @@
 <span class="normal"><a href="#__codelineno-8-427">427</a></span>
 <span class="normal"><a href="#__codelineno-8-428">428</a></span>
 <span class="normal"><a href="#__codelineno-8-429">429</a></span>
-<span class="normal"><a href="#__codelineno-8-430">430</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-8-407" name="__codelineno-8-407"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_authenticate_scram_start</span><span class="p">(</span>
-<a id="__codelineno-8-408" name="__codelineno-8-408"></a>        <span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">messages</span><span class="o">.</span><span class="n">AuthenticationSASL</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="n">PostgreSQLStream</span>
-<a id="__codelineno-8-409" name="__codelineno-8-409"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-8-410" name="__codelineno-8-410"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Start SCRAM-SHA-256 authentication.&quot;&quot;&quot;</span>
-<a id="__codelineno-8-411" name="__codelineno-8-411"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Server requesting SASL auth: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">mechanisms</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-412" name="__codelineno-8-412"></a>        <span class="k">if</span> <span class="s2">&quot;SCRAM-SHA-256&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">mechanisms</span><span class="p">:</span>
-<a id="__codelineno-8-413" name="__codelineno-8-413"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Only SCRAM-SHA-256 is supported&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-414" name="__codelineno-8-414"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_password</span><span class="p">:</span>
-<a id="__codelineno-8-415" name="__codelineno-8-415"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No password provided for SCRAM&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-416" name="__codelineno-8-416"></a>
-<a id="__codelineno-8-417" name="__codelineno-8-417"></a>        <span class="n">user</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_user</span> <span class="ow">or</span> <span class="s2">&quot;postgres&quot;</span>
-<a id="__codelineno-8-418" name="__codelineno-8-418"></a>        <span class="n">client_first</span><span class="p">,</span> <span class="n">client_first_bare</span><span class="p">,</span> <span class="n">nonce</span> <span class="o">=</span> <span class="n">build_scram_client_first</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
-<a id="__codelineno-8-419" name="__codelineno-8-419"></a>
-<a id="__codelineno-8-420" name="__codelineno-8-420"></a>        <span class="n">sasl_msg</span> <span class="o">=</span> <span class="n">messages</span><span class="o">.</span><span class="n">SASLInitialResponse</span><span class="p">(</span>
-<a id="__codelineno-8-421" name="__codelineno-8-421"></a>            <span class="n">mechanism</span><span class="o">=</span><span class="s2">&quot;SCRAM-SHA-256&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">client_first</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-422" name="__codelineno-8-422"></a>        <span class="p">)</span>
-<a id="__codelineno-8-423" name="__codelineno-8-423"></a>        <span class="k">await</span> <span class="n">stream</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">sasl_msg</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-8-430">430</a></span>
+<span class="normal"><a href="#__codelineno-8-431">431</a></span>
+<span class="normal"><a href="#__codelineno-8-432">432</a></span>
+<span class="normal"><a href="#__codelineno-8-433">433</a></span>
+<span class="normal"><a href="#__codelineno-8-434">434</a></span>
+<span class="normal"><a href="#__codelineno-8-435">435</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-8-412" name="__codelineno-8-412"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_authenticate_scram_start</span><span class="p">(</span>
+<a id="__codelineno-8-413" name="__codelineno-8-413"></a>        <span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">messages</span><span class="o">.</span><span class="n">AuthenticationSASL</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">AsyncFrontendConnection</span>
+<a id="__codelineno-8-414" name="__codelineno-8-414"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-8-415" name="__codelineno-8-415"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Start SCRAM-SHA-256 authentication.&quot;&quot;&quot;</span>
+<a id="__codelineno-8-416" name="__codelineno-8-416"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Server requesting SASL auth: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">mechanisms</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-417" name="__codelineno-8-417"></a>        <span class="k">if</span> <span class="s2">&quot;SCRAM-SHA-256&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">mechanisms</span><span class="p">:</span>
+<a id="__codelineno-8-418" name="__codelineno-8-418"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Only SCRAM-SHA-256 is supported&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-419" name="__codelineno-8-419"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_password</span><span class="p">:</span>
+<a id="__codelineno-8-420" name="__codelineno-8-420"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No password provided for SCRAM&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-421" name="__codelineno-8-421"></a>
+<a id="__codelineno-8-422" name="__codelineno-8-422"></a>        <span class="n">user</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_user</span> <span class="ow">or</span> <span class="s2">&quot;postgres&quot;</span>
+<a id="__codelineno-8-423" name="__codelineno-8-423"></a>        <span class="n">client_first</span><span class="p">,</span> <span class="n">client_first_bare</span><span class="p">,</span> <span class="n">nonce</span> <span class="o">=</span> <span class="n">build_scram_client_first</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
 <a id="__codelineno-8-424" name="__codelineno-8-424"></a>
-<a id="__codelineno-8-425" name="__codelineno-8-425"></a>        <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-8-426" name="__codelineno-8-426"></a>            <span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="n">user</span><span class="p">,</span>
-<a id="__codelineno-8-427" name="__codelineno-8-427"></a>            <span class="s2">&quot;password&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_password</span><span class="p">,</span>
-<a id="__codelineno-8-428" name="__codelineno-8-428"></a>            <span class="s2">&quot;client_nonce&quot;</span><span class="p">:</span> <span class="n">nonce</span><span class="p">,</span>
-<a id="__codelineno-8-429" name="__codelineno-8-429"></a>            <span class="s2">&quot;client_first_bare&quot;</span><span class="p">:</span> <span class="n">client_first_bare</span><span class="p">,</span>
-<a id="__codelineno-8-430" name="__codelineno-8-430"></a>        <span class="p">}</span>
+<a id="__codelineno-8-425" name="__codelineno-8-425"></a>        <span class="n">sasl_msg</span> <span class="o">=</span> <span class="n">messages</span><span class="o">.</span><span class="n">SASLInitialResponse</span><span class="p">(</span>
+<a id="__codelineno-8-426" name="__codelineno-8-426"></a>            <span class="n">mechanism</span><span class="o">=</span><span class="s2">&quot;SCRAM-SHA-256&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">client_first</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-427" name="__codelineno-8-427"></a>        <span class="p">)</span>
+<a id="__codelineno-8-428" name="__codelineno-8-428"></a>        <span class="k">await</span> <span class="n">conn</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">sasl_msg</span><span class="p">)</span>
+<a id="__codelineno-8-429" name="__codelineno-8-429"></a>
+<a id="__codelineno-8-430" name="__codelineno-8-430"></a>        <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-8-431" name="__codelineno-8-431"></a>            <span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="n">user</span><span class="p">,</span>
+<a id="__codelineno-8-432" name="__codelineno-8-432"></a>            <span class="s2">&quot;password&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_password</span><span class="p">,</span>
+<a id="__codelineno-8-433" name="__codelineno-8-433"></a>            <span class="s2">&quot;client_nonce&quot;</span><span class="p">:</span> <span class="n">nonce</span><span class="p">,</span>
+<a id="__codelineno-8-434" name="__codelineno-8-434"></a>            <span class="s2">&quot;client_first_bare&quot;</span><span class="p">:</span> <span class="n">client_first_bare</span><span class="p">,</span>
+<a id="__codelineno-8-435" name="__codelineno-8-435"></a>        <span class="p">}</span>
 </code></pre></div></td></tr></table></div></p>
-<p>During authentication, a state machine validates the protocol flow. After authentication completes, the proxy switches to decoding-only mode for better performance.</p>
+<p>The Connection classes validate the protocol flow via their built-in state machines throughout the entire connection lifecycle.</p>
 <h3 id="message-forwarding">Message Forwarding<a class="headerlink" href="#message-forwarding" title="Permanent link">&para;</a></h3>
-<p>After authentication, messages are decoded and logged but not validated by state machines:</p>
-<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">examples/auth_proxy.py</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-9-256">256</a></span>
-<span class="normal"><a href="#__codelineno-9-257">257</a></span>
-<span class="normal"><a href="#__codelineno-9-258">258</a></span>
-<span class="normal"><a href="#__codelineno-9-259">259</a></span>
-<span class="normal"><a href="#__codelineno-9-260">260</a></span>
-<span class="normal"><a href="#__codelineno-9-261">261</a></span>
-<span class="normal"><a href="#__codelineno-9-262">262</a></span>
-<span class="normal"><a href="#__codelineno-9-263">263</a></span>
-<span class="normal"><a href="#__codelineno-9-264">264</a></span>
-<span class="normal"><a href="#__codelineno-9-265">265</a></span>
-<span class="normal"><a href="#__codelineno-9-266">266</a></span>
-<span class="normal"><a href="#__codelineno-9-267">267</a></span>
-<span class="normal"><a href="#__codelineno-9-268">268</a></span>
-<span class="normal"><a href="#__codelineno-9-269">269</a></span>
-<span class="normal"><a href="#__codelineno-9-270">270</a></span>
-<span class="normal"><a href="#__codelineno-9-271">271</a></span>
-<span class="normal"><a href="#__codelineno-9-272">272</a></span>
+<p>After authentication, messages continue to be decoded, validated, and logged as they are forwarded:</p>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">examples/auth_proxy.py</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-9-272">272</a></span>
 <span class="normal"><a href="#__codelineno-9-273">273</a></span>
 <span class="normal"><a href="#__codelineno-9-274">274</a></span>
 <span class="normal"><a href="#__codelineno-9-275">275</a></span>
@@ -1614,39 +1644,100 @@
 <span class="normal"><a href="#__codelineno-9-279">279</a></span>
 <span class="normal"><a href="#__codelineno-9-280">280</a></span>
 <span class="normal"><a href="#__codelineno-9-281">281</a></span>
-<span class="normal"><a href="#__codelineno-9-282">282</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-9-256" name="__codelineno-9-256"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_proxy_client_to_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<a id="__codelineno-9-257" name="__codelineno-9-257"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Proxy messages from client to server (frontend messages).&quot;&quot;&quot;</span>
-<a id="__codelineno-9-258" name="__codelineno-9-258"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-9-259" name="__codelineno-9-259"></a>            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-<a id="__codelineno-9-260" name="__codelineno-9-260"></a>                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_stream</span><span class="o">.</span><span class="n">reader</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">8192</span><span class="p">)</span>
-<a id="__codelineno-9-261" name="__codelineno-9-261"></a>                <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="p">:</span>
-<a id="__codelineno-9-262" name="__codelineno-9-262"></a>                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Client disconnected&quot;</span><span class="p">)</span>
-<a id="__codelineno-9-263" name="__codelineno-9-263"></a>                    <span class="k">break</span>
-<a id="__codelineno-9-264" name="__codelineno-9-264"></a>
-<a id="__codelineno-9-265" name="__codelineno-9-265"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">client_stream</span><span class="o">.</span><span class="n">_decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-<a id="__codelineno-9-266" name="__codelineno-9-266"></a>                <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-<a id="__codelineno-9-267" name="__codelineno-9-267"></a>                    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-9-268" name="__codelineno-9-268"></a>                        <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_stream</span><span class="o">.</span><span class="n">_read_buffered</span><span class="p">()</span>
-<a id="__codelineno-9-269" name="__codelineno-9-269"></a>                        <span class="k">if</span> <span class="n">msg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-9-270" name="__codelineno-9-270"></a>                            <span class="k">break</span>
-<a id="__codelineno-9-271" name="__codelineno-9-271"></a>                        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle_frontend_message</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-<a id="__codelineno-9-272" name="__codelineno-9-272"></a>                        <span class="c1"># Forward message to server to update its state machines</span>
-<a id="__codelineno-9-273" name="__codelineno-9-273"></a>                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_stream</span><span class="p">:</span>
-<a id="__codelineno-9-274" name="__codelineno-9-274"></a>                            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_stream</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-<a id="__codelineno-9-275" name="__codelineno-9-275"></a>                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-9-276" name="__codelineno-9-276"></a>                        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Error decoding frontend message: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-9-277" name="__codelineno-9-277"></a>                        <span class="k">break</span>
-<a id="__codelineno-9-278" name="__codelineno-9-278"></a>
-<a id="__codelineno-9-279" name="__codelineno-9-279"></a>        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
-<a id="__codelineno-9-280" name="__codelineno-9-280"></a>            <span class="k">raise</span>
-<a id="__codelineno-9-281" name="__codelineno-9-281"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-9-282" name="__codelineno-9-282"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Client-&gt;Server proxy error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-9-282">282</a></span>
+<span class="normal"><a href="#__codelineno-9-283">283</a></span>
+<span class="normal"><a href="#__codelineno-9-284">284</a></span>
+<span class="normal"><a href="#__codelineno-9-285">285</a></span>
+<span class="normal"><a href="#__codelineno-9-286">286</a></span>
+<span class="normal"><a href="#__codelineno-9-287">287</a></span>
+<span class="normal"><a href="#__codelineno-9-288">288</a></span>
+<span class="normal"><a href="#__codelineno-9-289">289</a></span>
+<span class="normal"><a href="#__codelineno-9-290">290</a></span>
+<span class="normal"><a href="#__codelineno-9-291">291</a></span>
+<span class="normal"><a href="#__codelineno-9-292">292</a></span>
+<span class="normal"><a href="#__codelineno-9-293">293</a></span>
+<span class="normal"><a href="#__codelineno-9-294">294</a></span>
+<span class="normal"><a href="#__codelineno-9-295">295</a></span>
+<span class="normal"><a href="#__codelineno-9-296">296</a></span>
+<span class="normal"><a href="#__codelineno-9-297">297</a></span>
+<span class="normal"><a href="#__codelineno-9-298">298</a></span>
+<span class="normal"><a href="#__codelineno-9-299">299</a></span>
+<span class="normal"><a href="#__codelineno-9-300">300</a></span>
+<span class="normal"><a href="#__codelineno-9-301">301</a></span>
+<span class="normal"><a href="#__codelineno-9-302">302</a></span>
+<span class="normal"><a href="#__codelineno-9-303">303</a></span>
+<span class="normal"><a href="#__codelineno-9-304">304</a></span>
+<span class="normal"><a href="#__codelineno-9-305">305</a></span>
+<span class="normal"><a href="#__codelineno-9-306">306</a></span>
+<span class="normal"><a href="#__codelineno-9-307">307</a></span>
+<span class="normal"><a href="#__codelineno-9-308">308</a></span>
+<span class="normal"><a href="#__codelineno-9-309">309</a></span>
+<span class="normal"><a href="#__codelineno-9-310">310</a></span>
+<span class="normal"><a href="#__codelineno-9-311">311</a></span>
+<span class="normal"><a href="#__codelineno-9-312">312</a></span>
+<span class="normal"><a href="#__codelineno-9-313">313</a></span>
+<span class="normal"><a href="#__codelineno-9-314">314</a></span>
+<span class="normal"><a href="#__codelineno-9-315">315</a></span>
+<span class="normal"><a href="#__codelineno-9-316">316</a></span>
+<span class="normal"><a href="#__codelineno-9-317">317</a></span>
+<span class="normal"><a href="#__codelineno-9-318">318</a></span>
+<span class="normal"><a href="#__codelineno-9-319">319</a></span>
+<span class="normal"><a href="#__codelineno-9-320">320</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-9-272" name="__codelineno-9-272"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_proxy_client_to_server</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-9-273" name="__codelineno-9-273"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Proxy messages from client to server (frontend messages).&quot;&quot;&quot;</span>
+<a id="__codelineno-9-274" name="__codelineno-9-274"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-9-275" name="__codelineno-9-275"></a>            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+<a id="__codelineno-9-276" name="__codelineno-9-276"></a>                <span class="n">has_messages</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-9-277" name="__codelineno-9-277"></a>                <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-9-278" name="__codelineno-9-278"></a>                    <span class="k">async</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_conn</span><span class="o">.</span><span class="n">recv_messages</span><span class="p">():</span>
+<a id="__codelineno-9-279" name="__codelineno-9-279"></a>                        <span class="n">has_messages</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-9-280" name="__codelineno-9-280"></a>                        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle_frontend_message</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-9-281" name="__codelineno-9-281"></a>                        <span class="c1"># Forward message to server</span>
+<a id="__codelineno-9-282" name="__codelineno-9-282"></a>                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_conn</span><span class="p">:</span>
+<a id="__codelineno-9-283" name="__codelineno-9-283"></a>                            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_conn</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-9-284" name="__codelineno-9-284"></a>                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-9-285" name="__codelineno-9-285"></a>                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Error decoding frontend message: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-9-286" name="__codelineno-9-286"></a>                    <span class="k">break</span>
+<a id="__codelineno-9-287" name="__codelineno-9-287"></a>
+<a id="__codelineno-9-288" name="__codelineno-9-288"></a>                <span class="k">if</span> <span class="ow">not</span> <span class="n">has_messages</span><span class="p">:</span>
+<a id="__codelineno-9-289" name="__codelineno-9-289"></a>                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Client disconnected&quot;</span><span class="p">)</span>
+<a id="__codelineno-9-290" name="__codelineno-9-290"></a>                    <span class="k">break</span>
+<a id="__codelineno-9-291" name="__codelineno-9-291"></a>
+<a id="__codelineno-9-292" name="__codelineno-9-292"></a>        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+<a id="__codelineno-9-293" name="__codelineno-9-293"></a>            <span class="k">raise</span>
+<a id="__codelineno-9-294" name="__codelineno-9-294"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-9-295" name="__codelineno-9-295"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Client-&gt;Server proxy error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-9-296" name="__codelineno-9-296"></a>
+<a id="__codelineno-9-297" name="__codelineno-9-297"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_proxy_server_to_client</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-9-298" name="__codelineno-9-298"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Proxy messages from server to client (backend messages).&quot;&quot;&quot;</span>
+<a id="__codelineno-9-299" name="__codelineno-9-299"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-9-300" name="__codelineno-9-300"></a>            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_conn</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-9-301" name="__codelineno-9-301"></a>            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+<a id="__codelineno-9-302" name="__codelineno-9-302"></a>                <span class="n">has_messages</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-9-303" name="__codelineno-9-303"></a>                <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-9-304" name="__codelineno-9-304"></a>                    <span class="k">async</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_conn</span><span class="o">.</span><span class="n">recv_messages</span><span class="p">():</span>
+<a id="__codelineno-9-305" name="__codelineno-9-305"></a>                        <span class="n">has_messages</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-9-306" name="__codelineno-9-306"></a>                        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle_backend_message</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-9-307" name="__codelineno-9-307"></a>                        <span class="c1"># Forward message to client</span>
+<a id="__codelineno-9-308" name="__codelineno-9-308"></a>                        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_conn</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-9-309" name="__codelineno-9-309"></a>                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-9-310" name="__codelineno-9-310"></a>                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Error decoding backend message: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-9-311" name="__codelineno-9-311"></a>                    <span class="k">break</span>
+<a id="__codelineno-9-312" name="__codelineno-9-312"></a>
+<a id="__codelineno-9-313" name="__codelineno-9-313"></a>                <span class="k">if</span> <span class="ow">not</span> <span class="n">has_messages</span><span class="p">:</span>
+<a id="__codelineno-9-314" name="__codelineno-9-314"></a>                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Server disconnected&quot;</span><span class="p">)</span>
+<a id="__codelineno-9-315" name="__codelineno-9-315"></a>                    <span class="k">break</span>
+<a id="__codelineno-9-316" name="__codelineno-9-316"></a>
+<a id="__codelineno-9-317" name="__codelineno-9-317"></a>        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+<a id="__codelineno-9-318" name="__codelineno-9-318"></a>            <span class="k">raise</span>
+<a id="__codelineno-9-319" name="__codelineno-9-319"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-9-320" name="__codelineno-9-320"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_id</span><span class="si">}</span><span class="s2">] Server-&gt;Client proxy error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-<p>This approach keeps the valuable logging for debugging while removing the overhead of state machine validation during the query phase.</p>
+<p>The Connection classes coordinate decoding and state machine validation automatically, so the proxy code only needs to log and forward.</p>
 <h2 id="source-code">Source Code<a class="headerlink" href="#source-code" title="Permanent link">&para;</a></h2>
 <p>The complete source code is available at <a href="https://github.com/DHUKK/pygwire/blob/main/examples/auth_proxy.py"><code>examples/auth_proxy.py</code></a>.</p>
 <h2 id="further-reading">Further Reading<a class="headerlink" href="#further-reading" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="../../guide/connection/">Connection Guide</a></li>
 <li><a href="https://www.postgresql.org/docs/current/protocol.html">PostgreSQL Wire Protocol</a></li>
 <li><a href="../../guide/state-machine/">State Machine Guide</a></li>
 <li><a href="../../guide/codec/">Codec Guide</a></li>

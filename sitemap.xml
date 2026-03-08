@@ -2,50 +2,58 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://dhukk.github.io/pygwire/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
     </url>
     <url>
          <loc>https://dhukk.github.io/pygwire/contributing/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
     </url>
     <url>
          <loc>https://dhukk.github.io/pygwire/getting-started/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
     </url>
     <url>
          <loc>https://dhukk.github.io/pygwire/quickstart/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
     </url>
     <url>
          <loc>https://dhukk.github.io/pygwire/examples/auth-proxy/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
     </url>
     <url>
          <loc>https://dhukk.github.io/pygwire/guide/codec/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
+    </url>
+    <url>
+         <loc>https://dhukk.github.io/pygwire/guide/connection/</loc>
+         <lastmod>2026-03-08</lastmod>
     </url>
     <url>
          <loc>https://dhukk.github.io/pygwire/guide/messages/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
     </url>
     <url>
          <loc>https://dhukk.github.io/pygwire/guide/state-machine/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
+    </url>
+    <url>
+         <loc>https://dhukk.github.io/pygwire/reference/connection/</loc>
+         <lastmod>2026-03-08</lastmod>
     </url>
     <url>
          <loc>https://dhukk.github.io/pygwire/reference/constants/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
     </url>
     <url>
          <loc>https://dhukk.github.io/pygwire/reference/core/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
     </url>
     <url>
          <loc>https://dhukk.github.io/pygwire/reference/messages/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
     </url>
     <url>
          <loc>https://dhukk.github.io/pygwire/reference/state-machine/</loc>
-         <lastmod>2026-03-07</lastmod>
+         <lastmod>2026-03-08</lastmod>
     </url>
 </urlset>

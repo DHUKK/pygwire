@@ -454,6 +454,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guide/connection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guide/codec/" class="md-nav__link">
         
   
@@ -884,6 +912,67 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#connections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connections
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Connections">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontendconnection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FrontendConnection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backendconnection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BackendConnection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subclassing-for-io" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subclassing for I/O
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -964,6 +1053,34 @@
     
   
     pygwire.state_machine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pygwire.connection
   
 
     
@@ -1165,6 +1282,67 @@
     <span class="md-ellipsis">
       
         StateMachineError
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connections
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Connections">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontendconnection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FrontendConnection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backendconnection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BackendConnection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subclassing-for-io" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subclassing for I/O
       
     </span>
   </a>
@@ -1388,6 +1566,94 @@
 <p><code>Enum</code> of connection lifecycle phases. See <a href="../../guide/state-machine/#connection-phases">State Machine guide</a> for the full list.</p>
 <h3 id="statemachineerror"><code>StateMachineError</code><a class="headerlink" href="#statemachineerror" title="Permanent link">&para;</a></h3>
 <p>Raised when an invalid message is sent or received for the current phase. Subclass of <code>ProtocolError</code>.</p>
+<hr />
+<h2 id="connections">Connections<a class="headerlink" href="#connections" title="Permanent link">&para;</a></h2>
+<p>The connection classes coordinate a decoder and state machine together, providing a higher-level sans-I/O API.</p>
+<h3 id="connection"><code>Connection</code><a class="headerlink" href="#connection" title="Permanent link">&para;</a></h3>
+<p>Abstract base class. Use <code>FrontendConnection</code> or <code>BackendConnection</code>.</p>
+<p><strong>Methods:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Returns</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>send(msg)</code></td>
+<td><code>bytes</code></td>
+<td>Validate via state machine, encode to wire format, call <code>on_send()</code> hook</td>
+</tr>
+<tr>
+<td><code>receive(data)</code></td>
+<td><code>Iterator[PGMessage]</code></td>
+<td>Feed bytes to decoder, validate each message, call <code>on_receive()</code> hook</td>
+</tr>
+<tr>
+<td><code>on_send(data)</code></td>
+<td><code>None</code></td>
+<td>Hook called after encoding. Override to add I/O</td>
+</tr>
+<tr>
+<td><code>on_receive(msg)</code></td>
+<td><code>None</code></td>
+<td>Hook called after decoding. Override to add logging/metrics</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Properties:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>phase</code></td>
+<td><code>ConnectionPhase</code></td>
+<td>Current connection phase (delegates to state machine)</td>
+</tr>
+<tr>
+<td><code>is_active</code></td>
+<td><code>bool</code></td>
+<td><code>True</code> if connection is not terminated or failed</td>
+</tr>
+</tbody>
+</table>
+<h3 id="frontendconnection"><code>FrontendConnection</code><a class="headerlink" href="#frontendconnection" title="Permanent link">&para;</a></h3>
+<p>Client-side connection. Uses <code>BackendMessageDecoder</code> + <code>FrontendStateMachine</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendConnection</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">conn</span> <span class="o">=</span> <span class="n">FrontendConnection</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="backendconnection"><code>BackendConnection</code><a class="headerlink" href="#backendconnection" title="Permanent link">&para;</a></h3>
+<p>Server-side connection. Uses <code>FrontendMessageDecoder</code> + <code>BackendStateMachine</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackendConnection</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">conn</span> <span class="o">=</span> <span class="n">BackendConnection</span><span class="p">(</span><span class="n">startup</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>startup</code>: Whether to expect startup messages (default <code>True</code>). Set to <code>False</code> if the connection has already completed startup.</li>
+</ul>
+<h3 id="subclassing-for-io">Subclassing for I/O<a class="headerlink" href="#subclassing-for-io" title="Permanent link">&para;</a></h3>
+<p>Override <code>on_send()</code> and <code>on_receive()</code> to integrate with your transport:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">SocketConnection</span><span class="p">(</span><span class="n">FrontendConnection</span><span class="p">):</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sock</span><span class="p">):</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">sock</span> <span class="o">=</span> <span class="n">sock</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">on_send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">sock</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">on_receive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">PGMessage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Received: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
 
 
 

@@ -456,6 +456,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../connection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../codec/" class="md-nav__link">
         
   
@@ -893,6 +921,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/connection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pygwire.connection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1176,6 +1232,10 @@
 <a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">frontend_sm</span><span class="o">.</span><span class="n">receive</span><span class="p">(</span><span class="n">server_msg</span><span class="p">)</span> <span class="c1"># Client received it</span>
 </code></pre></div>
 <p>Both state machines should stay in the same phase. A mismatch indicates a protocol violation.</p>
+<div class="admonition tip">
+<p class="admonition-title">Connection classes</p>
+<p>If you don't need to manage the decoder and state machine separately, use <code>FrontendConnection</code> or <code>BackendConnection</code> from <code>pygwire.connection</code>. They coordinate both for you automatically. See the <a href="../connection/">Connection guide</a> for details.</p>
+</div>
 
 
 
