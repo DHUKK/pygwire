@@ -269,6 +269,7 @@ class ProxyConnection:
         finally:
             await self._cleanup()
 
+    # --8<-- [start:message_forwarding]
     async def _proxy_client_to_server(self) -> None:
         """Proxy messages from client to server (frontend messages)."""
         try:
@@ -318,6 +319,7 @@ class ProxyConnection:
             raise
         except Exception as e:
             logger.error(f"[{self.connection_id}] Server->Client proxy error: {e}", exc_info=True)
+    # --8<-- [end:message_forwarding]
 
     async def _handle_frontend_message(self, msg: messages.PGMessage) -> None:
         """Log a frontend message."""
@@ -358,6 +360,7 @@ class ProxyConnection:
         )
         logger.info(f"[{self.connection_id}] Connected to server")
 
+    # --8<-- [start:ssl_negotiation]
     async def _negotiate_ssl(self, conn: AsyncFrontendConnection) -> None:
         """Negotiate SSL/TLS with the server using the connection."""
         ssl_context = ssl.create_default_context()
@@ -382,6 +385,7 @@ class ProxyConnection:
         assert self.server_writer is not None
         await self.server_writer.start_tls(ssl_context, server_hostname=self.server_host)
         logger.info(f"[{self.connection_id}] SSL handshake complete")
+    # --8<-- [end:ssl_negotiation]
 
     async def _authenticate_cleartext(self, conn: AsyncFrontendConnection) -> None:
         """Handle cleartext password authentication."""
@@ -392,6 +396,7 @@ class ProxyConnection:
         pwd_msg = messages.PasswordMessage(password=self.server_password)
         await conn.send_message(pwd_msg)
 
+    # --8<-- [start:md5_auth]
     async def _authenticate_md5(
         self, msg: messages.AuthenticationMD5Password, conn: AsyncFrontendConnection
     ) -> None:
@@ -404,7 +409,9 @@ class ProxyConnection:
         md5_password = compute_md5_password(self.server_password, user, msg.salt)
         pwd_msg = messages.PasswordMessage(password=md5_password)
         await conn.send_message(pwd_msg)
+    # --8<-- [end:md5_auth]
 
+    # --8<-- [start:scram_auth]
     async def _authenticate_scram_start(
         self, msg: messages.AuthenticationSASL, conn: AsyncFrontendConnection
     ) -> dict[str, str]:
@@ -429,6 +436,7 @@ class ProxyConnection:
             "client_nonce": nonce,
             "client_first_bare": client_first_bare,
         }
+    # --8<-- [end:scram_auth]
 
     async def _authenticate_scram_continue(
         self,

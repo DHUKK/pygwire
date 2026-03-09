@@ -162,8 +162,8 @@ Proxy logs show all protocol messages:
 
 The proxy supports SSL/TLS connections to the backend server:
 
-```python title="examples/auth_proxy.py" linenums="365"
---8<-- "examples/auth_proxy.py:365:388"
+```python title="examples/auth_proxy.py"
+--8<-- "examples/auth_proxy.py:ssl_negotiation"
 ```
 
 ### Authentication
@@ -171,13 +171,13 @@ The proxy supports SSL/TLS connections to the backend server:
 The proxy supports multiple authentication methods when connecting to the backend server.
 
 **MD5 Password Authentication:**
-```python title="examples/auth_proxy.py" linenums="399"
---8<-- "examples/auth_proxy.py:399:410"
+```python title="examples/auth_proxy.py"
+--8<-- "examples/auth_proxy.py:md5_auth"
 ```
 
 **SCRAM-SHA-256 Authentication:**
-```python title="examples/auth_proxy.py" linenums="412"
---8<-- "examples/auth_proxy.py:412:435"
+```python title="examples/auth_proxy.py"
+--8<-- "examples/auth_proxy.py:scram_auth"
 ```
 
 The Connection classes validate the protocol flow via their built-in state machines throughout the entire connection lifecycle.
@@ -186,8 +186,8 @@ The Connection classes validate the protocol flow via their built-in state machi
 
 After authentication, messages continue to be decoded, validated, and logged as they are forwarded:
 
-```python title="examples/auth_proxy.py" linenums="272"
---8<-- "examples/auth_proxy.py:272:320"
+```python title="examples/auth_proxy.py"
+--8<-- "examples/auth_proxy.py:message_forwarding"
 ```
 
 The Connection classes coordinate decoding and state machine validation automatically, so the proxy code only needs to log and forward.
