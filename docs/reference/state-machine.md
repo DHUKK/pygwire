@@ -18,15 +18,15 @@ Both track a `ConnectionPhase` and raise `StateMachineError` if an invalid messa
 Tracks protocol state from the client's perspective.
 
 ```python
-from pygwire import FrontendStateMachine, ConnectionPhase
+from pygwire.constants import ConnectionPhase
+from pygwire.state_machine import FrontendStateMachine
 
-sm = FrontendStateMachine(phase=ConnectionPhase.STARTUP, allow_pipelining=True)
+sm = FrontendStateMachine(phase=ConnectionPhase.STARTUP)
 ```
 
 **Parameters:**
 
 - `phase` (`ConnectionPhase`, default `STARTUP`): Initial connection phase.
-- `allow_pipelining` (`bool`, default `True`): Whether to allow extended query pipelining.
 
 ### Methods
 
@@ -44,7 +44,7 @@ Record receiving a backend message. Raises `StateMachineError` if the message is
 |----------|------|-------------|
 | `phase` | `ConnectionPhase` | Current connection phase |
 | `is_ready` | `bool` | `True` if phase is `READY` |
-| `is_active` | `bool` | `True` if not in `TERMINATING`, `TERMINATED`, or `FAILED` |
+| `is_active` | `bool` | `True` if not in `TERMINATED` or `FAILED` |
 | `pending_syncs` | `int` | Number of pending Sync responses (for pipelined extended queries) |
 
 ---
@@ -54,9 +54,10 @@ Record receiving a backend message. Raises `StateMachineError` if the message is
 Tracks protocol state from the server's perspective. Same API as `FrontendStateMachine`.
 
 ```python
-from pygwire import BackendStateMachine
+from pygwire.constants import ConnectionPhase
+from pygwire.state_machine import BackendStateMachine
 
-sm = BackendStateMachine(phase=ConnectionPhase.STARTUP, allow_pipelining=True)
+sm = BackendStateMachine(phase=ConnectionPhase.STARTUP)
 ```
 
 **Parameters:** Same as `FrontendStateMachine`.
@@ -87,6 +88,8 @@ Same as `FrontendStateMachine`.
 | `SSL_NEGOTIATION` | SSL/TLS negotiation in progress |
 | `GSS_NEGOTIATION` | GSS encryption negotiation in progress |
 | `AUTHENTICATING` | Authentication exchange active |
+| `AUTHENTICATING_SASL_INITIAL` | SASL authentication initial response |
+| `AUTHENTICATING_SASL_CONTINUE` | SASL authentication continuation |
 | `INITIALIZATION` | Post-auth setup (ParameterStatus, BackendKeyData) |
 | `READY` | Idle, ready for queries |
 | `SIMPLE_QUERY` | Simple query protocol active |
@@ -95,7 +98,6 @@ Same as `FrontendStateMachine`.
 | `COPY_OUT` | COPY TO stdout active |
 | `COPY_BOTH` | Bidirectional copy (streaming replication) |
 | `FUNCTION_CALL` | Legacy function call active |
-| `TERMINATING` | Terminate message sent |
 | `TERMINATED` | Connection closed |
 | `FAILED` | Unrecoverable error |
 
@@ -108,7 +110,7 @@ STARTUP → AUTHENTICATING → INITIALIZATION → READY
                                          EXTENDED_QUERY
                                          COPY_IN / COPY_OUT
                                               ↓
-                                         TERMINATING → TERMINATED
+                                          TERMINATED
 ```
 
 ---
@@ -126,45 +128,13 @@ Raised when an invalid message is sent or received for the current connection ph
 ## Basic usage
 
 ```python
-from pygwire import FrontendStateMachine, ConnectionPhase
-from pygwire.constants import TransactionStatus
-from pygwire.messages import (
-    AuthenticationOk,
-    BackendKeyData,
-    ParameterStatus,
-    Query,
-    ReadyForQuery,
-    StartupMessage,
-)
-
-sm = FrontendStateMachine()
-print(sm.phase)  # ConnectionPhase.STARTUP
-
-# Record messages as you send/receive them
-sm.send(StartupMessage(params={"user": "postgres", "database": "mydb"}))
-print(sm.phase)  # ConnectionPhase.AUTHENTICATING
-
-sm.receive(AuthenticationOk())
-sm.receive(ParameterStatus(name="server_version", value="15.0"))
-sm.receive(BackendKeyData(process_id=1234, secret_key=b"\x00\x00\x00\x01"))
-sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-print(sm.phase)  # ConnectionPhase.READY
+--8<-- "examples/docs/state_machine_basic.py"
 ```
 
 ## Error handling
 
 ```python
-from pygwire import FrontendStateMachine
-from pygwire.messages import Query
-from pygwire.state_machine import StateMachineError
-
-sm = FrontendStateMachine()
-
-try:
-    # Can't send a query before completing startup
-    sm.send(Query(query_string="SELECT 1"))
-except StateMachineError as e:
-    print(f"Invalid: {e}")
+--8<-- "examples/docs/state_machine_error.py"
 ```
 
 ## Proxy usage
@@ -172,18 +142,7 @@ except StateMachineError as e:
 A proxy needs state machines for both sides:
 
 ```python
-from pygwire import FrontendStateMachine, BackendStateMachine
-
-frontend_sm = FrontendStateMachine()
-backend_sm = BackendStateMachine()
-
-# When a client message arrives:
-frontend_sm.send(client_msg)    # Client sent it
-backend_sm.receive(client_msg)  # Server received it
-
-# When a server message arrives:
-backend_sm.send(server_msg)     # Server sent it
-frontend_sm.receive(server_msg) # Client received it
+--8<-- "examples/docs/state_machine_proxy.py"
 ```
 
 Both state machines should stay in the same phase. A mismatch indicates a protocol violation.

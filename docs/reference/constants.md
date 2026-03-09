@@ -2,6 +2,38 @@
 
 Protocol-level enums and constants.
 
+## `ConnectionPhase`
+
+`Enum` of connection lifecycle phases. Used by state machines and decoders to track protocol flow.
+
+| Member | Description |
+|--------|-------------|
+| `STARTUP` | Initial state, waiting for startup message |
+| `SSL_NEGOTIATION` | SSL/TLS negotiation in progress |
+| `GSS_NEGOTIATION` | GSS encryption negotiation in progress |
+| `AUTHENTICATING` | Authentication exchange active |
+| `AUTHENTICATING_SASL_INITIAL` | SASL authentication initial response |
+| `AUTHENTICATING_SASL_CONTINUE` | SASL authentication continuation |
+| `INITIALIZATION` | Post-auth setup (ParameterStatus, BackendKeyData) |
+| `READY` | Idle, ready for queries |
+| `SIMPLE_QUERY` | Simple query protocol active |
+| `EXTENDED_QUERY` | Extended query protocol active |
+| `COPY_IN` | COPY FROM stdin active |
+| `COPY_OUT` | COPY TO stdout active |
+| `COPY_BOTH` | Bidirectional copy (streaming replication) |
+| `FUNCTION_CALL` | Legacy function call active |
+| `TERMINATED` | Connection closed |
+| `FAILED` | Unrecoverable error |
+
+## `MessageDirection`
+
+`StrEnum` indicating which side sends a message type.
+
+| Member | Value | Description |
+|--------|-------|-------------|
+| `FRONTEND` | `"frontend"` | Message sent by client |
+| `BACKEND` | `"backend"` | Message sent by server |
+
 ## `ProtocolVersion`
 
 `IntEnum` of PostgreSQL protocol version codes. Used in `StartupMessage` and special request messages.

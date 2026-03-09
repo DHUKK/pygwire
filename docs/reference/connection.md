@@ -7,30 +7,13 @@ The `Connection` classes coordinate a decoder and state machine together, provid
 Without Connection, you manage a decoder and state machine separately:
 
 ```python
-from pygwire import BackendMessageDecoder, FrontendStateMachine
-
-decoder = BackendMessageDecoder()
-sm = FrontendStateMachine()
-
-sm.send(startup_msg)
-sock.send(startup_msg.to_wire())
-
-decoder.feed(sock.recv(4096))
-for msg in decoder:
-    sm.receive(msg)
+--8<-- "examples/docs/connection_overview_without.py"
 ```
 
 With Connection, both are coordinated in a single object:
 
 ```python
-from pygwire import FrontendConnection
-
-conn = FrontendConnection()
-
-sock.send(conn.send(startup_msg))
-
-for msg in conn.receive(sock.recv(4096)):
-    ...  # state machine is updated automatically
+--8<-- "examples/docs/connection_overview_with.py"
 ```
 
 ## Connection types
@@ -85,6 +68,8 @@ Default implementation does nothing.
 |----------|------|-------------|
 | `phase` | `ConnectionPhase` | Current connection phase (delegates to state machine) |
 | `is_active` | `bool` | `True` if connection has not terminated or failed |
+| `is_ready` | `bool` | `True` if connection is ready to accept queries |
+| `pending_syncs` | `int` | Number of pending Sync responses (for pipelined extended queries) |
 
 ---
 
@@ -98,40 +83,15 @@ from pygwire import FrontendConnection
 conn = FrontendConnection()
 ```
 
-No constructor parameters.
+**Parameters:**
+
+- `initial_phase` (`ConnectionPhase`, default `STARTUP`): Starting connection phase. Use a later phase (e.g., `READY`) for connection pooling or proxying where startup is already complete.
+- `strict` (`bool`, default `True`): If `True`, state machine violations raise `StateMachineError`. If `False`, violations are logged as warnings and the connection continues.
 
 ### Client example
 
 ```python
-import socket
-
-from pygwire import FrontendConnection, ConnectionPhase
-from pygwire.messages import (
-    AuthenticationMD5Password,
-    DataRow,
-    PasswordMessage,
-    Query,
-    StartupMessage,
-)
-
-conn = FrontendConnection()
-sock = socket.create_connection(("localhost", 5432))
-
-# Send startup
-sock.send(conn.send(StartupMessage(params={"user": "postgres", "database": "mydb"})))
-
-# Handle authentication
-while conn.phase != ConnectionPhase.READY:
-    for msg in conn.receive(sock.recv(4096)):
-        if isinstance(msg, AuthenticationMD5Password):
-            sock.send(conn.send(PasswordMessage(password=md5_hash)))
-
-# Send query and read results
-sock.send(conn.send(Query(query_string="SELECT 1")))
-while conn.phase == ConnectionPhase.SIMPLE_QUERY:
-    for msg in conn.receive(sock.recv(4096)):
-        if isinstance(msg, DataRow):
-            print(msg.columns)
+--8<-- "examples/docs/connection_client_example.py"
 ```
 
 ---
@@ -143,12 +103,13 @@ Server-side connection. Uses `FrontendMessageDecoder` + `BackendStateMachine`.
 ```python
 from pygwire import BackendConnection
 
-conn = BackendConnection(startup=True)
+conn = BackendConnection()
 ```
 
 **Parameters:**
 
-- `startup` (`bool`, default `True`): Whether to expect startup messages. Set to `False` if the connection has already completed startup (e.g., for connection pooling).
+- `initial_phase` (`ConnectionPhase`, default `STARTUP`): Starting connection phase. Use a later phase (e.g., `READY`) for connection pooling or proxying where startup is already complete.
+- `strict` (`bool`, default `True`): If `True`, state machine violations raise `StateMachineError`. If `False`, violations are logged as warnings and the connection continues.
 
 ### Server example
 
@@ -157,7 +118,7 @@ from pygwire import BackendConnection
 from pygwire.constants import TransactionStatus
 from pygwire.messages import AuthenticationOk, ReadyForQuery, StartupMessage
 
-conn = BackendConnection(startup=True)
+conn = BackendConnection()
 
 for msg in conn.receive(client_data):
     if isinstance(msg, StartupMessage):
@@ -172,58 +133,13 @@ for msg in conn.receive(client_data):
 Override `on_send()` and `on_receive()` to integrate with your transport:
 
 ```python
-import socket
-
-from pygwire import FrontendConnection
-from pygwire.messages import PGMessage, Query
-
-class SocketConnection(FrontendConnection):
-    def __init__(self, sock: socket.socket) -> None:
-        super().__init__()
-        self.sock = sock
-
-    def on_send(self, data: bytes) -> None:
-        self.sock.send(data)
-
-    def on_receive(self, msg: PGMessage) -> None:
-        print(f"Received: {type(msg).__name__}")
-
-conn = SocketConnection(sock)
-conn.send(Query(query_string="SELECT 1"))  # sends to socket automatically
+--8<-- "examples/docs/connection_subclass_sync.py"
 ```
 
 ### Async example
 
 ```python
-import asyncio
-from collections.abc import AsyncIterator
-
-from pygwire import FrontendConnection
-from pygwire.messages import PGMessage
-
-class AsyncConnection(FrontendConnection):
-    def __init__(
-        self,
-        reader: asyncio.StreamReader,
-        writer: asyncio.StreamWriter,
-    ) -> None:
-        super().__init__()
-        self._reader = reader
-        self._writer = writer
-
-    def on_send(self, data: bytes) -> None:
-        self._writer.write(data)
-
-    async def send_message(self, msg: PGMessage) -> None:
-        self.send(msg)
-        await self._writer.drain()
-
-    async def recv_messages(self) -> AsyncIterator[PGMessage]:
-        data = await self._reader.read(8192)
-        if not data:
-            return
-        for msg in self.receive(data):
-            yield msg
+--8<-- "examples/docs/connection_subclass_async.py"
 ```
 
 See the [authentication proxy example](../examples/auth-proxy.md) for a complete async proxy using this pattern.
@@ -235,16 +151,7 @@ See the [authentication proxy example](../examples/auth-proxy.md) for a complete
 The `phase` property delegates to the state machine. Use it to drive protocol loops:
 
 ```python
-# Authentication loop
-while conn.phase != ConnectionPhase.READY:
-    for msg in conn.receive(sock.recv(4096)):
-        ...
-
-# Query loop
-sock.send(conn.send(Query(query_string="SELECT 1")))
-while conn.phase == ConnectionPhase.SIMPLE_QUERY:
-    for msg in conn.receive(sock.recv(4096)):
-        ...
+--8<-- "examples/docs/connection_phase_tracking.py"
 ```
 
 ---

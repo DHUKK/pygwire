@@ -45,27 +45,7 @@ Use the lower layers independently for maximum control, or use **Connection** fo
 `FrontendConnection` coordinates a decoder and state machine together:
 
 ```python
-import socket
-
-from pygwire import FrontendConnection, ConnectionPhase
-from pygwire.messages import StartupMessage, Query, DataRow
-
-conn = FrontendConnection()
-sock = socket.create_connection(("localhost", 5432))
-
-# Send startup
-sock.send(conn.send(StartupMessage(params={"user": "postgres", "database": "mydb"})))
-
-# Handle authentication
-while conn.phase != ConnectionPhase.READY:
-    for msg in conn.receive(sock.recv(4096)):
-        ...  # handle auth messages
-
-# Send a query and read results
-sock.send(conn.send(Query(query_string="SELECT 1")))
-for msg in conn.receive(sock.recv(4096)):
-    if isinstance(msg, DataRow):
-        print(msg.columns)
+--8<-- "examples/docs/index_connection.py"
 ```
 
 ### Using the low-level API
@@ -73,18 +53,7 @@ for msg in conn.receive(sock.recv(4096)):
 For maximum control, use the codec, messages, and state machine independently:
 
 ```python
-from pygwire import BackendMessageDecoder
-from pygwire.messages import Query
-
-# Decode server messages
-decoder = BackendMessageDecoder()
-decoder.feed(data_from_server)
-for msg in decoder:
-    print(f"{type(msg).__name__}: {msg}")
-
-# Encode client messages
-query = Query(query_string="SELECT 1")
-wire_bytes = query.to_wire()
+--8<-- "examples/docs/index_lowlevel.py"
 ```
 
 ## What is sans-I/O?
@@ -100,22 +69,5 @@ This means pygwire works identically with `asyncio`, `trio`, plain sockets, or e
 The `Connection` classes follow the same principle. They coordinate protocol state internally but never perform I/O. Subclass and override `on_send()` and `on_receive()` to integrate with your transport layer:
 
 ```python
-import socket
-
-from pygwire import FrontendConnection
-from pygwire.messages import PGMessage, Query
-
-class SocketConnection(FrontendConnection):
-    def __init__(self, sock: socket.socket) -> None:
-        super().__init__()
-        self.sock = sock
-
-    def on_send(self, data: bytes) -> None:
-        self.sock.send(data)
-
-    def on_receive(self, msg: PGMessage) -> None:
-        print(f"Received: {type(msg).__name__}")
-
-conn = SocketConnection(sock)
-conn.send(Query(query_string="SELECT 1"))  # automatically sends to socket
+--8<-- "examples/docs/index_subclass.py"
 ```

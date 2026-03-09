@@ -82,26 +82,7 @@ for msg in decoder:
 ## Basic usage
 
 ```python
-from pygwire.codec import BackendMessageDecoder
-from pygwire.constants import ConnectionPhase
-
-decoder = BackendMessageDecoder()
-decoder.phase = ConnectionPhase.STARTUP  # Set initial phase
-
-# Feed bytes from your transport layer
-decoder.feed(raw_bytes)
-
-# Read messages one at a time
-msg = decoder.read()
-
-# Or iterate over all available messages
-for msg in decoder:
-    print(type(msg).__name__)
-    # Update phase as connection progresses
-    # (Connection class handles this automatically)
-
-# Or drain all at once
-messages = decoder.read_all()
+--8<-- "examples/docs/codec_basic_usage.py"
 ```
 
 ## Streaming and partial messages
@@ -109,15 +90,7 @@ messages = decoder.read_all()
 The decoder handles arbitrarily chunked input. Feed one byte at a time or megabytes at once. It buffers internally until a complete message is available:
 
 ```python
-decoder = BackendMessageDecoder()
-
-# These three feeds together form one complete message
-decoder.feed(first_chunk)
-decoder.feed(second_chunk)
-decoder.feed(third_chunk)
-
-# Now the complete message is available
-msg = decoder.read()
+--8<-- "examples/docs/codec_streaming.py"
 ```
 
 ## Phase-aware framing
@@ -125,27 +98,13 @@ msg = decoder.read()
 The PostgreSQL wire protocol uses different framing formats based on connection phase:
 
 1. **STARTUP phase**: messages have no identifier byte (length + payload only)
-2. **SSL_REQUESTED/GSSENC_REQUESTED**: single-byte responses
+2. **SSL_NEGOTIATION/GSS_NEGOTIATION**: single-byte responses
 3. **Standard phases**: messages have identifier byte + length + payload
 
 The decoder automatically selects the correct framing based on the `phase` property:
 
 ```python
-from pygwire.codec import FrontendMessageDecoder
-from pygwire.constants import ConnectionPhase
-
-decoder = FrontendMessageDecoder()
-decoder.phase = ConnectionPhase.STARTUP  # Start in STARTUP
-
-decoder.feed(first_data_from_client)
-
-for msg in decoder:
-    # First message will be StartupMessage, SSLRequest, etc.
-    print(type(msg).__name__)
-
-    # Manually update phase based on message
-    if isinstance(msg, StartupMessage):
-        decoder.phase = ConnectionPhase.AUTHENTICATION
+--8<-- "examples/docs/codec_phase_aware.py"
 ```
 
 !!! tip
