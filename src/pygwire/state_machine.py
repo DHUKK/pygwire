@@ -7,685 +7,605 @@ whether a given message type is legal to send or receive in the current phase.
 Usage (Frontend)::
 
     sm = FrontendStateMachine()
-    # After sending StartupMessage
-    sm.send(StartupMessage(...))
-    # When receiving Authentication
-    sm.receive(AuthenticationMD5Password(...))
-    # After sending PasswordMessage
-    sm.send(PasswordMessage(...))
-    # When receiving ReadyForQuery
-    sm.receive(ReadyForQuery(...))
+    # After sending messages.StartupMessage
+    sm.send(messages.StartupMessage(...))
+    # When receiving messages.Authentication
+    sm.receive(messages.AuthenticationMD5Password(...))
+    # After sending messages.PasswordMessage
+    sm.send(messages.PasswordMessage(...))
+    # When receiving messages.ReadyForQuery
+    sm.receive(messages.ReadyForQuery(...))
     # Now in READY state
 
 Usage (Backend)::
 
     sm = BackendStateMachine()
-    # After receiving StartupMessage
-    sm.receive(StartupMessage(...))
-    # After sending Authentication
-    sm.send(AuthenticationMD5Password(...))
-    # When receiving PasswordMessage
-    sm.receive(PasswordMessage(...))
-    # After sending ReadyForQuery
-    sm.send(ReadyForQuery(...))
+    # After receiving messages.StartupMessage
+    sm.receive(messages.StartupMessage(...))
+    # After sending messages.Authentication
+    sm.send(messages.AuthenticationMD5Password(...))
+    # When receiving messages.PasswordMessage
+    sm.receive(messages.PasswordMessage(...))
+    # After sending messages.ReadyForQuery
+    sm.send(messages.ReadyForQuery(...))
     # Now in READY state
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass, replace
+from enum import StrEnum
+
+from pygwire import messages
 from pygwire.constants import ConnectionPhase
-from pygwire.messages import (
-    Authentication,
-    AuthenticationCleartextPassword,
-    AuthenticationGSS,
-    AuthenticationGSSContinue,
-    AuthenticationKerberosV5,
-    AuthenticationMD5Password,
-    AuthenticationOk,
-    AuthenticationSASL,
-    AuthenticationSASLContinue,
-    AuthenticationSASLFinal,
-    AuthenticationSSPI,
-    BackendKeyData,
-    BackendMessage,
-    Bind,
-    BindComplete,
-    CancelRequest,
-    Close,
-    CloseComplete,
-    CommandComplete,
-    CopyBothResponse,
-    CopyData,
-    CopyDone,
-    CopyFail,
-    CopyInResponse,
-    CopyOutResponse,
-    DataRow,
-    Describe,
-    EmptyQueryResponse,
-    ErrorResponse,
-    Execute,
-    Flush,
-    FrontendMessage,
-    FunctionCall,
-    FunctionCallResponse,
-    GSSEncRequest,
-    GSSResponse,
-    NegotiateProtocolVersion,
-    NoData,
-    NoticeResponse,
-    NotificationResponse,
-    ParameterDescription,
-    ParameterStatus,
-    Parse,
-    ParseComplete,
-    PasswordMessage,
-    PortalSuspended,
-    ProtocolError,
-    Query,
-    ReadyForQuery,
-    RowDescription,
-    SASLInitialResponse,
-    SASLResponse,
-    SpecialMessage,
-    SSLRequest,
-    SSLResponse,
-    StartupMessage,
-    Sync,
-    Terminate,
-)
+
+# Phase alias for readability
+_P = ConnectionPhase
 
 
-class StateMachineError(ProtocolError):
+class MessageAction(StrEnum):
+    """Action being performed on a message (send or receive)."""
+
+    SEND = "send"
+    RECEIVE = "receive"
+
+
+class StateMachineError(messages.ProtocolError):
     """Raised when an invalid message is sent/received for the current state."""
 
 
-class FrontendStateMachine:
+# ---------------------------------------------------------------------------
+# Transition actions — callable objects that mutate state machine
+# ---------------------------------------------------------------------------
+
+
+class _Transition:
+    """Transition to a fixed phase."""
+
+    __slots__ = ("_phase",)
+
+    def __init__(self, phase: ConnectionPhase) -> None:
+        self._phase = phase
+
+    def __call__(self, sm: _StateMachineCore) -> None:
+        sm._state = replace(sm._state, phase=self._phase)
+
+    def __repr__(self) -> str:
+        return f"-> {self._phase.name}"
+
+
+class _Stay:
+    """Remain in the current phase (no-op)."""
+
+    __slots__ = ()
+
+    def __call__(self, sm: _StateMachineCore) -> None:
+        pass
+
+    def __repr__(self) -> str:
+        return "(stay)"
+
+
+class _ExtStart:
+    """Enter extended query from READY — start a new batch."""
+
+    __slots__ = ()
+
+    def __call__(self, sm: _StateMachineCore) -> None:
+        sm._state = replace(
+            sm._state,
+            phase=_P.EXTENDED_QUERY,
+            in_extended_batch=True,
+            pending_syncs=sm._state.pending_syncs + 1,
+        )
+
+    def __repr__(self) -> str:
+        return "-> EXTENDED_QUERY (new batch)"
+
+
+class _ExtContinue:
+    """Continue in extended query — pipelining-aware."""
+
+    __slots__ = ()
+
+    def __call__(self, sm: _StateMachineCore) -> None:
+        if not sm._state.in_extended_batch:
+            sm._state = replace(
+                sm._state,
+                in_extended_batch=True,
+                pending_syncs=sm._state.pending_syncs + 1,
+            )
+
+    def __repr__(self) -> str:
+        return "(extend batch / pipeline)"
+
+
+class _ExtSync:
+    """messages.Sync message in extended query — ends batch or adds sync point."""
+
+    __slots__ = ()
+
+    def __call__(self, sm: _StateMachineCore) -> None:
+        if sm._state.in_extended_batch:
+            sm._state = replace(sm._state, in_extended_batch=False)
+        else:
+            sm._state = replace(sm._state, pending_syncs=sm._state.pending_syncs + 1)
+
+    def __repr__(self) -> str:
+        return "(sync)"
+
+
+class _ExtReadyForQuery:
+    """messages.ReadyForQuery in extended query — resolve one pending sync."""
+
+    __slots__ = ()
+
+    def __call__(self, sm: _StateMachineCore) -> None:
+        new_pending = sm._state.pending_syncs - 1
+        if new_pending <= 0:
+            sm._state = replace(sm._state, phase=_P.READY, in_extended_batch=False, pending_syncs=0)
+        else:
+            sm._state = replace(sm._state, pending_syncs=new_pending)
+
+    def __repr__(self) -> str:
+        return "(resolve sync)"
+
+
+class _CopyDone:
+    """messages.CopyDone/messages.CopyFail ends COPY phase — back to SIMPLE_QUERY."""
+
+    __slots__ = ()
+
+    def __call__(self, sm: _StateMachineCore) -> None:
+        sm._state = replace(sm._state, phase=_P.SIMPLE_QUERY)
+
+    def __repr__(self) -> str:
+        return "-> SIMPLE_QUERY (copy done)"
+
+
+class _SyncFromReady:
+    """Standalone messages.Sync from READY — enter EXTENDED_QUERY with a sync point."""
+
+    __slots__ = ()
+
+    def __call__(self, sm: _StateMachineCore) -> None:
+        sm._state = replace(
+            sm._state,
+            phase=_P.EXTENDED_QUERY,
+            pending_syncs=sm._state.pending_syncs + 1,
+            in_extended_batch=False,
+        )
+
+    def __repr__(self) -> str:
+        return "-> EXTENDED_QUERY (sync from ready)"
+
+
+# Singleton instances for use in transition tables
+stay = _Stay()
+ext_start = _ExtStart()
+ext_continue = _ExtContinue()
+ext_sync = _ExtSync()
+ext_rfq = _ExtReadyForQuery()
+copy_done = _CopyDone()
+sync_from_ready = _SyncFromReady()
+
+
+# Shorthand constructor for simple phase transitions
+def to(phase: ConnectionPhase) -> _Transition:
+    return _Transition(phase)
+
+
+# ---------------------------------------------------------------------------
+# Rule type: (message_types, action)
+# ---------------------------------------------------------------------------
+# Action is any callable that takes a _StateMachineCore and mutates it.
+# Message types can be Frontend, Backend, or Special message classes.
+_Rule = tuple[
+    tuple[type[messages.PGMessage], ...],
+    Callable[["_StateMachineCore"], None],
+]
+
+# ---------------------------------------------------------------------------
+# Transition tables
+# ---------------------------------------------------------------------------
+# Each entry: (message_types, action)
+# - message_types: tuple of message classes to match via isinstance
+# - action: callable that mutates the state machine
+#
+# The tables are shared between Frontend and Backend — the only difference
+# is which table maps to send() vs receive().
+
+# Messages going FROM the frontend (client sends / server receives)
+_FRONTEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
+    _P.STARTUP: [
+        ((messages.SSLRequest,), to(_P.SSL_NEGOTIATION)),
+        ((messages.GSSEncRequest,), to(_P.GSS_NEGOTIATION)),
+        ((messages.StartupMessage, messages.CancelRequest), stay),
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.SSL_NEGOTIATION: [
+        ((messages.GSSEncRequest,), to(_P.GSS_NEGOTIATION)),
+        ((messages.StartupMessage,), to(_P.STARTUP)),
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.GSS_NEGOTIATION: [
+        ((messages.StartupMessage,), to(_P.STARTUP)),
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.AUTHENTICATING: [
+        ((messages.PasswordMessage,), stay),
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.AUTHENTICATING_SASL_INITIAL: [
+        ((messages.SASLInitialResponse,), stay),
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.AUTHENTICATING_SASL_CONTINUE: [
+        ((messages.SASLResponse,), stay),
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.INITIALIZATION: [
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.READY: [
+        ((messages.Query,), to(_P.SIMPLE_QUERY)),
+        (
+            (messages.Parse, messages.Bind, messages.Execute, messages.Describe, messages.Close),
+            ext_start,
+        ),
+        ((messages.Sync,), sync_from_ready),
+        ((messages.Flush,), stay),
+        ((messages.FunctionCall,), to(_P.FUNCTION_CALL)),
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.SIMPLE_QUERY: [
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.EXTENDED_QUERY: [
+        (
+            (messages.Parse, messages.Bind, messages.Execute, messages.Describe, messages.Close),
+            ext_continue,
+        ),
+        ((messages.Flush,), stay),
+        ((messages.Sync,), ext_sync),
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.COPY_IN: [
+        ((messages.CopyData,), stay),
+        ((messages.CopyDone, messages.CopyFail), copy_done),
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.COPY_OUT: [
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.COPY_BOTH: [
+        ((messages.CopyData,), stay),
+        ((messages.CopyDone, messages.CopyFail), copy_done),
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+    _P.FUNCTION_CALL: [
+        ((messages.Terminate,), to(_P.TERMINATED)),
+    ],
+}
+
+# Messages going FROM the backend (server sends / client receives)
+_BACKEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
+    _P.STARTUP: [
+        ((messages.NegotiateProtocolVersion,), stay),
+        ((messages.AuthenticationOk,), to(_P.INITIALIZATION)),
+        ((messages.AuthenticationSASL,), to(_P.AUTHENTICATING_SASL_INITIAL)),
+        (
+            (
+                messages.AuthenticationCleartextPassword,
+                messages.AuthenticationMD5Password,
+                messages.AuthenticationKerberosV5,
+                messages.AuthenticationGSS,
+                messages.AuthenticationSSPI,
+            ),
+            to(_P.AUTHENTICATING),
+        ),
+        ((messages.ErrorResponse,), to(_P.FAILED)),
+    ],
+    _P.SSL_NEGOTIATION: [
+        ((messages.SSLResponse,), to(_P.STARTUP)),
+        ((messages.ErrorResponse,), to(_P.FAILED)),
+    ],
+    _P.GSS_NEGOTIATION: [
+        ((messages.GSSResponse,), to(_P.STARTUP)),
+        ((messages.ErrorResponse,), to(_P.FAILED)),
+    ],
+    _P.AUTHENTICATING: [
+        ((messages.AuthenticationOk,), to(_P.INITIALIZATION)),
+        ((messages.AuthenticationSASL,), to(_P.AUTHENTICATING_SASL_INITIAL)),
+        (
+            (
+                messages.AuthenticationCleartextPassword,
+                messages.AuthenticationMD5Password,
+                messages.AuthenticationKerberosV5,
+                messages.AuthenticationGSS,
+                messages.AuthenticationGSSContinue,
+                messages.AuthenticationSSPI,
+            ),
+            stay,
+        ),
+        ((messages.ErrorResponse,), to(_P.FAILED)),
+    ],
+    _P.AUTHENTICATING_SASL_INITIAL: [
+        ((messages.AuthenticationSASLContinue,), to(_P.AUTHENTICATING_SASL_CONTINUE)),
+        ((messages.AuthenticationOk,), to(_P.INITIALIZATION)),
+        ((messages.ErrorResponse,), to(_P.FAILED)),
+    ],
+    _P.AUTHENTICATING_SASL_CONTINUE: [
+        ((messages.AuthenticationSASLFinal,), to(_P.AUTHENTICATING)),
+        ((messages.AuthenticationSASLContinue,), stay),
+        ((messages.AuthenticationOk,), to(_P.INITIALIZATION)),
+        ((messages.ErrorResponse,), to(_P.FAILED)),
+    ],
+    _P.INITIALIZATION: [
+        ((messages.BackendKeyData,), stay),
+        ((messages.ReadyForQuery,), to(_P.READY)),
+        # "Any phase" messages (ParameterStatus is commonly sent during initialization)
+        ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
+        ((messages.ErrorResponse,), to(_P.FAILED)),
+    ],
+    _P.READY: [
+        # "Any phase" messages allowed (Notice, ParameterStatus, Notification)
+        ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
+        ((messages.ErrorResponse,), stay),
+    ],
+    _P.SIMPLE_QUERY: [
+        (
+            (
+                messages.RowDescription,
+                messages.DataRow,
+                messages.CommandComplete,
+                messages.EmptyQueryResponse,
+            ),
+            stay,
+        ),
+        ((messages.ReadyForQuery,), to(_P.READY)),
+        ((messages.CopyInResponse,), to(_P.COPY_IN)),
+        ((messages.CopyOutResponse,), to(_P.COPY_OUT)),
+        ((messages.CopyBothResponse,), to(_P.COPY_BOTH)),
+        # "Any phase" messages
+        ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
+        ((messages.ErrorResponse,), stay),
+    ],
+    _P.EXTENDED_QUERY: [
+        (
+            (
+                messages.ParseComplete,
+                messages.BindComplete,
+                messages.CloseComplete,
+                messages.ParameterDescription,
+                messages.NoData,
+                messages.RowDescription,
+                messages.DataRow,
+                messages.CommandComplete,
+                messages.EmptyQueryResponse,
+                messages.PortalSuspended,
+            ),
+            stay,
+        ),
+        ((messages.ReadyForQuery,), ext_rfq),
+        ((messages.CopyInResponse,), to(_P.COPY_IN)),
+        ((messages.CopyOutResponse,), to(_P.COPY_OUT)),
+        ((messages.CopyBothResponse,), to(_P.COPY_BOTH)),
+        # "Any phase" messages
+        ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
+        ((messages.ErrorResponse,), stay),
+    ],
+    _P.COPY_IN: [
+        ((messages.CommandComplete,), stay),
+        ((messages.ReadyForQuery,), to(_P.READY)),
+        # "Any phase" messages
+        ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
+        ((messages.ErrorResponse,), stay),
+    ],
+    _P.COPY_OUT: [
+        ((messages.CopyData,), stay),
+        ((messages.CopyDone,), copy_done),
+        ((messages.CommandComplete,), stay),
+        ((messages.ReadyForQuery,), to(_P.READY)),
+        # "Any phase" messages
+        ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
+        ((messages.ErrorResponse,), stay),
+    ],
+    _P.COPY_BOTH: [
+        ((messages.CopyData,), stay),
+        ((messages.CopyDone,), copy_done),
+        ((messages.CommandComplete,), stay),
+        ((messages.ReadyForQuery,), to(_P.READY)),
+        # "Any phase" messages
+        ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
+        ((messages.ErrorResponse,), stay),
+    ],
+    _P.FUNCTION_CALL: [
+        ((messages.FunctionCallResponse,), to(_P.SIMPLE_QUERY)),
+        ((messages.CommandComplete,), stay),
+        ((messages.ReadyForQuery,), to(_P.READY)),
+        # "Any phase" messages
+        ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
+        ((messages.ErrorResponse,), to(_P.SIMPLE_QUERY)),  # Special: return to SIMPLE_QUERY
+    ],
+}
+
+# Phases where messages.Terminate is not allowed (terminal phases)
+_TERMINAL_PHASES = frozenset(
+    {
+        _P.TERMINATED,
+        _P.FAILED,
+    }
+)
+
+
+def _generate_hints(rules: dict[ConnectionPhase, list[_Rule]]) -> dict[ConnectionPhase, str]:
+    """Generate error hints from transition rules listing valid message types per phase."""
+    hints = {}
+    for phase, phase_rules in rules.items():
+        msg_names = [msg_type.__name__ for msg_types, _ in phase_rules for msg_type in msg_types]
+        if not msg_names:
+            continue
+        if len(msg_names) == 1:
+            hints[phase] = f"expected {msg_names[0]}"
+        else:
+            hints[phase] = f"expected {', '.join(msg_names[:-1])}, or {msg_names[-1]}"
+    return hints
+
+
+# Error hints per phase (auto-generated from transition rules)
+_FRONTEND_PHASE_HINTS = _generate_hints(_FRONTEND_MSG_RULES)
+_BACKEND_PHASE_HINTS = _generate_hints(_BACKEND_MSG_RULES)
+
+
+# ---------------------------------------------------------------------------
+# Immutable state object
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class _State:
+    """Immutable state for the state machine.
+
+    All state transitions create a new _State instance rather than mutating in place.
+    """
+
+    phase: ConnectionPhase
+    in_extended_batch: bool = False
+    pending_syncs: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Unified state machine core
+# ---------------------------------------------------------------------------
+
+
+class _StateMachineCore:
+    """Table-driven state machine core shared by Frontend and Backend.
+
+    The two public classes (FrontendStateMachine, BackendStateMachine) differ
+    only in which transition table is used for send() vs receive().
+
+    All state transitions are declaratively defined in the rule tables.
+    Uses immutable state objects for all state transitions.
+    """
+
+    __slots__ = ("_state",)
+
+    def __init__(
+        self,
+        phase: ConnectionPhase = ConnectionPhase.STARTUP,
+    ) -> None:
+        self._state = _State(phase=phase)
+
+    @property
+    def phase(self) -> ConnectionPhase:
+        """Current connection phase."""
+        return self._state.phase
+
+    @property
+    def is_ready(self) -> bool:
+        """True if the connection is ready to accept queries."""
+        return self._state.phase == ConnectionPhase.READY
+
+    @property
+    def is_active(self) -> bool:
+        """True if the connection is active (not terminated or failed)."""
+        return self._state.phase not in _TERMINAL_PHASES
+
+    @property
+    def pending_syncs(self) -> int:
+        """Number of pending messages.Sync responses (for pipelined extended queries)."""
+        return self._state.pending_syncs
+
+    def _process_frontend_msg(self, msg: object, action: MessageAction) -> None:
+        """Process a frontend message."""
+        self._process(msg, rules=_FRONTEND_MSG_RULES, hints=_FRONTEND_PHASE_HINTS, action=action)
+
+    def _process_backend_msg(self, msg: object, action: MessageAction) -> None:
+        """Process a backend message."""
+        self._process(msg, rules=_BACKEND_MSG_RULES, hints=_BACKEND_PHASE_HINTS, action=action)
+
+    def _process(
+        self,
+        msg: object,
+        rules: dict[ConnectionPhase, list[_Rule]],
+        hints: dict[ConnectionPhase, str],
+        action: MessageAction,
+    ) -> None:
+        """Process a message against the given transition table."""
+        msg_type = type(msg).__name__
+        phase = self._state.phase
+
+        # --- Phase-specific rules ---
+        phase_rules = rules.get(phase)
+        if phase_rules is None:
+            raise StateMachineError(f"Cannot {action} {msg_type} in phase {phase.name}")
+
+        for msg_types, action_fn in phase_rules:
+            if isinstance(msg, msg_types):
+                action_fn(self)
+                return
+
+        # No rule matched — build error message
+        hint = hints.get(phase, "")
+        base = f"Cannot {action} {msg_type} in phase {phase.name}"
+        if hint:
+            raise StateMachineError(f"{base}; {hint}")
+        raise StateMachineError(base)
+
+
+# ---------------------------------------------------------------------------
+# Public state machines
+# ---------------------------------------------------------------------------
+
+
+class FrontendStateMachine(_StateMachineCore):
     """State machine for frontend (client) connection lifecycle.
 
     Tracks the current phase and validates that messages sent and received
     are appropriate for the current state.
 
     Three backend messages are accepted in any phase (except STARTUP/TERMINATED):
-    - NoticeResponse
-    - ParameterStatus
-    - NotificationResponse
+    - messages.NoticeResponse
+    - messages.ParameterStatus
+    - messages.NotificationResponse
 
-    ErrorResponse transitions to FAILED in most phases.
+    messages.ErrorResponse transitions to FAILED in most phases.
 
     Pipelining Support:
     ----------------------
-    Extended query protocol supports pipelining via the Sync message.
+    Extended query protocol supports pipelining via the messages.Sync message.
     Simple query protocol does NOT support pipelining (per PostgreSQL spec 54.2.4).
 
     The state machine tracks pending_syncs to handle pipelined extended query batches.
     """
 
-    __slots__ = ("_phase", "_in_extended_batch", "_pending_syncs", "_allow_pipelining")
-
-    def __init__(
-        self,
-        phase: ConnectionPhase = ConnectionPhase.STARTUP,
-        allow_pipelining: bool = True,
-    ) -> None:
-        self._phase = phase
-        # Track whether we're in an extended query batch (before Sync)
-        self._in_extended_batch = False
-        # Track pending Sync responses for pipelining support (extended query)
-        self._pending_syncs = 0
-        # Whether to allow pipelining (can be disabled for strict validation)
-        self._allow_pipelining = allow_pipelining
-
-    @property
-    def phase(self) -> ConnectionPhase:
-        """Current connection phase."""
-        return self._phase
-
-    @property
-    def is_ready(self) -> bool:
-        """True if the connection is ready to accept queries."""
-        return self._phase == ConnectionPhase.READY
-
-    @property
-    def is_active(self) -> bool:
-        """True if the connection is active (not terminated or failed)."""
-        return self._phase not in (
-            ConnectionPhase.TERMINATING,
-            ConnectionPhase.TERMINATED,
-            ConnectionPhase.FAILED,
-        )
-
-    @property
-    def pending_syncs(self) -> int:
-        """Number of pending Sync responses (for pipelined extended queries)."""
-        return self._pending_syncs
-
-    def send(self, msg: FrontendMessage | SpecialMessage) -> None:
+    def send(self, msg: messages.FrontendMessage | messages.SpecialMessage) -> None:
         """Process a message being sent by the frontend.
 
         Args:
             msg: The message to send
 
         Raises:
-            StateMachineError: If the message is not valid for the current phase
+            messages.StateMachineError: If the message is not valid for the current phase
         """
-        msg_type = type(msg).__name__
-        phase = self._phase
+        self._process_frontend_msg(msg, action=MessageAction.SEND)
 
-        # Terminate can be sent from any active phase
-        if isinstance(msg, Terminate):
-            if phase in (
-                ConnectionPhase.TERMINATING,
-                ConnectionPhase.TERMINATED,
-                ConnectionPhase.FAILED,
-            ):
-                raise StateMachineError(f"Cannot send {msg_type} in phase {phase.name}")
-            self._phase = ConnectionPhase.TERMINATING
-            return
-
-        # Phase-specific validation
-        if phase == ConnectionPhase.STARTUP:
-            if isinstance(msg, (StartupMessage, SSLRequest, GSSEncRequest, CancelRequest)):
-                if isinstance(msg, SSLRequest):
-                    self._phase = ConnectionPhase.SSL_NEGOTIATION
-                elif isinstance(msg, GSSEncRequest):
-                    self._phase = ConnectionPhase.GSS_NEGOTIATION
-                # StartupMessage keeps us in STARTUP until we receive a response
-                # CancelRequest closes the connection immediately (no response)
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected StartupMessage, SSLRequest, GSSEncRequest, or CancelRequest"
-            )
-
-        elif phase == ConnectionPhase.SSL_NEGOTIATION:
-            # After SSL response, send StartupMessage, GSSEncRequest, or CancelRequest
-            # CancelRequest can be sent on its own ephemeral connection after SSL negotiation
-            if isinstance(msg, (StartupMessage, GSSEncRequest, CancelRequest)):
-                if isinstance(msg, GSSEncRequest):
-                    self._phase = ConnectionPhase.GSS_NEGOTIATION
-                elif isinstance(msg, StartupMessage):
-                    self._phase = ConnectionPhase.STARTUP
-                # CancelRequest stays in SSL_NEGOTIATION and closes connection
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected StartupMessage, GSSEncRequest, or CancelRequest"
-            )
-
-        elif phase == ConnectionPhase.GSS_NEGOTIATION:
-            # After GSS response, send StartupMessage
-            if isinstance(msg, StartupMessage):
-                self._phase = ConnectionPhase.STARTUP
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; expected StartupMessage"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING:
-            if isinstance(msg, PasswordMessage):
-                # Cleartext/MD5/GSSAPI/SSPI password response
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; expected PasswordMessage"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL:
-            if isinstance(msg, SASLInitialResponse):
-                # After sending SASLInitialResponse, wait for server challenge
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; expected SASLInitialResponse"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING_SASL_CONTINUE:
-            if isinstance(msg, SASLResponse):
-                # SASL continuation response
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; expected SASLResponse"
-            )
-
-        elif phase == ConnectionPhase.INITIALIZATION:
-            # During initialization, frontend doesn't send anything except Terminate
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "waiting for backend initialization to complete"
-            )
-
-        elif phase == ConnectionPhase.READY:
-            if isinstance(msg, Query):
-                self._phase = ConnectionPhase.SIMPLE_QUERY
-                # Note: simple query does not support pipelining
-                return
-            elif isinstance(msg, (Parse, Bind, Execute, Describe, Close)):
-                self._phase = ConnectionPhase.EXTENDED_QUERY
-                self._in_extended_batch = True
-                self._pending_syncs += 1  # Start a new extended query batch
-                return
-            elif isinstance(msg, Sync):
-                # Sync in READY - server will respond with ReadyForQuery
-                # Transition to EXTENDED_QUERY to handle the response
-                self._phase = ConnectionPhase.EXTENDED_QUERY
-                self._pending_syncs += 1
-                self._in_extended_batch = False  # Not in a batch, just a sync point
-                return
-            elif isinstance(msg, Flush):
-                # Flush in READY is a true no-op (doesn't expect response)
-                return
-            elif isinstance(msg, FunctionCall):
-                self._phase = ConnectionPhase.FUNCTION_CALL
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected Query, Parse, Bind, Execute, Describe, Close, Sync, Flush, or FunctionCall"
-            )
-
-        elif phase == ConnectionPhase.SIMPLE_QUERY:
-            # Simple query protocol does NOT support pipelining per PostgreSQL spec
-            # "Use of the extended query protocol allows pipelining" - PG docs 54.2.4
-            # Must wait for ReadyForQuery before sending another Query
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "simple query protocol does not support pipelining "
-                "(use extended query protocol for pipelining)"
-            )
-
-        elif phase == ConnectionPhase.EXTENDED_QUERY:
-            if isinstance(msg, (Parse, Bind, Execute, Describe, Close, Flush)):
-                # Pipelining: if we're not in a batch, start a new one
-                if not self._in_extended_batch and isinstance(
-                    msg, (Parse, Bind, Execute, Describe, Close)
-                ):
-                    if self._allow_pipelining:
-                        self._in_extended_batch = True
-                        self._pending_syncs += 1
-                        return
-                    raise StateMachineError(
-                        f"Cannot send {msg_type} in phase {phase.name}; "
-                        "must wait for ReadyForQuery (pipelining disabled)"
-                    )
-                # Continue in current extended query batch
-                return
-            elif isinstance(msg, Sync):
-                if self._in_extended_batch:
-                    # Sync ends the current extended query batch
-                    self._in_extended_batch = False
-                else:
-                    # Additional Sync sent after previous Sync (pipelined sync points)
-                    # Each Sync gets its own ReadyForQuery response
-                    self._pending_syncs += 1
-                # Stay in EXTENDED_QUERY until we receive ReadyForQuery
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected Parse, Bind, Execute, Describe, Close, Sync, or Flush"
-            )
-
-        elif phase == ConnectionPhase.COPY_IN:
-            if isinstance(msg, (CopyData, CopyDone, CopyFail)):
-                # CopyDone/CopyFail transition back to waiting for CommandComplete
-                if isinstance(msg, (CopyDone, CopyFail)):
-                    self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected CopyData, CopyDone, or CopyFail"
-            )
-
-        elif phase == ConnectionPhase.COPY_OUT:
-            # In COPY OUT, frontend only receives data
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "waiting for COPY OUT data from backend"
-            )
-
-        elif phase == ConnectionPhase.COPY_BOTH:
-            if isinstance(msg, (CopyData, CopyDone, CopyFail)):
-                # CopyDone/CopyFail transition back to waiting for backend
-                if isinstance(msg, (CopyDone, CopyFail)):
-                    self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected CopyData, CopyDone, or CopyFail"
-            )
-
-        elif phase == ConnectionPhase.FUNCTION_CALL:
-            # In function call, we wait for backend response
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; waiting for function call response"
-            )
-
-        elif phase == ConnectionPhase.TERMINATING:
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; connection is terminating"
-            )
-
-        else:
-            raise StateMachineError(f"Cannot send {msg_type} in phase {phase.name}")
-
-    def receive(self, msg: BackendMessage) -> None:
+    def receive(self, msg: messages.BackendMessage) -> None:
         """Process a message received from the backend.
 
         Args:
             msg: The message received
 
         Raises:
-            StateMachineError: If the message is not valid for the current phase
+            messages.StateMachineError: If the message is not valid for the current phase
         """
-        msg_type = type(msg).__name__
-        phase = self._phase
-
-        # Three messages are accepted in any phase (except STARTUP/TERMINATED/FAILED)
-        if isinstance(msg, (NoticeResponse, ParameterStatus, NotificationResponse)):
-            if phase in (
-                ConnectionPhase.STARTUP,
-                ConnectionPhase.SSL_NEGOTIATION,
-                ConnectionPhase.GSS_NEGOTIATION,
-                ConnectionPhase.TERMINATED,
-            ):
-                raise StateMachineError(f"Cannot receive {msg_type} in phase {phase.name}")
-            # These don't change state
-            return
-
-        # ErrorResponse handling
-        if isinstance(msg, ErrorResponse):
-            if phase in (
-                ConnectionPhase.STARTUP,
-                ConnectionPhase.SSL_NEGOTIATION,
-                ConnectionPhase.GSS_NEGOTIATION,
-                ConnectionPhase.AUTHENTICATING,
-                ConnectionPhase.AUTHENTICATING_SASL_INITIAL,
-                ConnectionPhase.AUTHENTICATING_SASL_CONTINUE,
-                ConnectionPhase.INITIALIZATION,
-            ):
-                # Fatal during startup/auth
-                self._phase = ConnectionPhase.FAILED
-                return
-            elif phase == ConnectionPhase.SIMPLE_QUERY:
-                # Error in simple query - wait for ReadyForQuery
-                return
-            elif phase == ConnectionPhase.EXTENDED_QUERY:
-                # Error in extended query - stay in extended query until ReadyForQuery
-                return
-            elif phase in (
-                ConnectionPhase.COPY_IN,
-                ConnectionPhase.COPY_OUT,
-                ConnectionPhase.COPY_BOTH,
-            ):
-                # Error in COPY - stay in COPY phase until CopyDone/CopyFail
-                # Client must send CopyFail to acknowledge the error
-                return
-            elif phase == ConnectionPhase.FUNCTION_CALL:
-                # Error in function call - wait for ReadyForQuery
-                self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            # Other phases - don't change state
-            return
-
-        # Phase-specific validation
-        if phase == ConnectionPhase.STARTUP:
-            if isinstance(msg, NegotiateProtocolVersion):
-                # Protocol version negotiation - stay in STARTUP
-                return
-            if isinstance(msg, AuthenticationOk):
-                # Trust authentication - skip AUTHENTICATING phase
-                self._phase = ConnectionPhase.INITIALIZATION
-                return
-            if isinstance(msg, AuthenticationSASL):
-                # SASL auth requested - next frontend message must be SASLInitialResponse
-                self._phase = ConnectionPhase.AUTHENTICATING_SASL_INITIAL
-                return
-            if isinstance(
-                msg,
-                (
-                    Authentication,
-                    AuthenticationCleartextPassword,
-                    AuthenticationMD5Password,
-                    AuthenticationKerberosV5,
-                    AuthenticationGSS,
-                    AuthenticationGSSContinue,
-                    AuthenticationSSPI,
-                    AuthenticationSASLContinue,
-                    AuthenticationSASLFinal,
-                ),
-            ):
-                self._phase = ConnectionPhase.AUTHENTICATING
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected Authentication or NegotiateProtocolVersion"
-            )
-
-        elif phase == ConnectionPhase.SSL_NEGOTIATION:
-            if isinstance(msg, SSLResponse):
-                # SSL response received - go back to STARTUP to send StartupMessage
-                self._phase = ConnectionPhase.STARTUP
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; expected SSLResponse"
-            )
-
-        elif phase == ConnectionPhase.GSS_NEGOTIATION:
-            if isinstance(msg, GSSResponse):
-                # GSS response received - go back to STARTUP to send StartupMessage
-                self._phase = ConnectionPhase.STARTUP
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; expected GSSResponse"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING:
-            if isinstance(msg, AuthenticationOk):
-                # Authentication successful - transition to INITIALIZATION
-                self._phase = ConnectionPhase.INITIALIZATION
-                return
-            elif isinstance(msg, AuthenticationSASL):
-                # SASL auth requested - next frontend message must be SASLInitialResponse
-                self._phase = ConnectionPhase.AUTHENTICATING_SASL_INITIAL
-                return
-            elif isinstance(
-                msg,
-                (
-                    AuthenticationCleartextPassword,
-                    AuthenticationMD5Password,
-                    AuthenticationKerberosV5,
-                    AuthenticationGSS,
-                    AuthenticationGSSContinue,
-                    AuthenticationSSPI,
-                    AuthenticationSASLContinue,
-                    AuthenticationSASLFinal,
-                ),
-            ):
-                # Continue authentication loop
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; expected Authentication message"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL:
-            # Waiting for server challenge after client sent SASLInitialResponse
-            if isinstance(msg, AuthenticationSASLContinue):
-                self._phase = ConnectionPhase.AUTHENTICATING_SASL_CONTINUE
-                return
-            elif isinstance(msg, AuthenticationOk):
-                self._phase = ConnectionPhase.INITIALIZATION
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected AuthenticationSASLContinue or AuthenticationOk"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING_SASL_CONTINUE:
-            # Waiting for final SASL message or another challenge
-            if isinstance(msg, AuthenticationSASLFinal):
-                # SASL complete - next will be AuthenticationOk
-                self._phase = ConnectionPhase.AUTHENTICATING
-                return
-            elif isinstance(msg, AuthenticationSASLContinue):
-                # Another round of SASL
-                return
-            elif isinstance(msg, AuthenticationOk):
-                self._phase = ConnectionPhase.INITIALIZATION
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected AuthenticationSASLContinue, AuthenticationSASLFinal, or AuthenticationOk"
-            )
-
-        elif phase == ConnectionPhase.INITIALIZATION:
-            if isinstance(msg, BackendKeyData):
-                # BackendKeyData is sent during initialization
-                return
-            elif isinstance(msg, ReadyForQuery):
-                # Initialization complete - ready for queries
-                self._phase = ConnectionPhase.READY
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected BackendKeyData or ReadyForQuery"
-            )
-
-        elif phase == ConnectionPhase.READY:
-            # In READY, we shouldn't receive messages except the "any phase" ones
-            # (which are already handled above)
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "not expecting backend messages while idle"
-            )
-
-        elif phase == ConnectionPhase.SIMPLE_QUERY:
-            if isinstance(msg, (RowDescription, DataRow, CommandComplete, EmptyQueryResponse)):
-                # Query results
-                return
-            elif isinstance(msg, ReadyForQuery):
-                # Simple query complete - back to READY
-                # (no pipelining support, so no pending counter)
-                self._phase = ConnectionPhase.READY
-                return
-            elif isinstance(msg, CopyInResponse):
-                self._phase = ConnectionPhase.COPY_IN
-                return
-            elif isinstance(msg, CopyOutResponse):
-                self._phase = ConnectionPhase.COPY_OUT
-                return
-            elif isinstance(msg, CopyBothResponse):
-                self._phase = ConnectionPhase.COPY_BOTH
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected query results, ReadyForQuery, or Copy*Response"
-            )
-
-        elif phase == ConnectionPhase.EXTENDED_QUERY:
-            if isinstance(
-                msg,
-                (
-                    ParseComplete,
-                    BindComplete,
-                    CloseComplete,
-                    ParameterDescription,
-                    NoData,
-                    RowDescription,
-                    DataRow,
-                    CommandComplete,
-                    EmptyQueryResponse,
-                    PortalSuspended,
-                ),
-            ):
-                # Extended query results
-                return
-            elif isinstance(msg, ReadyForQuery):
-                # Extended query batch complete - decrement pending syncs
-                self._pending_syncs -= 1
-                if self._pending_syncs > 0:
-                    # Still have pending batches - stay in EXTENDED_QUERY
-                    return
-                # All batches complete - back to READY
-                self._phase = ConnectionPhase.READY
-                self._in_extended_batch = False
-                return
-            elif isinstance(msg, CopyInResponse):
-                self._phase = ConnectionPhase.COPY_IN
-                return
-            elif isinstance(msg, CopyOutResponse):
-                self._phase = ConnectionPhase.COPY_OUT
-                return
-            elif isinstance(msg, CopyBothResponse):
-                self._phase = ConnectionPhase.COPY_BOTH
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected extended query results, ReadyForQuery, or Copy*Response"
-            )
-
-        elif phase == ConnectionPhase.COPY_IN:
-            # In COPY IN, backend sends no data - just waits for frontend
-            if isinstance(msg, (CommandComplete, ReadyForQuery)):
-                if isinstance(msg, ReadyForQuery):
-                    self._phase = ConnectionPhase.READY
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected CommandComplete or ReadyForQuery"
-            )
-
-        elif phase == ConnectionPhase.COPY_OUT:
-            if isinstance(msg, (CopyData, CopyDone)):
-                if isinstance(msg, CopyDone):
-                    # COPY OUT complete - wait for CommandComplete
-                    self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            elif isinstance(msg, (CommandComplete, ReadyForQuery)):
-                if isinstance(msg, ReadyForQuery):
-                    self._phase = ConnectionPhase.READY
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected CopyData, CopyDone, CommandComplete, or ReadyForQuery"
-            )
-
-        elif phase == ConnectionPhase.COPY_BOTH:
-            if isinstance(msg, (CopyData, CopyDone)):
-                if isinstance(msg, CopyDone):
-                    # COPY BOTH complete - wait for CommandComplete
-                    self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            elif isinstance(msg, (CommandComplete, ReadyForQuery)):
-                if isinstance(msg, ReadyForQuery):
-                    self._phase = ConnectionPhase.READY
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected CopyData, CopyDone, CommandComplete, or ReadyForQuery"
-            )
-
-        elif phase == ConnectionPhase.FUNCTION_CALL:
-            if isinstance(msg, FunctionCallResponse):
-                # Function call response - stay in phase until ReadyForQuery
-                self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            elif isinstance(msg, (CommandComplete, ReadyForQuery)):
-                if isinstance(msg, ReadyForQuery):
-                    self._phase = ConnectionPhase.READY
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected FunctionCallResponse, CommandComplete, or ReadyForQuery"
-            )
-
-        elif phase == ConnectionPhase.TERMINATING:
-            # After Terminate, we shouldn't receive anything
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; connection is terminating"
-            )
-
-        else:
-            raise StateMachineError(f"Cannot receive {msg_type} in phase {phase.name}")
+        self._process_backend_msg(msg, action=MessageAction.RECEIVE)
 
 
-class BackendStateMachine:
+class BackendStateMachine(_StateMachineCore):
     """State machine for backend (server) connection lifecycle.
 
     Tracks the current phase and validates that messages sent and received
@@ -694,546 +614,28 @@ class BackendStateMachine:
 
     Pipelining Support:
     ----------------------
-    Extended query protocol supports pipelining via the Sync message.
+    Extended query protocol supports pipelining via the messages.Sync message.
     Simple query protocol does NOT support pipelining (per PostgreSQL spec 54.2.4).
     """
 
-    __slots__ = ("_phase", "_in_extended_batch", "_pending_syncs", "_allow_pipelining")
-
-    def __init__(
-        self,
-        phase: ConnectionPhase = ConnectionPhase.STARTUP,
-        allow_pipelining: bool = True,
-    ) -> None:
-        self._phase = phase
-        self._in_extended_batch = False
-        # Track pending Sync responses for pipelining support (extended query)
-        self._pending_syncs = 0
-        # Whether to allow pipelining (can be disabled for strict validation)
-        self._allow_pipelining = allow_pipelining
-
-    @property
-    def phase(self) -> ConnectionPhase:
-        """Current connection phase."""
-        return self._phase
-
-    @property
-    def is_ready(self) -> bool:
-        """True if the connection is ready to accept queries."""
-        return self._phase == ConnectionPhase.READY
-
-    @property
-    def is_active(self) -> bool:
-        """True if the connection is active (not terminated or failed)."""
-        return self._phase not in (
-            ConnectionPhase.TERMINATING,
-            ConnectionPhase.TERMINATED,
-            ConnectionPhase.FAILED,
-        )
-
-    @property
-    def pending_syncs(self) -> int:
-        """Number of pending Sync responses (for pipelined extended queries)."""
-        return self._pending_syncs
-
-    def receive(self, msg: FrontendMessage | SpecialMessage) -> None:
+    def receive(self, msg: messages.FrontendMessage | messages.SpecialMessage) -> None:
         """Process a message received from the frontend.
 
         Args:
             msg: The message received
 
         Raises:
-            StateMachineError: If the message is not valid for the current phase
+            messages.StateMachineError: If the message is not valid for the current phase
         """
-        msg_type = type(msg).__name__
-        phase = self._phase
+        self._process_frontend_msg(msg, action=MessageAction.RECEIVE)
 
-        # Terminate can be received in any active phase
-        if isinstance(msg, Terminate):
-            if phase in (
-                ConnectionPhase.TERMINATING,
-                ConnectionPhase.TERMINATED,
-                ConnectionPhase.FAILED,
-            ):
-                raise StateMachineError(f"Cannot receive {msg_type} in phase {phase.name}")
-            self._phase = ConnectionPhase.TERMINATED
-            return
-
-        # Phase-specific validation
-        if phase == ConnectionPhase.STARTUP:
-            if isinstance(msg, (StartupMessage, SSLRequest, GSSEncRequest, CancelRequest)):
-                if isinstance(msg, SSLRequest):
-                    self._phase = ConnectionPhase.SSL_NEGOTIATION
-                elif isinstance(msg, GSSEncRequest):
-                    self._phase = ConnectionPhase.GSS_NEGOTIATION
-                # StartupMessage stays in STARTUP until backend responds
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected StartupMessage, SSLRequest, GSSEncRequest, or CancelRequest"
-            )
-
-        elif phase == ConnectionPhase.SSL_NEGOTIATION:
-            # After sending SSL response, receive StartupMessage or GSSEncRequest
-            if isinstance(msg, (StartupMessage, GSSEncRequest)):
-                if isinstance(msg, GSSEncRequest):
-                    self._phase = ConnectionPhase.GSS_NEGOTIATION
-                else:
-                    self._phase = ConnectionPhase.STARTUP
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected StartupMessage or GSSEncRequest"
-            )
-
-        elif phase == ConnectionPhase.GSS_NEGOTIATION:
-            # After sending GSS response, receive StartupMessage
-            if isinstance(msg, StartupMessage):
-                self._phase = ConnectionPhase.STARTUP
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; expected StartupMessage"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING:
-            if isinstance(msg, PasswordMessage):
-                # Cleartext/MD5/GSSAPI/SSPI password response
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; expected PasswordMessage"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL:
-            if isinstance(msg, SASLInitialResponse):
-                # SASLInitialResponse received, server will send challenge next
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; expected SASLInitialResponse"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING_SASL_CONTINUE:
-            if isinstance(msg, SASLResponse):
-                # SASL continuation response
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; expected SASLResponse"
-            )
-
-        elif phase == ConnectionPhase.INITIALIZATION:
-            # During initialization, backend sends messages (no receives)
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "backend is sending initialization messages"
-            )
-
-        elif phase == ConnectionPhase.READY:
-            if isinstance(msg, Query):
-                self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            elif isinstance(msg, (Parse, Bind, Execute, Describe, Close)):
-                self._phase = ConnectionPhase.EXTENDED_QUERY
-                self._in_extended_batch = True
-                self._pending_syncs += 1  # Start a new extended query batch
-                return
-            elif isinstance(msg, Sync):
-                # Sync in READY - backend will respond with ReadyForQuery
-                # Transition to EXTENDED_QUERY to handle sending the response
-                self._phase = ConnectionPhase.EXTENDED_QUERY
-                self._pending_syncs += 1
-                self._in_extended_batch = False  # Not in a batch, just a sync point
-                return
-            elif isinstance(msg, Flush):
-                # Flush in READY doesn't change state (no response expected)
-                return
-            elif isinstance(msg, FunctionCall):
-                self._phase = ConnectionPhase.FUNCTION_CALL
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected Query, Parse, Bind, Execute, Describe, Close, Sync, Flush, or FunctionCall"
-            )
-
-        elif phase == ConnectionPhase.SIMPLE_QUERY:
-            # Simple query protocol does NOT support pipelining per PostgreSQL spec
-            # Backend is sending results, client cannot send more queries yet
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "backend is sending query results "
-                "(simple query protocol does not support pipelining)"
-            )
-
-        elif phase == ConnectionPhase.EXTENDED_QUERY:
-            if isinstance(msg, (Parse, Bind, Execute, Describe, Close, Flush)):
-                # Pipelining: if we're not in a batch, start a new one
-                if not self._in_extended_batch and isinstance(
-                    msg, (Parse, Bind, Execute, Describe, Close)
-                ):
-                    if self._allow_pipelining:
-                        self._in_extended_batch = True
-                        self._pending_syncs += 1
-                        return
-                    raise StateMachineError(
-                        f"Cannot receive {msg_type} in phase {phase.name}; "
-                        "must wait for ReadyForQuery (pipelining disabled)"
-                    )
-                # Continue in current extended query batch
-                return
-            elif isinstance(msg, Sync):
-                if self._in_extended_batch:
-                    # Sync ends the current extended query batch
-                    self._in_extended_batch = False
-                else:
-                    # Additional Sync received after previous Sync (pipelined sync points)
-                    # Backend must send a ReadyForQuery for each Sync
-                    self._pending_syncs += 1
-                # Stay in EXTENDED_QUERY until backend sends ReadyForQuery
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected Parse, Bind, Execute, Describe, Close, Sync, or Flush"
-            )
-
-        elif phase == ConnectionPhase.COPY_IN:
-            if isinstance(msg, (CopyData, CopyDone, CopyFail)):
-                # CopyDone/CopyFail transition to sending CommandComplete
-                if isinstance(msg, (CopyDone, CopyFail)):
-                    self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected CopyData, CopyDone, or CopyFail"
-            )
-
-        elif phase == ConnectionPhase.COPY_OUT:
-            # In COPY OUT, backend is sending data (no receives)
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; backend is sending COPY OUT data"
-            )
-
-        elif phase == ConnectionPhase.COPY_BOTH:
-            if isinstance(msg, (CopyData, CopyDone, CopyFail)):
-                # CopyDone/CopyFail transition to sending CommandComplete
-                if isinstance(msg, (CopyDone, CopyFail)):
-                    self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected CopyData, CopyDone, or CopyFail"
-            )
-
-        elif phase == ConnectionPhase.FUNCTION_CALL:
-            # In function call, backend is responding
-            raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "backend is sending function call response"
-            )
-
-        else:
-            raise StateMachineError(f"Cannot receive {msg_type} in phase {phase.name}")
-
-    def send(self, msg: BackendMessage) -> None:
+    def send(self, msg: messages.BackendMessage) -> None:
         """Process a message being sent by the backend.
 
         Args:
             msg: The message to send
 
         Raises:
-            StateMachineError: If the message is not valid for the current phase
+            messages.StateMachineError: If the message is not valid for the current phase
         """
-        msg_type = type(msg).__name__
-        phase = self._phase
-
-        # Three messages can be sent in any phase (except TERMINATED/FAILED)
-        if isinstance(msg, (NoticeResponse, ParameterStatus, NotificationResponse)):
-            if phase in (ConnectionPhase.TERMINATED, ConnectionPhase.FAILED):
-                raise StateMachineError(f"Cannot send {msg_type} in phase {phase.name}")
-            # These don't change state
-            return
-
-        # ErrorResponse handling
-        if isinstance(msg, ErrorResponse):
-            if phase in (
-                ConnectionPhase.STARTUP,
-                ConnectionPhase.SSL_NEGOTIATION,
-                ConnectionPhase.GSS_NEGOTIATION,
-                ConnectionPhase.AUTHENTICATING,
-                ConnectionPhase.AUTHENTICATING_SASL_INITIAL,
-                ConnectionPhase.AUTHENTICATING_SASL_CONTINUE,
-                ConnectionPhase.INITIALIZATION,
-            ):
-                # Fatal during startup/auth
-                self._phase = ConnectionPhase.FAILED
-                return
-            elif phase == ConnectionPhase.SIMPLE_QUERY:
-                # Error in simple query - send ReadyForQuery next
-                return
-            elif phase == ConnectionPhase.EXTENDED_QUERY:
-                # Error in extended query - stay in extended query until ReadyForQuery
-                return
-            elif phase in (
-                ConnectionPhase.COPY_IN,
-                ConnectionPhase.COPY_OUT,
-                ConnectionPhase.COPY_BOTH,
-            ):
-                # Error in COPY - stay in COPY phase until CopyDone/CopyFail received
-                # Then send ReadyForQuery to return to READY
-                return
-            elif phase == ConnectionPhase.FUNCTION_CALL:
-                # Error in function call - send ReadyForQuery next
-                self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            # Other phases - don't change state
-            return
-
-        # Phase-specific validation
-        if phase == ConnectionPhase.STARTUP:
-            if isinstance(msg, NegotiateProtocolVersion):
-                # Protocol version negotiation
-                return
-            if isinstance(msg, AuthenticationOk):
-                # Trust authentication - skip AUTHENTICATING phase
-                self._phase = ConnectionPhase.INITIALIZATION
-                return
-            if isinstance(msg, AuthenticationSASL):
-                # SASL auth requested - next frontend message must be SASLInitialResponse
-                self._phase = ConnectionPhase.AUTHENTICATING_SASL_INITIAL
-                return
-            if isinstance(
-                msg,
-                (
-                    Authentication,
-                    AuthenticationCleartextPassword,
-                    AuthenticationMD5Password,
-                    AuthenticationKerberosV5,
-                    AuthenticationGSS,
-                    AuthenticationGSSContinue,
-                    AuthenticationSSPI,
-                    AuthenticationSASLContinue,
-                    AuthenticationSASLFinal,
-                ),
-            ):
-                self._phase = ConnectionPhase.AUTHENTICATING
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected Authentication or NegotiateProtocolVersion"
-            )
-
-        elif phase == ConnectionPhase.SSL_NEGOTIATION:
-            if isinstance(msg, SSLResponse):
-                # SSL response sent - go back to STARTUP to receive StartupMessage
-                self._phase = ConnectionPhase.STARTUP
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; expected SSLResponse"
-            )
-
-        elif phase == ConnectionPhase.GSS_NEGOTIATION:
-            if isinstance(msg, GSSResponse):
-                # GSS response sent - go back to STARTUP to receive StartupMessage
-                self._phase = ConnectionPhase.STARTUP
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; expected GSSResponse"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING:
-            if isinstance(msg, AuthenticationOk):
-                # Authentication successful - transition to INITIALIZATION
-                self._phase = ConnectionPhase.INITIALIZATION
-                return
-            elif isinstance(msg, AuthenticationSASL):
-                # SASL auth requested - next frontend message must be SASLInitialResponse
-                self._phase = ConnectionPhase.AUTHENTICATING_SASL_INITIAL
-                return
-            elif isinstance(
-                msg,
-                (
-                    AuthenticationCleartextPassword,
-                    AuthenticationMD5Password,
-                    AuthenticationKerberosV5,
-                    AuthenticationGSS,
-                    AuthenticationGSSContinue,
-                    AuthenticationSSPI,
-                    AuthenticationSASLContinue,
-                    AuthenticationSASLFinal,
-                ),
-            ):
-                # Continue authentication loop
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; expected Authentication message"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL:
-            # Server received SASLInitialResponse, sending challenge
-            if isinstance(msg, AuthenticationSASLContinue):
-                self._phase = ConnectionPhase.AUTHENTICATING_SASL_CONTINUE
-                return
-            elif isinstance(msg, AuthenticationOk):
-                self._phase = ConnectionPhase.INITIALIZATION
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected AuthenticationSASLContinue or AuthenticationOk"
-            )
-
-        elif phase == ConnectionPhase.AUTHENTICATING_SASL_CONTINUE:
-            # Server received SASLResponse, sending final or another challenge
-            if isinstance(msg, AuthenticationSASLFinal):
-                # SASL complete - next will be AuthenticationOk
-                self._phase = ConnectionPhase.AUTHENTICATING
-                return
-            elif isinstance(msg, AuthenticationSASLContinue):
-                # Another round of SASL
-                return
-            elif isinstance(msg, AuthenticationOk):
-                self._phase = ConnectionPhase.INITIALIZATION
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected AuthenticationSASLContinue, AuthenticationSASLFinal, or AuthenticationOk"
-            )
-
-        elif phase == ConnectionPhase.INITIALIZATION:
-            if isinstance(msg, BackendKeyData):
-                # BackendKeyData during initialization
-                return
-            elif isinstance(msg, ReadyForQuery):
-                # Initialization complete
-                self._phase = ConnectionPhase.READY
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected BackendKeyData or ReadyForQuery"
-            )
-
-        elif phase == ConnectionPhase.READY:
-            # In READY, backend doesn't send messages except the "any phase" ones
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "not expecting to send backend messages while idle"
-            )
-
-        elif phase == ConnectionPhase.SIMPLE_QUERY:
-            if isinstance(msg, (RowDescription, DataRow, CommandComplete, EmptyQueryResponse)):
-                # Query results
-                return
-            elif isinstance(msg, ReadyForQuery):
-                # Simple query complete - back to READY
-                # (no pipelining support, so no pending counter)
-                self._phase = ConnectionPhase.READY
-                return
-            elif isinstance(msg, CopyInResponse):
-                self._phase = ConnectionPhase.COPY_IN
-                return
-            elif isinstance(msg, CopyOutResponse):
-                self._phase = ConnectionPhase.COPY_OUT
-                return
-            elif isinstance(msg, CopyBothResponse):
-                self._phase = ConnectionPhase.COPY_BOTH
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected query results, ReadyForQuery, or Copy*Response"
-            )
-
-        elif phase == ConnectionPhase.EXTENDED_QUERY:
-            if isinstance(
-                msg,
-                (
-                    ParseComplete,
-                    BindComplete,
-                    CloseComplete,
-                    ParameterDescription,
-                    NoData,
-                    RowDescription,
-                    DataRow,
-                    CommandComplete,
-                    EmptyQueryResponse,
-                    PortalSuspended,
-                ),
-            ):
-                # Extended query results
-                return
-            elif isinstance(msg, ReadyForQuery):
-                # Extended query batch complete - decrement pending syncs
-                self._pending_syncs -= 1
-                if self._pending_syncs > 0:
-                    # Still have pending batches - stay in EXTENDED_QUERY
-                    return
-                # All batches complete - back to READY
-                self._phase = ConnectionPhase.READY
-                self._in_extended_batch = False
-                return
-            elif isinstance(msg, CopyInResponse):
-                self._phase = ConnectionPhase.COPY_IN
-                return
-            elif isinstance(msg, CopyOutResponse):
-                self._phase = ConnectionPhase.COPY_OUT
-                return
-            elif isinstance(msg, CopyBothResponse):
-                self._phase = ConnectionPhase.COPY_BOTH
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected extended query results, ReadyForQuery, or Copy*Response"
-            )
-
-        elif phase == ConnectionPhase.COPY_IN:
-            # In COPY IN, backend waits for data (no sends except completion)
-            if isinstance(msg, (CommandComplete, ReadyForQuery)):
-                if isinstance(msg, ReadyForQuery):
-                    self._phase = ConnectionPhase.READY
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected CommandComplete or ReadyForQuery"
-            )
-
-        elif phase == ConnectionPhase.COPY_OUT:
-            if isinstance(msg, (CopyData, CopyDone)):
-                if isinstance(msg, CopyDone):
-                    # COPY OUT complete - send CommandComplete next
-                    self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            elif isinstance(msg, (CommandComplete, ReadyForQuery)):
-                if isinstance(msg, ReadyForQuery):
-                    self._phase = ConnectionPhase.READY
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected CopyData, CopyDone, CommandComplete, or ReadyForQuery"
-            )
-
-        elif phase == ConnectionPhase.COPY_BOTH:
-            if isinstance(msg, (CopyData, CopyDone)):
-                if isinstance(msg, CopyDone):
-                    # COPY BOTH complete - send CommandComplete next
-                    self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            elif isinstance(msg, (CommandComplete, ReadyForQuery)):
-                if isinstance(msg, ReadyForQuery):
-                    self._phase = ConnectionPhase.READY
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected CopyData, CopyDone, CommandComplete, or ReadyForQuery"
-            )
-
-        elif phase == ConnectionPhase.FUNCTION_CALL:
-            if isinstance(msg, FunctionCallResponse):
-                # Function call response - send ReadyForQuery next
-                self._phase = ConnectionPhase.SIMPLE_QUERY
-                return
-            elif isinstance(msg, (CommandComplete, ReadyForQuery)):
-                if isinstance(msg, ReadyForQuery):
-                    self._phase = ConnectionPhase.READY
-                return
-            raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; "
-                "expected FunctionCallResponse, CommandComplete, or ReadyForQuery"
-            )
-
-        else:
-            raise StateMachineError(f"Cannot send {msg_type} in phase {phase.name}")
+        self._process_backend_msg(msg, action=MessageAction.SEND)

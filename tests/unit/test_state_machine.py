@@ -294,14 +294,14 @@ class TestFrontendStateMachine:
         self._do_startup(sm)
 
         sm.send(Terminate())
-        assert sm.phase == ConnectionPhase.TERMINATING
+        assert sm.phase == ConnectionPhase.TERMINATED
         assert not sm.is_active
 
     def test_terminate_from_startup(self):
         """Test Terminate during startup."""
         sm = FrontendStateMachine()
         sm.send(Terminate())
-        assert sm.phase == ConnectionPhase.TERMINATING
+        assert sm.phase == ConnectionPhase.TERMINATED
 
     def test_error_during_startup_fails(self):
         """Test ErrorResponse during startup causes FAILED state."""
@@ -391,7 +391,7 @@ class TestFrontendStateMachine:
         sm.send(Query(query_string="SELECT 1"))
 
         # Simple query protocol does not support pipelining at all
-        with pytest.raises(StateMachineError, match="does not support pipelining"):
+        with pytest.raises(StateMachineError, match="Cannot send Query in phase SIMPLE_QUERY"):
             sm.send(Query(query_string="SELECT 2"))
 
     def test_invalid_message_in_copy_out(self):
@@ -410,7 +410,7 @@ class TestFrontendStateMachine:
         sm = FrontendStateMachine()
         sm.send(Terminate())
 
-        with pytest.raises(StateMachineError, match="Cannot send Terminate in phase TERMINATING"):
+        with pytest.raises(StateMachineError, match="Cannot send Terminate in phase TERMINATED"):
             sm.send(Terminate())
 
     def test_cannot_receive_after_failed(self):
@@ -611,7 +611,7 @@ class TestPipelining:
 
     def test_two_pipelined_batches(self):
         """Test two pipelined extended query batches."""
-        sm = FrontendStateMachine(allow_pipelining=True)
+        sm = FrontendStateMachine()
         self._do_startup(sm)
 
         # First batch: Parse + Bind + Execute + Sync
@@ -654,8 +654,8 @@ class TestPipelining:
         assert sm.pending_syncs == 0
 
     def test_pipelining_disabled(self):
-        """Test that allow_pipelining=False rejects pipelined messages."""
-        sm = FrontendStateMachine(allow_pipelining=False)
+        """Test that pipelining always works (pipelining is always enabled)."""
+        sm = FrontendStateMachine()
         self._do_startup(sm)
 
         # First batch
@@ -664,9 +664,9 @@ class TestPipelining:
         sm.send(Execute(portal="", max_rows=0))
         sm.send(Sync())
 
-        # Attempt to pipeline second batch should fail
-        with pytest.raises(StateMachineError, match="pipelining disabled"):
-            sm.send(Parse(statement="stmt2", query="SELECT 2"))
+        # Second batch should succeed (pipelining is always enabled)
+        sm.send(Parse(statement="stmt2", query="SELECT 2"))
+        assert sm.pending_syncs == 2
 
     def test_sync_before_batch(self):
         """Test sending Sync before starting a batch."""
@@ -710,7 +710,7 @@ class TestPipelining:
 
     def test_pending_syncs_counter(self):
         """Test that pending_syncs counter increments and decrements correctly."""
-        sm = FrontendStateMachine(allow_pipelining=True)
+        sm = FrontendStateMachine()
         self._do_startup(sm)
 
         assert sm.pending_syncs == 0
@@ -733,7 +733,7 @@ class TestPipelining:
 
     def test_backend_pipelining(self):
         """Test pipelining from backend perspective."""
-        sm = BackendStateMachine(allow_pipelining=True)
+        sm = BackendStateMachine()
         self._do_startup(sm)
 
         # Receive two pipelined batches
@@ -786,7 +786,6 @@ class TestConnectionPhaseEnum:
             "COPY_OUT",
             "COPY_BOTH",
             "FUNCTION_CALL",
-            "TERMINATING",
             "TERMINATED",
             "FAILED",
         ]

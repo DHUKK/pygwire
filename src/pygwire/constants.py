@@ -67,10 +67,7 @@ class ConnectionPhase(Enum):
     # Function call active (legacy)
     FUNCTION_CALL = auto()
 
-    # Connection terminating gracefully
-    TERMINATING = auto()
-
-    # Connection terminated
+    # Connection terminated (after Terminate sent/received)
     TERMINATED = auto()
 
     # Connection failed (received ErrorResponse during startup/auth)

@@ -102,7 +102,7 @@ class TestFrontendConnection:
 
         # Terminate
         conn.send(Terminate())
-        assert conn.phase == ConnectionPhase.TERMINATING
+        assert conn.phase == ConnectionPhase.TERMINATED
 
 
 class TestBackendConnection:
