@@ -62,7 +62,7 @@ import logging
 from abc import ABC
 from collections.abc import Iterator
 
-from pygwire.codec import _BackendStreamDecoder, _FrontendStreamDecoder
+from pygwire.codec import BackendMessageDecoder, FrontendMessageDecoder
 from pygwire.constants import ConnectionPhase
 from pygwire.messages import PGMessage
 from pygwire.state_machine import (
@@ -99,7 +99,7 @@ class Connection(ABC):
             and the connection continues.
     """
 
-    _decoder: _BackendStreamDecoder | _FrontendStreamDecoder
+    _decoder: BackendMessageDecoder | FrontendMessageDecoder
     _state_machine: FrontendStateMachine | BackendStateMachine
     _strict: bool
 
@@ -267,7 +267,7 @@ class FrontendConnection(Connection):
         """
         self._strict = strict
         self._state_machine = FrontendStateMachine(phase=initial_phase)
-        self._decoder = _BackendStreamDecoder()
+        self._decoder = BackendMessageDecoder()
         self._decoder.phase = initial_phase
 
 
@@ -313,5 +313,5 @@ class BackendConnection(Connection):
         """
         self._strict = strict
         self._state_machine = BackendStateMachine(phase=initial_phase)
-        self._decoder = _FrontendStreamDecoder()
+        self._decoder = FrontendMessageDecoder()
         self._decoder.phase = initial_phase

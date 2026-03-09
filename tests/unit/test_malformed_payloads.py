@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from pygwire.codec import _BackendStreamDecoder, _FrontendStreamDecoder
+from pygwire.codec import BackendMessageDecoder, FrontendMessageDecoder
 from pygwire.messages import (
     AuthenticationSASL,
     Bind,
@@ -20,14 +20,14 @@ from pygwire.state_machine import ConnectionPhase
 
 # Helper to create decoders for malformed payload testing.
 # These tests need low-level decoder access since they craft invalid wire data.
-def BackendMessageDecoder():
-    c = _BackendStreamDecoder()
+def create_backend_decoder():
+    c = BackendMessageDecoder()
     c.phase = ConnectionPhase.READY
     return c
 
 
-def FrontendMessageDecoder():
-    c = _FrontendStreamDecoder()
+def create_frontend_decoder():
+    c = FrontendMessageDecoder()
     c.phase = ConnectionPhase.READY
     return c
 
@@ -39,7 +39,7 @@ class TestTruncatedPayloads:
         """Test RowDescription with field count but truncated field data."""
         # Header: 'T' + length
         # Body: Int16(field_count=5) but only provide 2 fields
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # Create a valid RowDescription with 2 fields
         msg = RowDescription(
@@ -80,7 +80,7 @@ class TestTruncatedPayloads:
 
     def test_data_row_truncated_column_count(self):
         """Test DataRow claiming more columns than provided."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # Valid DataRow with 2 columns
         msg = DataRow(columns=[b"value1", b"value2"])
@@ -97,7 +97,7 @@ class TestTruncatedPayloads:
 
     def test_authentication_sasl_truncated_mechanisms(self):
         """Test AuthenticationSASL claiming mechanisms but providing truncated data."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # Valid message with 2 mechanisms
         msg = AuthenticationSASL(mechanisms=["SCRAM-SHA-256", "SCRAM-SHA-256-PLUS"])
@@ -117,7 +117,7 @@ class TestTruncatedPayloads:
 
     def test_bind_truncated_parameter_values(self):
         """Test Bind claiming parameter values but providing truncated data."""
-        decoder = FrontendMessageDecoder()
+        decoder = create_frontend_decoder()
 
         # Valid Bind with 3 parameters
         msg = Bind(
@@ -140,7 +140,7 @@ class TestTruncatedPayloads:
 
     def test_error_response_truncated_fields(self):
         """Test ErrorResponse with truncated field data."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         msg = ErrorResponse(
             fields={
@@ -169,7 +169,7 @@ class TestInvalidCountFields:
 
     def test_parameter_description_negative_count(self):
         """Test ParameterDescription with negative parameter count."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # Manually craft a message with negative count
         # 't' + length + Int16(-1)
@@ -183,7 +183,7 @@ class TestInvalidCountFields:
 
     def test_row_description_negative_field_count(self):
         """Test RowDescription with negative field count."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # 'T' + length + Int16(-1)
         payload = struct.pack("!h", -1)
@@ -196,7 +196,7 @@ class TestInvalidCountFields:
 
     def test_data_row_negative_column_count(self):
         """Test DataRow with negative column count."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # 'D' + length + Int16(-1)
         payload = struct.pack("!h", -1)
@@ -209,7 +209,7 @@ class TestInvalidCountFields:
 
     def test_copy_in_response_negative_column_count(self):
         """Test CopyInResponse with negative column count."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # 'G' + length + Int8(0) + Int16(-1)
         payload = struct.pack("!Bh", 0, -1)
@@ -222,7 +222,7 @@ class TestInvalidCountFields:
 
     def test_function_call_negative_argument_count(self):
         """Test FunctionCall with negative argument count."""
-        decoder = FrontendMessageDecoder()
+        decoder = create_frontend_decoder()
 
         # 'F' + length + Int32(function_oid) + Int16(arg_format_count) + Int16(arg_count=-1)
         payload = struct.pack("!IHh", 123, 0, -1)
@@ -239,7 +239,7 @@ class TestOversizedDeclaredLengths:
 
     def test_authentication_md5_oversized_length(self):
         """Test AuthenticationMD5Password with oversized length field."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # Craft message header claiming 1MB payload for a 4-byte salt
         # 'R' + Int32(1000000) + Int32(5) + 4 bytes salt
@@ -264,7 +264,7 @@ class TestEmbeddedNulls:
 
     def test_error_response_embedded_null_in_field_value(self):
         """Test ErrorResponse with embedded null in field value."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # ErrorResponse should handle embedded nulls in field values
         # The wire format uses field_type + cstring for each field
@@ -286,7 +286,7 @@ class TestEmbeddedNulls:
 
     def test_notification_channel_embedded_null(self):
         """Test NotificationResponse with embedded null in channel name."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # 'A' + length + pid + "chan\x00nel" + \x00 + "payload" + \x00
         # The cstring will terminate at the embedded null
@@ -309,7 +309,7 @@ class TestMinimumPayloadSize:
 
     def test_data_row_empty_payload(self):
         """Test DataRow with completely empty payload."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # 'D' + length(4) + empty payload
         wire = b"D" + struct.pack("!I", 4)
@@ -320,7 +320,7 @@ class TestMinimumPayloadSize:
 
     def test_row_description_empty_payload(self):
         """Test RowDescription with empty payload (missing field count)."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # 'T' + length(4) + empty payload
         wire = b"T" + struct.pack("!I", 4)
@@ -331,7 +331,7 @@ class TestMinimumPayloadSize:
 
     def test_notification_response_too_short(self):
         """Test NotificationResponse missing required fields."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # 'A' + length + only pid, no channel or payload
         payload = struct.pack("!I", 1234)
@@ -348,7 +348,7 @@ class TestInvalidNullHandling:
 
     def test_bind_null_parameter_with_invalid_length(self):
         """Test Bind with NULL parameter using non-negative-1 length."""
-        decoder = FrontendMessageDecoder()
+        decoder = create_frontend_decoder()
 
         # Manually craft Bind with parameter length = -2 (invalid NULL indicator)
         # Valid NULL is -1 (0xFFFFFFFF)
@@ -372,7 +372,7 @@ class TestInvalidNullHandling:
 
     def test_data_row_column_with_zero_length(self):
         """Test DataRow column with length=0 (empty bytes, not NULL)."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # DataRow with one column of zero length
         # This is actually valid - represents empty bytes, not NULL
@@ -393,7 +393,7 @@ class TestPartialMessages:
 
     def test_partial_header_feed(self):
         """Test feeding partial message header."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # Send only identifier and 2 bytes of length
         wire = b"R\x00\x00"
@@ -415,7 +415,7 @@ class TestPartialMessages:
 
     def test_partial_payload_feed(self):
         """Test feeding partial message payload."""
-        decoder = BackendMessageDecoder()
+        decoder = create_backend_decoder()
 
         # Create a RowDescription and feed it in chunks
         msg = RowDescription(

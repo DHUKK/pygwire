@@ -1,8 +1,13 @@
 """Sans-I/O StreamDecoder for the PostgreSQL wire protocol.
 
-The decoders in this module are internal implementation details of the
-Connection classes. They use the framing strategy system to extract messages
-based on the current connection phase.
+The decoders provide incremental message parsing with phase-aware framing.
+They are stateful but designed to be manageable - users must synchronize
+the phase property when connection state changes.
+
+Use the decoder classes directly when you need fine-grained control over
+message parsing without the full Connection state machine. For most use cases,
+prefer the higher-level Connection classes which coordinate decoder + state
+machine automatically.
 """
 
 from __future__ import annotations
@@ -17,13 +22,29 @@ from pygwire.messages import PGMessage
 # Compact the buffer once this many bytes have been consumed from the front.
 _COMPACTION_THRESHOLD = 4096
 
+__all__ = [
+    "BackendMessageDecoder",
+    "FrontendMessageDecoder",
+]
 
-class _BaseStreamDecoder:
-    """Base class for stream decoders. Internal use only.
 
-    The decoder maintains its own phase that is synchronized by the Connection.
-    It uses framing strategies to extract messages based on the current phase
-    and direction.
+class StreamDecoder:
+    """Base class for phase-aware stream decoders.
+
+    The decoder maintains a connection phase that determines message framing.
+    When used standalone (without Connection), the user is responsible for
+    updating the phase property to match connection state transitions.
+
+    This class handles:
+    - Incremental parsing of wire protocol bytes
+    - Phase-dependent message framing (startup vs standard)
+    - Zero-copy buffer management using memoryview
+    - Message queueing for batch arrivals
+
+    Note:
+        For most use cases, prefer FrontendConnection or BackendConnection
+        which automatically coordinate decoder phase with state machine.
+        Use this class directly only when you need custom state management.
     """
 
     __slots__ = (
@@ -59,7 +80,9 @@ class _BaseStreamDecoder:
     def phase(self, value: ConnectionPhase) -> None:
         """Set connection phase.
 
-        The Connection updates this after each state machine transition.
+        When using the decoder standalone (without Connection), update this
+        after each connection state transition to ensure correct message framing.
+        The Connection class handles this automatically.
         """
         self._phase = value
 
@@ -169,30 +192,67 @@ class _BaseStreamDecoder:
             self._compact()
 
 
-class _FrontendStreamDecoder(_BaseStreamDecoder):
+class FrontendMessageDecoder(StreamDecoder):
     """Decoder for messages sent BY frontend (client).
 
-    Used by BackendConnection (server) to decode incoming client messages.
+    Used by servers (BackendConnection) to decode incoming client messages,
+    or standalone when building custom PostgreSQL server implementations.
 
-    Examples:
-        - Query (client sends to server)
-        - StartupMessage (client initiates connection)
-        - PasswordMessage (client responds to auth challenge)
+    Examples of decoded messages:
+        - StartupMessage: Client initiates connection
+        - Query: Client sends simple query
+        - PasswordMessage: Client responds to auth challenge
+        - Parse/Bind/Execute: Client uses extended query protocol
+
+    Usage::
+
+        decoder = FrontendMessageDecoder()
+        decoder.phase = ConnectionPhase.STARTUP
+
+        # Feed data from client socket
+        decoder.feed(client_data)
+
+        # Process messages
+        for msg in decoder:
+            if isinstance(msg, StartupMessage):
+                # Handle startup...
+                decoder.phase = ConnectionPhase.AUTHENTICATION
+            elif isinstance(msg, Query):
+                # Handle query...
     """
 
     def __init__(self) -> None:
         super().__init__(direction=MessageDirection.FRONTEND)
 
 
-class _BackendStreamDecoder(_BaseStreamDecoder):
+class BackendMessageDecoder(StreamDecoder):
     """Decoder for messages sent BY backend (server).
 
-    Used by FrontendConnection (client) to decode incoming server messages.
+    Used by clients (FrontendConnection) to decode incoming server messages,
+    or standalone when building custom PostgreSQL client implementations.
 
-    Examples:
-        - RowDescription (server sends to client)
-        - ReadyForQuery (server signals ready state)
-        - AuthenticationOk (server accepts authentication)
+    Examples of decoded messages:
+        - AuthenticationOk: Server accepts authentication
+        - RowDescription: Server describes result columns
+        - DataRow: Server sends result row
+        - ReadyForQuery: Server signals ready for next query
+        - ErrorResponse: Server reports an error
+
+    Usage::
+
+        decoder = BackendMessageDecoder()
+        decoder.phase = ConnectionPhase.STARTUP
+
+        # Feed data from server socket
+        decoder.feed(server_data)
+
+        # Process messages
+        for msg in decoder:
+            if isinstance(msg, AuthenticationOk):
+                # Authentication succeeded...
+                decoder.phase = ConnectionPhase.READY
+            elif isinstance(msg, DataRow):
+                # Process result row...
     """
 
     def __init__(self) -> None:

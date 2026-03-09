@@ -122,10 +122,10 @@ class ProxyConnection:
                 break
 
             for msg in self.client_conn.receive(data):
-                self._log_message("→", msg)
                 wire = self.server_conn.send(msg)
                 if self.server_writer:
                     self.server_writer.write(wire)
+                self._log_message("→", msg)
             if self.server_writer:
                 await self.server_writer.drain()
 
@@ -138,9 +138,9 @@ class ProxyConnection:
                 break
 
             for msg in self.server_conn.receive(data):
-                self._log_message("←", msg)
                 wire = self.client_conn.send(msg)
                 self.client_writer.write(wire)
+                self._log_message("←", msg)
             await self.client_writer.drain()
 
     def _log_message(self, direction: str, msg: PGMessage) -> None:

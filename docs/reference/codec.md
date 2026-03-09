@@ -18,17 +18,17 @@ Both share the same API.
 Decoder for backend (server to client) messages.
 
 ```python
-from pygwire import BackendMessageDecoder
+from pygwire.codec import BackendMessageDecoder
 
-decoder = BackendMessageDecoder(*, max_message_size=1073741824)
+decoder = BackendMessageDecoder()
 ```
 
-**Parameters:**
+**Parameters:** None
 
-- `max_message_size` (`int`, default 1 GB): Maximum allowed message size in bytes. Raises `ProtocolError` if a message declares a length exceeding this value.
+The decoder automatically uses phase-aware framing based on the current connection phase. When used standalone (without `Connection`), you must manually update the `phase` property as the connection state changes.
 
 !!! note
-    `BackendMessageDecoder` has no `startup` parameter. Backend messages always use standard framing (identifier byte + length + payload).
+    Backend messages use standard framing (identifier byte + length + payload) except during SSL/GSSAPI negotiation. The decoder handles phase transitions automatically when coordinated with `FrontendConnection`.
 
 ---
 
@@ -37,17 +37,17 @@ decoder = BackendMessageDecoder(*, max_message_size=1073741824)
 Decoder for frontend (client to server) messages.
 
 ```python
-from pygwire import FrontendMessageDecoder
+from pygwire.codec import FrontendMessageDecoder
 
-decoder = FrontendMessageDecoder(*, startup=False, max_message_size=1073741824)
+decoder = FrontendMessageDecoder()
 ```
 
-**Parameters:**
+**Parameters:** None
 
-- `startup` (`bool`, default `False`): If `True`, expect identifier-less startup messages first. The decoder switches to standard framing automatically after receiving a `StartupMessage`.
-- `max_message_size` (`int`, default 1 GB): Maximum allowed message size in bytes.
+The decoder automatically uses phase-aware framing based on the current connection phase. Startup messages (StartupMessage, SSLRequest, etc.) use identifier-less framing, while standard messages use identifier byte + length + payload.
 
-For server-side usage, set `startup=True` to handle the initial startup handshake where messages lack an identifier byte.
+!!! important
+    When using the decoder standalone (without `BackendConnection`), you are responsible for updating the `phase` property to match connection state transitions. The `Connection` classes handle this automatically.
 
 ---
 
@@ -64,7 +64,7 @@ For server-side usage, set `startup=True` to handle the initial startup handshak
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `in_startup` | `bool` | `True` while expecting startup-phase messages |
+| `phase` | `ConnectionPhase` | Current connection phase (read/write). Update this manually when using decoder standalone. |
 | `buffered` | `int` | Number of unprocessed bytes in the buffer |
 
 ## Iteration
@@ -82,9 +82,11 @@ for msg in decoder:
 ## Basic usage
 
 ```python
-from pygwire import BackendMessageDecoder
+from pygwire.codec import BackendMessageDecoder
+from pygwire.constants import ConnectionPhase
 
 decoder = BackendMessageDecoder()
+decoder.phase = ConnectionPhase.STARTUP  # Set initial phase
 
 # Feed bytes from your transport layer
 decoder.feed(raw_bytes)
@@ -95,6 +97,8 @@ msg = decoder.read()
 # Or iterate over all available messages
 for msg in decoder:
     print(type(msg).__name__)
+    # Update phase as connection progresses
+    # (Connection class handles this automatically)
 
 # Or drain all at once
 messages = decoder.read_all()
@@ -116,26 +120,36 @@ decoder.feed(third_chunk)
 msg = decoder.read()
 ```
 
-## Startup mode
+## Phase-aware framing
 
-The PostgreSQL wire protocol uses two framing formats:
+The PostgreSQL wire protocol uses different framing formats based on connection phase:
 
-1. **Startup phase**: messages have no identifier byte (length + payload only)
-2. **Standard phase**: messages have an identifier byte + length + payload
+1. **STARTUP phase**: messages have no identifier byte (length + payload only)
+2. **SSL_REQUESTED/GSSENC_REQUESTED**: single-byte responses
+3. **Standard phases**: messages have identifier byte + length + payload
 
-For server-side decoding, enable startup mode:
+The decoder automatically selects the correct framing based on the `phase` property:
 
 ```python
-from pygwire import FrontendMessageDecoder
+from pygwire.codec import FrontendMessageDecoder
+from pygwire.constants import ConnectionPhase
 
-decoder = FrontendMessageDecoder(startup=True)
+decoder = FrontendMessageDecoder()
+decoder.phase = ConnectionPhase.STARTUP  # Start in STARTUP
+
 decoder.feed(first_data_from_client)
 
 for msg in decoder:
     # First message will be StartupMessage, SSLRequest, etc.
-    # Decoder switches to standard framing after StartupMessage
     print(type(msg).__name__)
+
+    # Manually update phase based on message
+    if isinstance(msg, StartupMessage):
+        decoder.phase = ConnectionPhase.AUTHENTICATION
 ```
+
+!!! tip
+    Use `FrontendConnection` or `BackendConnection` to automatically coordinate decoder phase with state machine transitions.
 
 ## Buffer management
 
