@@ -11,17 +11,9 @@ from pygwire.constants import ConnectionPhase, MessageDirection
 from ._base import BackendMessage, FrontendMessage, _read_cstring
 from ._registry import STANDARD_REGISTRY
 
-# ---------------------------------------------------------------------------
-# Struct helpers (pre-compiled for hot-path parsing)
-# ---------------------------------------------------------------------------
-_INT32 = struct.Struct("!I")  # unsigned 32-bit, network byte order
-_INT16 = struct.Struct("!H")  # unsigned 16-bit, network byte order
-_SINT32 = struct.Struct("!i")  # signed 32-bit (used for NULL sentinel -1)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# BackendKeyData ('K') — Protocol 3.0 & 3.2
-# ═══════════════════════════════════════════════════════════════════════════
+_INT32 = struct.Struct("!I")
+_INT16 = struct.Struct("!H")
+_SINT32 = struct.Struct("!i")  # Signed for NULL sentinel -1
 
 
 @STANDARD_REGISTRY.register(

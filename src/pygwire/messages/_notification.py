@@ -16,13 +16,7 @@ from ._base import (
 )
 from ._registry import STANDARD_REGISTRY
 
-# ---------------------------------------------------------------------------
-# Struct helpers (pre-compiled for hot-path parsing)
-# ---------------------------------------------------------------------------
-_INT32 = struct.Struct("!I")  # unsigned 32-bit, network byte order
-
-
-# ═══════════════════════════════════════════════════════════════════════════
+_INT32 = struct.Struct("!I")
 # NotificationResponse ('A')
 # ═══════════════════════════════════════════════════════════════════════════
 

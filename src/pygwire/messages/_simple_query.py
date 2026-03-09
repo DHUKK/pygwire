@@ -14,22 +14,12 @@ from pygwire.constants import (
 from ._base import BackendMessage, FrontendMessage, _read_cstring
 from ._registry import STANDARD_REGISTRY
 
-# ---------------------------------------------------------------------------
-# Struct helpers (pre-compiled for hot-path parsing)
-# ---------------------------------------------------------------------------
-_INT32 = struct.Struct("!I")  # unsigned 32-bit, network byte order
-_INT16 = struct.Struct("!H")  # unsigned 16-bit, network byte order
-_SINT32 = struct.Struct("!i")  # signed 32-bit (used for NULL sentinel -1)
+_INT32 = struct.Struct("!I")
+_INT16 = struct.Struct("!H")
+_SINT32 = struct.Struct("!i")  # Signed for NULL sentinel -1
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Frontend: Query ('Q')
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-@STANDARD_REGISTRY.register(
-    b"Q", direction=MessageDirection.FRONTEND
-)  # No phase restriction - state machine validates
+@STANDARD_REGISTRY.register(b"Q", direction=MessageDirection.FRONTEND)
 @dataclass(slots=True)
 class Query(FrontendMessage):
     """Query ('Q') — simple query containing a SQL string."""
@@ -60,7 +50,7 @@ class FieldDescription:
     type_oid: int = 0
     type_size: int = 0
     type_modifier: int = 0
-    format_code: int = 0  # 0 = text, 1 = binary
+    format_code: int = 0
 
 
 @STANDARD_REGISTRY.register(b"T", direction=MessageDirection.BACKEND)
@@ -98,7 +88,7 @@ class RowDescription(BackendMessage):
             (table_oid, col_attr, type_oid, type_size, type_mod, fmt) = struct.unpack_from(
                 "!IhIhih", payload, offset
             )
-            offset += 18  # 4+2+4+2+4+2
+            offset += 18
             fields.append(
                 FieldDescription(
                     name=name,
@@ -180,9 +170,7 @@ class CommandComplete(BackendMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@STANDARD_REGISTRY.register(
-    b"Z", direction=MessageDirection.BACKEND
-)  # Valid in many phases, no restriction
+@STANDARD_REGISTRY.register(b"Z", direction=MessageDirection.BACKEND)
 @dataclass(slots=True)
 class ReadyForQuery(BackendMessage):
     """ReadyForQuery ('Z') — server is ready for a new query cycle."""

@@ -17,16 +17,8 @@ from ._base import (
 )
 from ._registry import NEGOTIATION_REGISTRY, STANDARD_REGISTRY
 
-# ---------------------------------------------------------------------------
-# Struct helpers (pre-compiled for hot-path parsing)
-# ---------------------------------------------------------------------------
-_INT32 = struct.Struct("!I")  # unsigned 32-bit, network byte order
-_SINT32 = struct.Struct("!i")  # signed 32-bit (NULL parameter sentinel -1)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# SSLResponse / GSSResponse — single-byte replies to negotiation requests
-# ═══════════════════════════════════════════════════════════════════════════
+_INT32 = struct.Struct("!I")
+_SINT32 = struct.Struct("!i")  # Signed for NULL sentinel -1
 
 
 @NEGOTIATION_REGISTRY.register(b"S", ConnectionPhase.SSL_NEGOTIATION)
@@ -235,16 +227,16 @@ class AuthenticationSASL(AuthenticationBase):
         for mech in self.mechanisms:
             buf.extend(mech.encode("utf-8"))
             buf.append(0)
-        buf.append(0)  # final null terminator
+        buf.append(0)
         return bytes(buf)
 
     @classmethod
     def decode(cls, payload: memoryview) -> Self:
-        offset = 4  # skip auth code
+        offset = 4
         mechanisms: list[str] = []
         while offset < len(payload):
             if payload[offset] == 0:
-                break  # hit the final null terminator
+                break
             mech, offset = _read_cstring(payload, offset)
             mechanisms.append(mech)
         return cls(mechanisms=mechanisms)
@@ -327,20 +319,15 @@ class PasswordMessage(FrontendMessage):
 
     def encode(self) -> bytes:
         if isinstance(self.password, bytes):
-            # SASL/GSSAPI/SSPI binary data - return as-is
             return self.password
-        # Cleartext/MD5 password - null-terminated string
         return self.password.encode("utf-8") + b"\x00"
 
     @classmethod
     def decode(cls, payload: memoryview) -> Self:
-        # Try to read as null-terminated string (cleartext/MD5)
-        # If no null terminator found, it's SASL/GSSAPI/SSPI binary data
         try:
             pwd, _ = _read_cstring(payload, 0)
             return cls(password=pwd)
         except ProtocolError:
-            # No null terminator - store as binary data
             return cls(password=bytes(payload))
 
 

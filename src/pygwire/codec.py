@@ -19,7 +19,6 @@ from pygwire.constants import ConnectionPhase, MessageDirection
 from pygwire.framing import lookup_framing
 from pygwire.messages import PGMessage
 
-# Compact the buffer once this many bytes have been consumed from the front.
 _COMPACTION_THRESHOLD = 4096
 
 __all__ = [
@@ -67,10 +66,6 @@ class StreamDecoder:
         self._direction = direction
         self._phase = ConnectionPhase.STARTUP
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     @property
     def phase(self) -> ConnectionPhase:
         """Current connection phase."""
@@ -117,12 +112,10 @@ class StreamDecoder:
         return self
 
     def __next__(self) -> PGMessage:
-        # Try to get a message from the queue
         msg = self._read()
         if msg is not None:
             return msg
 
-        # Queue is empty, try to parse one more message from buffer
         self._parse()
         msg = self._read()
         if msg is None:
@@ -134,10 +127,6 @@ class StreamDecoder:
         self._buf.clear()
         self._pos = 0
         self._messages.clear()
-
-    # ------------------------------------------------------------------
-    # Internal parsing
-    # ------------------------------------------------------------------
 
     def _compact(self) -> None:
         """Remove already-consumed bytes from the front of the buffer.
@@ -162,10 +151,8 @@ class StreamDecoder:
 
         Uses memoryview for zero-copy payload slicing.
         """
-        # Get framing strategy for current phase
         framing = lookup_framing(self._phase, self._direction)
 
-        # Let framing strategy try to parse a message
         result = framing.try_parse(
             buf=memoryview(self._buf),
             pos=self._pos,
@@ -174,14 +161,12 @@ class StreamDecoder:
         )
 
         if result is None:
-            # Not enough data for a complete message
             return
 
         msg, consumed = result
         self._pos += consumed
         self._messages.append(msg)
 
-        # Check if we should compact the buffer
         if self._pos > _COMPACTION_THRESHOLD:
             self._compact()
 

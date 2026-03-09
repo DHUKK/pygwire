@@ -16,15 +16,7 @@ from ._base import (
 )
 from ._registry import STANDARD_REGISTRY
 
-# ---------------------------------------------------------------------------
-# Struct helpers (pre-compiled for hot-path parsing)
-# ---------------------------------------------------------------------------
-_INT16 = struct.Struct("!H")  # unsigned 16-bit, network byte order
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Common messages (used by both frontend and backend)
-# ═══════════════════════════════════════════════════════════════════════════
+_INT16 = struct.Struct("!H")
 
 
 @STANDARD_REGISTRY.register(
@@ -142,7 +134,7 @@ def _encode_copy_response(overall_format: int, col_formats: list[int]) -> bytes:
 class CopyInResponse(BackendMessage):
     """CopyInResponse ('G') — server is ready to accept COPY data."""
 
-    overall_format: int = 0  # 0=text, 1=binary
+    overall_format: int = 0
     col_formats: list[int] = field(default_factory=list)
 
     def encode(self) -> bytes:

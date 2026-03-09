@@ -40,7 +40,6 @@ from enum import StrEnum
 from pygwire import messages
 from pygwire.constants import ConnectionPhase
 
-# Phase alias for readability
 _P = ConnectionPhase
 
 
@@ -53,11 +52,6 @@ class MessageAction(StrEnum):
 
 class StateMachineError(messages.ProtocolError):
     """Raised when an invalid message is sent/received for the current state."""
-
-
-# ---------------------------------------------------------------------------
-# Transition actions — callable objects that mutate state machine
-# ---------------------------------------------------------------------------
 
 
 class _Transition:
@@ -88,7 +82,7 @@ class _Stay:
 
 
 class _ExtStart:
-    """Enter extended query from READY — start a new batch."""
+    """Enter extended query from READY and start a new batch."""
 
     __slots__ = ()
 
@@ -105,7 +99,7 @@ class _ExtStart:
 
 
 class _ExtContinue:
-    """Continue in extended query — pipelining-aware."""
+    """Continue in extended query with pipelining support."""
 
     __slots__ = ()
 
@@ -122,7 +116,7 @@ class _ExtContinue:
 
 
 class _ExtSync:
-    """messages.Sync message in extended query — ends batch or adds sync point."""
+    """Sync message in extended query ends batch or adds sync point."""
 
     __slots__ = ()
 
@@ -137,7 +131,7 @@ class _ExtSync:
 
 
 class _ExtReadyForQuery:
-    """messages.ReadyForQuery in extended query — resolve one pending sync."""
+    """ReadyForQuery in extended query resolves one pending sync."""
 
     __slots__ = ()
 
@@ -153,7 +147,7 @@ class _ExtReadyForQuery:
 
 
 class _CopyDone:
-    """messages.CopyDone/messages.CopyFail ends COPY phase — back to SIMPLE_QUERY."""
+    """CopyDone/CopyFail ends COPY phase and returns to SIMPLE_QUERY."""
 
     __slots__ = ()
 
@@ -165,7 +159,7 @@ class _CopyDone:
 
 
 class _SyncFromReady:
-    """Standalone messages.Sync from READY — enter EXTENDED_QUERY with a sync point."""
+    """Standalone Sync from READY enters EXTENDED_QUERY with a sync point."""
 
     __slots__ = ()
 
@@ -181,7 +175,6 @@ class _SyncFromReady:
         return "-> EXTENDED_QUERY (sync from ready)"
 
 
-# Singleton instances for use in transition tables
 stay = _Stay()
 ext_start = _ExtStart()
 ext_continue = _ExtContinue()
@@ -191,32 +184,15 @@ copy_done = _CopyDone()
 sync_from_ready = _SyncFromReady()
 
 
-# Shorthand constructor for simple phase transitions
 def to(phase: ConnectionPhase) -> _Transition:
     return _Transition(phase)
 
 
-# ---------------------------------------------------------------------------
-# Rule type: (message_types, action)
-# ---------------------------------------------------------------------------
-# Action is any callable that takes a _StateMachineCore and mutates it.
-# Message types can be Frontend, Backend, or Special message classes.
 _Rule = tuple[
     tuple[type[messages.PGMessage], ...],
     Callable[["_StateMachineCore"], None],
 ]
 
-# ---------------------------------------------------------------------------
-# Transition tables
-# ---------------------------------------------------------------------------
-# Each entry: (message_types, action)
-# - message_types: tuple of message classes to match via isinstance
-# - action: callable that mutates the state machine
-#
-# The tables are shared between Frontend and Backend — the only difference
-# is which table maps to send() vs receive().
-
-# Messages going FROM the frontend (client sends / server receives)
 _FRONTEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
     _P.STARTUP: [
         ((messages.SSLRequest,), to(_P.SSL_NEGOTIATION)),
@@ -289,7 +265,6 @@ _FRONTEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
     ],
 }
 
-# Messages going FROM the backend (server sends / client receives)
 _BACKEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
     _P.STARTUP: [
         ((messages.NegotiateProtocolVersion,), stay),
@@ -345,7 +320,6 @@ _BACKEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
     _P.INITIALIZATION: [
         ((messages.BackendKeyData,), stay),
         ((messages.ReadyForQuery,), to(_P.READY)),
-        # "Any phase" messages (ParameterStatus is commonly sent during initialization)
         ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
         ((messages.ErrorResponse,), to(_P.FAILED)),
     ],
@@ -368,7 +342,6 @@ _BACKEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
         ((messages.CopyInResponse,), to(_P.COPY_IN)),
         ((messages.CopyOutResponse,), to(_P.COPY_OUT)),
         ((messages.CopyBothResponse,), to(_P.COPY_BOTH)),
-        # "Any phase" messages
         ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
         ((messages.ErrorResponse,), stay),
     ],
@@ -392,14 +365,12 @@ _BACKEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
         ((messages.CopyInResponse,), to(_P.COPY_IN)),
         ((messages.CopyOutResponse,), to(_P.COPY_OUT)),
         ((messages.CopyBothResponse,), to(_P.COPY_BOTH)),
-        # "Any phase" messages
         ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
         ((messages.ErrorResponse,), stay),
     ],
     _P.COPY_IN: [
         ((messages.CommandComplete,), stay),
         ((messages.ReadyForQuery,), to(_P.READY)),
-        # "Any phase" messages
         ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
         ((messages.ErrorResponse,), stay),
     ],
@@ -408,7 +379,6 @@ _BACKEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
         ((messages.CopyDone,), copy_done),
         ((messages.CommandComplete,), stay),
         ((messages.ReadyForQuery,), to(_P.READY)),
-        # "Any phase" messages
         ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
         ((messages.ErrorResponse,), stay),
     ],
@@ -417,7 +387,6 @@ _BACKEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
         ((messages.CopyDone,), copy_done),
         ((messages.CommandComplete,), stay),
         ((messages.ReadyForQuery,), to(_P.READY)),
-        # "Any phase" messages
         ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
         ((messages.ErrorResponse,), stay),
     ],
@@ -425,13 +394,11 @@ _BACKEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
         ((messages.FunctionCallResponse,), to(_P.SIMPLE_QUERY)),
         ((messages.CommandComplete,), stay),
         ((messages.ReadyForQuery,), to(_P.READY)),
-        # "Any phase" messages
         ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
-        ((messages.ErrorResponse,), to(_P.SIMPLE_QUERY)),  # Special: return to SIMPLE_QUERY
+        ((messages.ErrorResponse,), to(_P.SIMPLE_QUERY)),
     ],
 }
 
-# Phases where messages.Terminate is not allowed (terminal phases)
 _TERMINAL_PHASES = frozenset(
     {
         _P.TERMINATED,
@@ -454,14 +421,8 @@ def _generate_hints(rules: dict[ConnectionPhase, list[_Rule]]) -> dict[Connectio
     return hints
 
 
-# Error hints per phase (auto-generated from transition rules)
 _FRONTEND_PHASE_HINTS = _generate_hints(_FRONTEND_MSG_RULES)
 _BACKEND_PHASE_HINTS = _generate_hints(_BACKEND_MSG_RULES)
-
-
-# ---------------------------------------------------------------------------
-# Immutable state object
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -474,11 +435,6 @@ class _State:
     phase: ConnectionPhase
     in_extended_batch: bool = False
     pending_syncs: int = 0
-
-
-# ---------------------------------------------------------------------------
-# Unified state machine core
-# ---------------------------------------------------------------------------
 
 
 class _StateMachineCore:
@@ -538,7 +494,6 @@ class _StateMachineCore:
         msg_type = type(msg).__name__
         phase = self._state.phase
 
-        # --- Phase-specific rules ---
         phase_rules = rules.get(phase)
         if phase_rules is None:
             raise StateMachineError(f"Cannot {action} {msg_type} in phase {phase.name}")
@@ -548,17 +503,11 @@ class _StateMachineCore:
                 action_fn(self)
                 return
 
-        # No rule matched — build error message
         hint = hints.get(phase, "")
         base = f"Cannot {action} {msg_type} in phase {phase.name}"
         if hint:
             raise StateMachineError(f"{base}; {hint}")
         raise StateMachineError(base)
-
-
-# ---------------------------------------------------------------------------
-# Public state machines
-# ---------------------------------------------------------------------------
 
 
 class FrontendStateMachine(_StateMachineCore):

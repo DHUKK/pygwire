@@ -11,17 +11,9 @@ from pygwire.constants import ConnectionPhase, MessageDirection
 from ._base import BackendMessage, FrontendMessage, _read_cstring
 from ._registry import STANDARD_REGISTRY
 
-# ---------------------------------------------------------------------------
-# Struct helpers (pre-compiled for hot-path parsing)
-# ---------------------------------------------------------------------------
-_INT32 = struct.Struct("!I")  # unsigned 32-bit, network byte order
-_INT16 = struct.Struct("!H")  # unsigned 16-bit, network byte order
-_SINT32 = struct.Struct("!i")  # signed 32-bit (NULL parameter sentinel -1)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Frontend messages
-# ═══════════════════════════════════════════════════════════════════════════
+_INT32 = struct.Struct("!I")
+_INT16 = struct.Struct("!H")
+_SINT32 = struct.Struct("!i")  # Signed for NULL sentinel -1
 
 
 @STANDARD_REGISTRY.register(
@@ -126,7 +118,6 @@ class Bind(FrontendMessage):
     def decode(cls, payload: memoryview) -> Self:
         portal, offset = _read_cstring(payload, 0)
         statement, offset = _read_cstring(payload, offset)
-        # Parameter format codes
         (num_fmt,) = _INT16.unpack_from(payload, offset)
         offset += 2
         param_formats: list[int] = []
@@ -134,7 +125,6 @@ class Bind(FrontendMessage):
             (fmt,) = _INT16.unpack_from(payload, offset)
             param_formats.append(fmt)
             offset += 2
-        # Parameter values
         (num_vals,) = _INT16.unpack_from(payload, offset)
         offset += 2
         param_values: list[bytes | None] = []
@@ -146,7 +136,6 @@ class Bind(FrontendMessage):
             else:
                 param_values.append(bytes(payload[offset : offset + val_len]))
                 offset += val_len
-        # Result format codes
         (num_res_fmt,) = _INT16.unpack_from(payload, offset)
         offset += 2
         result_formats: list[int] = []
@@ -177,7 +166,7 @@ class Describe(FrontendMessage):
         String — name (empty = unnamed)
     """
 
-    kind: str = "S"  # 'S' = Statement, 'P' = Portal
+    kind: str = "S"
     name: str = ""
 
     def encode(self) -> bytes:
@@ -231,7 +220,7 @@ class Close(FrontendMessage):
         String — name (empty = unnamed)
     """
 
-    kind: str = "S"  # 'S' = Statement, 'P' = Portal
+    kind: str = "S"
     name: str = ""
 
     def encode(self) -> bytes:

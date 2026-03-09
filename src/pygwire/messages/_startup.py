@@ -11,10 +11,7 @@ from pygwire.constants import ProtocolVersion
 from ._base import SpecialMessage, _read_cstring
 from ._registry import STARTUP_REGISTRY
 
-# ---------------------------------------------------------------------------
-# Struct helpers (pre-compiled for hot-path parsing)
-# ---------------------------------------------------------------------------
-_INT32 = struct.Struct("!I")  # unsigned 32-bit, network byte order
+_INT32 = struct.Struct("!I")
 
 
 @STARTUP_REGISTRY.register(version_code=ProtocolVersion.V3_0)
@@ -42,15 +39,13 @@ class StartupMessage(SpecialMessage):
             buf.append(0)
             buf.extend(value.encode("utf-8"))
             buf.append(0)
-        buf.append(0)  # final null terminator
+        buf.append(0)
         return bytes(buf)
 
     @classmethod
     def decode(cls, payload: memoryview) -> Self:
-        # Extract protocol version from first 4 bytes
         (protocol_version,) = _INT32.unpack_from(payload, 0)
-
-        offset = 4  # skip version code
+        offset = 4
         params: dict[str, str] = {}
         while offset < len(payload) and payload[offset] != 0:
             key, offset = _read_cstring(payload, offset)
@@ -113,6 +108,6 @@ class CancelRequest(SpecialMessage):
 
     @classmethod
     def decode(cls, payload: memoryview) -> Self:
-        (pid,) = _INT32.unpack_from(payload, 4)  # skip request code
-        key = bytes(payload[8:])  # remainder is secret key
+        (pid,) = _INT32.unpack_from(payload, 4)
+        key = bytes(payload[8:])
         return cls(process_id=pid, secret_key=key)

@@ -33,10 +33,7 @@ from pygwire.messages import (
 if TYPE_CHECKING:
     from pygwire.messages import PGMessage
 
-# Struct format for the 4-byte length field (network byte order).
 _LENGTH_STRUCT = struct.Struct("!I")
-
-# Default maximum message size (1 GB, matching PostgreSQL's PQ_LARGE_MESSAGE_LIMIT).
 _DEFAULT_MAX_MESSAGE_SIZE = 1 * 1024 * 1024 * 1024
 
 
@@ -107,41 +104,30 @@ class StartupFraming(FramingStrategy):
         phase: ConnectionPhase,
         direction: MessageDirection,
     ) -> tuple[PGMessage, int] | None:
-        # Need at least 4 bytes for length field
         if len(buf) - pos < 4:
             return None
 
-        # Extract length
         (length,) = _LENGTH_STRUCT.unpack_from(buf, pos)
-
-        # Validate length
         if length > self._max_message_size:
             raise ProtocolError(
                 f"Startup message length {length} exceeds maximum allowed size "
                 f"({self._max_message_size})"
             )
 
-        # Check if we have the full message
         if len(buf) - pos < length:
             return None
 
-        # Extract payload (starts right after length field)
         payload_start = pos + 4
         payload_end = pos + length
         payload = buf[payload_start:payload_end]
-
-        # Extract version code from first 4 bytes of payload
         if len(payload) < 4:
             raise ProtocolError("Startup message payload too short for version code")
 
         (version_code,) = _LENGTH_STRUCT.unpack_from(payload)
 
-        # Lookup message class by version code
         msg_cls = STARTUP_REGISTRY.lookup(version_code)
         if msg_cls is None:
             raise ProtocolError(f"Unknown startup message version code: {version_code:#010x}")
-
-        # Decode message
         try:
             msg = msg_cls.decode(payload)
         except struct.error as e:
@@ -169,19 +155,15 @@ class NegotiationFraming(FramingStrategy):
         phase: ConnectionPhase,
         direction: MessageDirection,
     ) -> tuple[PGMessage, int] | None:
-        # Need exactly 1 byte
         if len(buf) - pos < 1:
             return None
 
-        # Extract the single byte
         byte_value = bytes(buf[pos : pos + 1])
 
-        # Lookup message class by byte value and phase
         msg_cls = NEGOTIATION_REGISTRY.lookup(byte_value, phase)
         if msg_cls is None:
             raise ProtocolError(f"Unknown negotiation byte: {byte_value!r} in phase {phase.name}")
 
-        # Decode message (payload is the single byte)
         payload = buf[pos : pos + 1]
         try:
             msg = msg_cls.decode(payload)
@@ -216,39 +198,30 @@ class StandardFraming(FramingStrategy):
         phase: ConnectionPhase,
         direction: MessageDirection,
     ) -> tuple[PGMessage, int] | None:
-        # Need at least 5 bytes: 1 identifier + 4 length
         if len(buf) - pos < 5:
             return None
 
-        # Extract identifier and length
         identifier = bytes((buf[pos],))
         (length,) = _LENGTH_STRUCT.unpack_from(buf, pos + 1)
-
-        # Validate length
         if length > self._max_message_size:
             raise ProtocolError(
                 f"Message length {length} exceeds maximum allowed size ({self._max_message_size})"
             )
 
-        # Calculate total frame size: 1 byte identifier + length (which includes itself)
         total = 1 + length
         if len(buf) - pos < total:
             return None
 
-        # Extract payload (starts after identifier + length)
         payload_start = pos + 5
         payload_end = pos + total
         payload = buf[payload_start:payload_end]
 
-        # Lookup message class by identifier, phase, and direction
         msg_cls = STANDARD_REGISTRY.lookup(identifier, phase, direction)
         if msg_cls is None:
             raise ProtocolError(
                 f"Unknown message identifier: {identifier!r} in phase {phase.name} "
                 f"for direction {direction.value}"
             )
-
-        # Decode message
         try:
             msg = msg_cls.decode(payload)
         except struct.error as e:
@@ -256,10 +229,6 @@ class StandardFraming(FramingStrategy):
 
         return msg, total
 
-
-# ---------------------------------------------------------------------------
-# Framing registry — maps (phase, direction) → FramingStrategy
-# ---------------------------------------------------------------------------
 
 _STANDARD = StandardFraming()
 _STARTUP = StartupFraming()
