@@ -1,6 +1,6 @@
 [project]
 name = "pygwire"
-version = "0.0.1"
+version = "0.0.2"
 description = "Low-level PostgreSQL wire protocol (3.0 & 3.2) codec for Python"
 readme = "README.md"
 authors = [

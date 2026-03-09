@@ -7,13 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.1] - 2026-03-08
+## [0.0.2] - 2026-03-09
 
 ### Added
 
 - Sans-I/O PostgreSQL wire protocol (v3.0 and v3.2) codec.
 - `BackendMessageDecoder` and `FrontendMessageDecoder` for incremental zero-copy message parsing.
-- Complete coverage of all 52 official PostgreSQL protocol messages.
+- Complete coverage of all official PostgreSQL protocol messages.
 - `FrontendStateMachine` and `BackendStateMachine` for protocol phase validation.
 - `FrontendConnection` and `BackendConnection` coordinating decoder and state machine.
 - `py.typed` marker for PEP 561 typed package support.
