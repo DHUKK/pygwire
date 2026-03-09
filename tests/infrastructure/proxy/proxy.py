@@ -2,7 +2,7 @@
 """Transparent PostgreSQL protocol proxy for testing codec and state machine.
 
 This proxy sits between a PostgreSQL client (e.g., psql) and server, decoding
-and validating all messages using the pygwire codec and state machine.
+and validating all messages using the pygwire Connection classes.
 
 Usage:
     python proxy.py [--proxy-port 5433] [--server-host localhost] [--server-port 5432]
@@ -16,23 +16,8 @@ import asyncio
 import logging
 import sys
 
-from pygwire.codec import BackendMessageDecoder, FrontendMessageDecoder
-from pygwire.messages import (
-    BackendMessage,
-    CancelRequest,
-    ErrorResponse,
-    FrontendMessage,
-    GSSEncRequest,
-    SpecialMessage,
-    SSLRequest,
-    SSLResponse,
-)
-from pygwire.state_machine import (
-    BackendStateMachine,
-    ConnectionPhase,
-    FrontendStateMachine,
-    StateMachineError,
-)
+from pygwire.connection import BackendConnection, FrontendConnection
+from pygwire.messages import PGMessage
 
 # Configure logging
 logging.basicConfig(
@@ -44,7 +29,18 @@ logger = logging.getLogger(__name__)
 
 
 class ProxyConnection:
-    """Handles a single client connection, proxying to the PostgreSQL server."""
+    """Handles a single proxied PostgreSQL connection.
+
+    Models the proxy as two real connections:
+    - client_conn (BackendConnection): proxy acts as server to the client
+    - server_conn (FrontendConnection): proxy acts as client to the server
+
+    Messages flow: client → client_conn.receive() → server_conn.send() → server
+    And back:      server → server_conn.receive() → client_conn.send() → client
+
+    Both state machines stay in sync naturally because every message passes
+    through both connections.
+    """
 
     def __init__(
         self,
@@ -52,29 +48,23 @@ class ProxyConnection:
         client_writer: asyncio.StreamWriter,
         server_host: str,
         server_port: int,
-        strict_mode: bool = False,
+        strict: bool = False,
     ):
         self.client_reader = client_reader
         self.client_writer = client_writer
         self.server_host = server_host
         self.server_port = server_port
-        self.strict_mode = strict_mode
 
         self.server_reader: asyncio.StreamReader | None = None
         self.server_writer: asyncio.StreamWriter | None = None
 
-        # Decoders for each direction
-        self.frontend_decoder = FrontendMessageDecoder(startup=True)  # Decodes frontend messages
-        self.backend_decoder = BackendMessageDecoder()  # Decodes backend messages
-
-        # State machines for each side
-        self.frontend_sm = FrontendStateMachine()
-        self.backend_sm = BackendStateMachine()
+        # Proxy as server to client, client to server
+        self.client_conn = BackendConnection(strict=strict)
+        self.server_conn = FrontendConnection(strict=strict)
 
         # Track connection state
         self.client_addr = client_writer.get_extra_info("peername")
         self.connection_id = f"{self.client_addr[0]}:{self.client_addr[1]}"
-        self.ssl_negotiated = False
 
     async def handle(self):
         """Main proxy loop."""
@@ -124,203 +114,50 @@ class ProxyConnection:
             await self._cleanup()
 
     async def _proxy_client_to_server(self):
-        """Proxy messages from client to server (frontend messages)."""
-        try:
-            while True:
-                # Read data from client
-                data = await self.client_reader.read(8192)
-                if not data:
-                    logger.info(f"[{self.connection_id}] Client disconnected")
-                    break
+        """Proxy: client → client_conn.receive() → server_conn.send() → server."""
+        while True:
+            data = await self.client_reader.read(8192)
+            if not data:
+                logger.info(f"[{self.connection_id}] Client disconnected")
+                break
 
-                # Feed to decoder
-                self.frontend_decoder.feed(data)
-
-                # Process all available messages
-                while True:
-                    try:
-                        msg = self.frontend_decoder.read()
-                        if msg is None:
-                            break
-
-                        await self._handle_frontend_message(msg)
-
-                    except Exception as e:
-                        logger.error(f"[{self.connection_id}] Error decoding frontend message: {e}")
-                        break
-
-                # Forward raw data to server
+            for msg in self.client_conn.receive(data):
+                self._log_message("→", msg)
+                wire = self.server_conn.send(msg)
                 if self.server_writer:
-                    self.server_writer.write(data)
-                    await self.server_writer.drain()
-
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            logger.error(f"[{self.connection_id}] Client->Server proxy error: {e}", exc_info=True)
+                    self.server_writer.write(wire)
+            if self.server_writer:
+                await self.server_writer.drain()
 
     async def _proxy_server_to_client(self):
-        """Proxy messages from server to client (backend messages)."""
-        try:
-            while True:
-                # Read data from server
-                data = await self.server_reader.read(8192)
-                if not data:
-                    logger.info(f"[{self.connection_id}] Server disconnected")
-                    break
+        """Proxy: server → server_conn.receive() → client_conn.send() → client."""
+        while True:
+            data = await self.server_reader.read(8192)
+            if not data:
+                logger.info(f"[{self.connection_id}] Server disconnected")
+                break
 
-                # Check for SSL/GSS negotiation response (single byte)
-                if self.frontend_sm.phase == ConnectionPhase.SSL_NEGOTIATION and len(data) == 1:
-                    response = SSLResponse.from_bytes(data)
-                    logger.info(f"[{self.connection_id}] ← SSL Response: {response.name}")
-                    # Don't feed to decoder - it's not a message
-                    self.client_writer.write(data)
-                    await self.client_writer.drain()
-                    continue
+            for msg in self.server_conn.receive(data):
+                self._log_message("←", msg)
+                wire = self.client_conn.send(msg)
+                self.client_writer.write(wire)
+            await self.client_writer.drain()
 
-                if self.frontend_sm.phase == ConnectionPhase.GSS_NEGOTIATION and len(data) == 1:
-                    logger.info(f"[{self.connection_id}] ← GSS Response: {data[0]:02x}")
-                    self.client_writer.write(data)
-                    await self.client_writer.drain()
-                    continue
-
-                # Feed to decoder
-                self.backend_decoder.feed(data)
-
-                # Process all available messages
-                while True:
-                    try:
-                        msg = self.backend_decoder.read()
-                        if msg is None:
-                            break
-
-                        await self._handle_backend_message(msg)
-
-                    except Exception as e:
-                        logger.error(f"[{self.connection_id}] Error decoding backend message: {e}")
-                        break
-
-                # Forward raw data to client
-                self.client_writer.write(data)
-                await self.client_writer.drain()
-
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            logger.error(f"[{self.connection_id}] Server->Client proxy error: {e}", exc_info=True)
-
-    async def _handle_frontend_message(self, msg: FrontendMessage | SpecialMessage) -> None:
-        """Process a frontend message through the state machines."""
+    def _log_message(self, direction: str, msg: PGMessage) -> None:
+        """Log a message with direction arrow."""
         msg_name = type(msg).__name__
-
-        # Log the message
-        logger.info(f"[{self.connection_id}] → {msg_name} {self._format_message(msg)}")
-
-        # Validate with frontend state machine (client perspective)
-        try:
-            self.frontend_sm.send(msg)
-            logger.debug(
-                f"[{self.connection_id}]   Frontend phase: {self.frontend_sm.phase.name}, "
-                f"pending_syncs: {self.frontend_sm.pending_syncs}"
-            )
-        except StateMachineError as e:
-            if self.strict_mode:
-                logger.error(f"[{self.connection_id}] Frontend SM error: {e}")
-                sys.exit(1)
-            logger.warning(f"[{self.connection_id}]   ⚠️  Frontend SM: {e}")
-
-        # Validate with backend state machine (server perspective)
-        try:
-            self.backend_sm.receive(msg)
-            logger.debug(
-                f"[{self.connection_id}]   Backend phase: {self.backend_sm.phase.name}, "
-                f"pending_syncs: {self.backend_sm.pending_syncs}"
-            )
-        except StateMachineError as e:
-            if self.strict_mode:
-                logger.error(f"[{self.connection_id}] Backend SM error: {e}")
-                sys.exit(1)
-            logger.warning(f"[{self.connection_id}]   ⚠️  Backend SM: {e}")
-
-        # Check phase consistency
-        if self.frontend_sm.phase != self.backend_sm.phase:
-            logger.debug(
-                f"[{self.connection_id}]   ⚠️  Phase mismatch: "
-                f"Frontend={self.frontend_sm.phase.name}, "
-                f"Backend={self.backend_sm.phase.name}"
-            )
-
-    async def _handle_backend_message(self, msg: BackendMessage) -> None:
-        """Process a backend message through the state machines."""
-        msg_name = type(msg).__name__
-
-        # Log the message
-        logger.info(f"[{self.connection_id}] ← {msg_name} {self._format_message(msg)}")
-
-        # Validate with backend state machine (server perspective)
-        try:
-            self.backend_sm.send(msg)
-            logger.debug(
-                f"[{self.connection_id}]   Backend phase: {self.backend_sm.phase.name}, "
-                f"pending_syncs: {self.backend_sm.pending_syncs}"
-            )
-        except StateMachineError as e:
-            if self.strict_mode:
-                logger.error(f"[{self.connection_id}] Backend SM error: {e}")
-                sys.exit(1)
-            logger.warning(f"[{self.connection_id}]   ⚠️  Backend SM: {e}")
-
-        # Validate with frontend state machine (client perspective)
-        try:
-            self.frontend_sm.receive(msg)
-            logger.debug(
-                f"[{self.connection_id}]   Frontend phase: {self.frontend_sm.phase.name}, "
-                f"pending_syncs: {self.frontend_sm.pending_syncs}"
-            )
-        except StateMachineError as e:
-            if self.strict_mode:
-                logger.error(f"[{self.connection_id}] Frontend SM error: {e}")
-                sys.exit(1)
-            logger.warning(f"[{self.connection_id}]   ⚠️  Frontend SM: {e}")
-
-        # Check phase consistency
-        if self.frontend_sm.phase != self.backend_sm.phase:
-            logger.debug(
-                f"[{self.connection_id}]   ⚠️  Phase mismatch: "
-                f"Frontend={self.frontend_sm.phase.name}, "
-                f"Backend={self.backend_sm.phase.name}"
-            )
-
-    def _format_message(self, msg) -> str:
-        """Format message details for logging."""
-        if isinstance(msg, SSLRequest):
-            return "(SSL negotiation request)"
-        elif isinstance(msg, GSSEncRequest):
-            return "(GSS encryption request)"
-        elif isinstance(msg, CancelRequest):
-            return f"(pid={msg.process_id}, key={msg.secret_key.hex()})"
-        elif isinstance(msg, ErrorResponse):
-            severity = msg.fields.get("S", "?")
-            message = msg.fields.get("M", "?")
-            return f"(severity={severity}, message={message})"
-        elif hasattr(msg, "query_string"):
-            query = msg.query_string[:50]
-            return f'(query="{query}...")'
-        elif hasattr(msg, "query"):
-            query = msg.query[:50]
-            return f'(query="{query}...")'
-        elif hasattr(msg, "tag"):
-            return f"(tag={msg.tag})"
-        elif hasattr(msg, "status"):
-            return f"(status={msg.status.name})"
-        return ""
+        logger.info(f"[{self.connection_id}] {direction} {msg_name} {msg}")
+        logger.debug(
+            f"[{self.connection_id}]   Client phase: {self.client_conn.phase.name}, "
+            f"Server phase: {self.server_conn.phase.name}"
+        )
 
     async def _cleanup(self):
         """Clean up connections."""
         logger.info(
             f"[{self.connection_id}] Closing connection "
-            f"(Frontend={self.frontend_sm.phase.name}, "
-            f"Backend={self.backend_sm.phase.name})"
+            f"(Client={self.client_conn.phase.name}, "
+            f"Server={self.server_conn.phase.name})"
         )
 
         if self.client_writer:
@@ -338,13 +175,11 @@ class ProxyConnection:
                 pass
 
 
-async def start_proxy(
-    proxy_port: int, server_host: str, server_port: int, strict_mode: bool = False
-):
+async def start_proxy(proxy_port: int, server_host: str, server_port: int, strict: bool = False):
     """Start the proxy server."""
 
     async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        connection = ProxyConnection(reader, writer, server_host, server_port, strict_mode)
+        connection = ProxyConnection(reader, writer, server_host, server_port, strict)
         await connection.handle()
 
     server = await asyncio.start_server(handle_client, "0.0.0.0", proxy_port)

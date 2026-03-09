@@ -1,4 +1,80 @@
-from enum import IntEnum, StrEnum
+from enum import Enum, IntEnum, StrEnum, auto
+
+
+class MessageDirection(StrEnum):
+    """Message direction: indicates who sends this message type.
+
+    - FRONTEND: Message sent by client (frontend → backend)
+    - BACKEND: Message sent by server (backend → frontend)
+
+    Examples:
+        - Query is FRONTEND (client sends queries to server)
+        - RowDescription is BACKEND (server sends row descriptions to client)
+        - StartupMessage is FRONTEND (client initiates connection)
+        - ReadyForQuery is BACKEND (server signals ready state)
+    """
+
+    FRONTEND = "frontend"
+    BACKEND = "backend"
+
+
+class ConnectionPhase(Enum):
+    """Connection phases in the PostgreSQL wire protocol lifecycle.
+
+    The protocol follows this general flow:
+
+    Frontend (Client):
+        STARTUP → AUTHENTICATING → READY → QUERYING/EXTENDED/COPY → READY → ...
+
+    Backend (Server):
+        STARTUP → AUTHENTICATING → READY → QUERYING/EXTENDED/COPY → READY → ...
+
+    Either side can enter TERMINATED at any time by sending/receiving Terminate.
+    Either side can enter FAILED at any time by receiving ErrorResponse.
+    """
+
+    # Initial state - waiting for or sending startup message
+    STARTUP = auto()
+
+    # SSL/GSS negotiation (optional)
+    SSL_NEGOTIATION = auto()
+    GSS_NEGOTIATION = auto()
+
+    # Authentication loop
+    AUTHENTICATING = auto()
+
+    # SASL authentication sub-phases (decoder needs these to distinguish 'p' messages)
+    AUTHENTICATING_SASL_INITIAL = auto()
+    AUTHENTICATING_SASL_CONTINUE = auto()
+
+    # Post-auth, waiting for BackendKeyData and ParameterStatus messages
+    INITIALIZATION = auto()
+
+    # Ready to accept queries
+    READY = auto()
+
+    # Simple query protocol active
+    SIMPLE_QUERY = auto()
+
+    # Extended query protocol active
+    EXTENDED_QUERY = auto()
+
+    # COPY mode (COPY IN, COPY OUT, or COPY BOTH)
+    COPY_IN = auto()
+    COPY_OUT = auto()
+    COPY_BOTH = auto()
+
+    # Function call active (legacy)
+    FUNCTION_CALL = auto()
+
+    # Connection terminating gracefully
+    TERMINATING = auto()
+
+    # Connection terminated
+    TERMINATED = auto()
+
+    # Connection failed (received ErrorResponse during startup/auth)
+    FAILED = auto()
 
 
 class ProtocolVersion(IntEnum):

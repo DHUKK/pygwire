@@ -2,19 +2,14 @@
 
 from importlib.metadata import version
 
-from .codec import (
-    BackendMessageDecoder,
-    FrontendMessageDecoder,
-)
-from .connection import (
+from pygwire.connection import (
     BackendConnection,
     Connection,
     FrontendConnection,
 )
-from .constants import ProtocolVersion, TransactionStatus
-from .state_machine import (
+from pygwire.constants import ConnectionPhase, ProtocolVersion, TransactionStatus
+from pygwire.state_machine import (
     BackendStateMachine,
-    ConnectionPhase,
     FrontendStateMachine,
     StateMachineError,
 )
@@ -22,8 +17,6 @@ from .state_machine import (
 __version__ = version("pygwire")
 
 __all__ = [
-    "FrontendMessageDecoder",
-    "BackendMessageDecoder",
     "Connection",
     "FrontendConnection",
     "BackendConnection",

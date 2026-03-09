@@ -6,15 +6,15 @@ import struct
 from dataclasses import dataclass, field
 from typing import Self
 
-from pygwire.constants import BackendMessageType
+from pygwire.constants import MessageDirection
 
 from ._base import (
     BackendMessage,
     _decode_field_messages,
     _encode_field_messages,
     _read_cstring,
-    register,
 )
+from ._registry import STANDARD_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Struct helpers (pre-compiled for hot-path parsing)
@@ -27,7 +27,7 @@ _INT32 = struct.Struct("!I")  # unsigned 32-bit, network byte order
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(BackendMessageType.NOTIFICATION_RESPONSE)
+@STANDARD_REGISTRY.register(b"A", direction=MessageDirection.BACKEND)
 @dataclass(slots=True)
 class NotificationResponse(BackendMessage):
     """NotificationResponse ('A') — asynchronous NOTIFY event."""
@@ -58,7 +58,7 @@ class NotificationResponse(BackendMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(BackendMessageType.NOTICE_RESPONSE)
+@STANDARD_REGISTRY.register(b"N", direction=MessageDirection.BACKEND)
 @dataclass(slots=True)
 class NoticeResponse(BackendMessage):
     """NoticeResponse ('N') — non-fatal notice from the server.
@@ -93,7 +93,7 @@ class NoticeResponse(BackendMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(BackendMessageType.PARAMETER_STATUS)
+@STANDARD_REGISTRY.register(b"S", direction=MessageDirection.BACKEND)
 @dataclass(slots=True)
 class ParameterStatus(BackendMessage):
     """ParameterStatus ('S') — reports a runtime parameter value."""

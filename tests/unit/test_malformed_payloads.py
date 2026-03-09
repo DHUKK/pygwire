@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from pygwire.codec import BackendMessageDecoder, FrontendMessageDecoder, ProtocolError
+from pygwire.codec import _BackendStreamDecoder, _FrontendStreamDecoder
 from pygwire.messages import (
     AuthenticationSASL,
     Bind,
@@ -12,8 +12,24 @@ from pygwire.messages import (
     ErrorResponse,
     FieldDescription,
     NotificationResponse,
+    ProtocolError,
     RowDescription,
 )
+from pygwire.state_machine import ConnectionPhase
+
+
+# Helper to create decoders for malformed payload testing.
+# These tests need low-level decoder access since they craft invalid wire data.
+def BackendMessageDecoder():
+    c = _BackendStreamDecoder()
+    c.phase = ConnectionPhase.READY
+    return c
+
+
+def FrontendMessageDecoder():
+    c = _FrontendStreamDecoder()
+    c.phase = ConnectionPhase.READY
+    return c
 
 
 class TestTruncatedPayloads:
@@ -60,7 +76,7 @@ class TestTruncatedPayloads:
         # This should raise ProtocolError due to incomplete data or struct.unpack failure
         with pytest.raises(ProtocolError):
             decoder.feed(corrupted)
-            decoder.read()
+            next(decoder)
 
     def test_data_row_truncated_column_count(self):
         """Test DataRow claiming more columns than provided."""
@@ -77,7 +93,7 @@ class TestTruncatedPayloads:
         # Either feed or read should raise ProtocolError
         with pytest.raises(ProtocolError):
             decoder.feed(corrupted)
-            decoder.read()
+            next(decoder)
 
     def test_authentication_sasl_truncated_mechanisms(self):
         """Test AuthenticationSASL claiming mechanisms but providing truncated data."""
@@ -97,7 +113,7 @@ class TestTruncatedPayloads:
 
         with pytest.raises(ProtocolError):
             decoder.feed(truncated)
-            decoder.read()
+            next(decoder)
 
     def test_bind_truncated_parameter_values(self):
         """Test Bind claiming parameter values but providing truncated data."""
@@ -120,7 +136,7 @@ class TestTruncatedPayloads:
 
         with pytest.raises(ProtocolError):
             decoder.feed(truncated)
-            decoder.read()
+            next(decoder)
 
     def test_error_response_truncated_fields(self):
         """Test ErrorResponse with truncated field data."""
@@ -145,7 +161,7 @@ class TestTruncatedPayloads:
 
         with pytest.raises(ProtocolError):
             decoder.feed(truncated)
-            decoder.read()
+            next(decoder)
 
 
 class TestInvalidCountFields:
@@ -163,7 +179,7 @@ class TestInvalidCountFields:
 
         with pytest.raises(ProtocolError):
             decoder.feed(wire)
-            decoder.read()
+            next(decoder)
 
     def test_row_description_negative_field_count(self):
         """Test RowDescription with negative field count."""
@@ -176,7 +192,7 @@ class TestInvalidCountFields:
 
         with pytest.raises(ProtocolError):
             decoder.feed(wire)
-            decoder.read()
+            next(decoder)
 
     def test_data_row_negative_column_count(self):
         """Test DataRow with negative column count."""
@@ -189,7 +205,7 @@ class TestInvalidCountFields:
 
         with pytest.raises(ProtocolError):
             decoder.feed(wire)
-            decoder.read()
+            next(decoder)
 
     def test_copy_in_response_negative_column_count(self):
         """Test CopyInResponse with negative column count."""
@@ -202,7 +218,7 @@ class TestInvalidCountFields:
 
         with pytest.raises(ProtocolError):
             decoder.feed(wire)
-            decoder.read()
+            next(decoder)
 
     def test_function_call_negative_argument_count(self):
         """Test FunctionCall with negative argument count."""
@@ -215,7 +231,7 @@ class TestInvalidCountFields:
 
         with pytest.raises(ProtocolError):
             decoder.feed(wire)
-            decoder.read()
+            next(decoder)
 
 
 class TestOversizedDeclaredLengths:
@@ -235,8 +251,12 @@ class TestOversizedDeclaredLengths:
 
         # The decoder should wait for more data but not crash
         # We can't complete the message with this oversized claim
-        msg = decoder.read()
-        assert msg is None  # Incomplete message
+        try:
+            next(decoder)
+            raise AssertionError("Should not have parsed incomplete message")
+        except StopIteration:
+            # Expected - not enough data
+            pass
 
 
 class TestEmbeddedNulls:
@@ -260,7 +280,7 @@ class TestEmbeddedNulls:
         decoder.feed(wire)
 
         # The decoder will read until first null, so "ERR" becomes the value
-        msg = decoder.read()
+        msg = next(decoder)
         assert isinstance(msg, ErrorResponse)
         assert msg.fields["S"] == "ERR"  # Stops at embedded null
 
@@ -278,7 +298,7 @@ class TestEmbeddedNulls:
 
         decoder.feed(wire)
 
-        msg = decoder.read()
+        msg = next(decoder)
         assert isinstance(msg, NotificationResponse)
         # Channel name stops at embedded null
         assert msg.channel == "chan"
@@ -296,7 +316,7 @@ class TestMinimumPayloadSize:
 
         with pytest.raises(ProtocolError):
             decoder.feed(wire)
-            decoder.read()
+            next(decoder)
 
     def test_row_description_empty_payload(self):
         """Test RowDescription with empty payload (missing field count)."""
@@ -307,7 +327,7 @@ class TestMinimumPayloadSize:
 
         with pytest.raises(ProtocolError):
             decoder.feed(wire)
-            decoder.read()
+            next(decoder)
 
     def test_notification_response_too_short(self):
         """Test NotificationResponse missing required fields."""
@@ -320,7 +340,7 @@ class TestMinimumPayloadSize:
 
         with pytest.raises(ProtocolError):
             decoder.feed(wire)
-            decoder.read()
+            next(decoder)
 
 
 class TestInvalidNullHandling:
@@ -348,7 +368,7 @@ class TestInvalidNullHandling:
 
         with pytest.raises(ProtocolError):
             decoder.feed(wire)
-            decoder.read()
+            next(decoder)
 
     def test_data_row_column_with_zero_length(self):
         """Test DataRow column with length=0 (empty bytes, not NULL)."""
@@ -363,7 +383,7 @@ class TestInvalidNullHandling:
 
         decoder.feed(wire)
 
-        msg = decoder.read()
+        msg = next(decoder)
         assert isinstance(msg, DataRow)
         assert msg.columns == [b""]  # Empty bytes, not None
 
@@ -379,14 +399,18 @@ class TestPartialMessages:
         wire = b"R\x00\x00"
         decoder.feed(wire)
 
-        msg = decoder.read()
-        assert msg is None  # Incomplete
+        # Should not be able to parse yet (incomplete)
+        try:
+            next(decoder)
+            raise AssertionError("Should not have parsed incomplete header")
+        except StopIteration:
+            pass  # Expected
 
         # Send rest of header + payload
         wire2 = b"\x00\x08" + struct.pack("!I", 0)  # AuthenticationOk
         decoder.feed(wire2)
 
-        msg = decoder.read()
+        msg = next(decoder)
         assert msg is not None
 
     def test_partial_payload_feed(self):
@@ -413,11 +437,15 @@ class TestPartialMessages:
         mid = len(wire) // 2
         decoder.feed(wire[:mid])
 
-        result = decoder.read()
-        assert result is None  # Incomplete
+        # Should not be able to parse yet (incomplete)
+        try:
+            next(decoder)
+            raise AssertionError("Should not have parsed incomplete payload")
+        except StopIteration:
+            pass  # Expected
 
         # Feed second half
         decoder.feed(wire[mid:])
 
-        result = decoder.read()
+        result = next(decoder)
         assert isinstance(result, RowDescription)

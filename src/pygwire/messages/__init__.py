@@ -5,7 +5,6 @@ All messages are organized internally by protocol phase but exposed here
 in a flat namespace for convenient importing.
 """
 
-# Base classes and exceptions (public API)
 # Authentication
 from ._auth import (
     Authentication,
@@ -19,6 +18,7 @@ from ._auth import (
     AuthenticationSASLContinue,
     AuthenticationSASLFinal,
     AuthenticationSSPI,
+    GSSResponse,
     PasswordMessage,
     SASLInitialResponse,
     SASLResponse,
@@ -32,9 +32,6 @@ from ._base import (
     ProtocolError,
     PygwireError,
     SpecialMessage,
-    lookup_backend,
-    lookup_frontend,
-    lookup_special,
 )
 
 # COPY protocol
@@ -84,6 +81,11 @@ from ._notification import (
     NotificationResponse,
     ParameterStatus,
 )
+from ._registry import (  # noqa: E402
+    NEGOTIATION_REGISTRY,
+    STANDARD_REGISTRY,
+    STARTUP_REGISTRY,
+)
 
 # Simple query protocol
 from ._simple_query import (
@@ -105,6 +107,10 @@ from ._startup import (
 )
 
 __all__ = [
+    # Registries
+    "STANDARD_REGISTRY",
+    "STARTUP_REGISTRY",
+    "NEGOTIATION_REGISTRY",
     # Base classes and exceptions
     "PGMessage",
     "FrontendMessage",
@@ -120,6 +126,7 @@ __all__ = [
     "CancelRequest",
     # Authentication
     "SSLResponse",
+    "GSSResponse",
     "Authentication",
     "AuthenticationOk",
     "AuthenticationKerberosV5",
@@ -175,7 +182,4 @@ __all__ = [
     "FunctionCallResponse",
     "Terminate",
     "NegotiateProtocolVersion",
-    "lookup_backend",
-    "lookup_frontend",
-    "lookup_special",
 ]

@@ -6,9 +6,10 @@ import struct
 from dataclasses import dataclass, field
 from typing import Self
 
-from pygwire.constants import BackendMessageType, FrontendMessageType
+from pygwire.constants import ConnectionPhase, MessageDirection
 
-from ._base import BackendMessage, FrontendMessage, _read_cstring, register
+from ._base import BackendMessage, FrontendMessage, _read_cstring
+from ._registry import STANDARD_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Struct helpers (pre-compiled for hot-path parsing)
@@ -23,7 +24,11 @@ _SINT32 = struct.Struct("!i")  # signed 32-bit (used for NULL sentinel -1)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(BackendMessageType.BACKEND_KEY_DATA)
+@STANDARD_REGISTRY.register(
+    b"K",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset({ConnectionPhase.INITIALIZATION}),
+)
 @dataclass(slots=True)
 class BackendKeyData(BackendMessage):
     """Secret key data sent after authentication.
@@ -52,7 +57,11 @@ class BackendKeyData(BackendMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(FrontendMessageType.FUNCTION_CALL)
+@STANDARD_REGISTRY.register(
+    b"F",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.READY}),
+)
 @dataclass(slots=True)
 class FunctionCall(FrontendMessage):
     """FunctionCall ('F') — call a server-side function (legacy protocol).
@@ -120,7 +129,11 @@ class FunctionCall(FrontendMessage):
         )
 
 
-@register(BackendMessageType.FUNCTION_CALL_RESPONSE)
+@STANDARD_REGISTRY.register(
+    b"V",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset({ConnectionPhase.READY}),
+)
 @dataclass(slots=True)
 class FunctionCallResponse(BackendMessage):
     """FunctionCallResponse ('V') — result of a function call."""
@@ -145,7 +158,7 @@ class FunctionCallResponse(BackendMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(FrontendMessageType.TERMINATE)
+@STANDARD_REGISTRY.register(b"X", direction=MessageDirection.FRONTEND)
 @dataclass(slots=True)
 class Terminate(FrontendMessage):
     """Terminate ('X') — close the connection."""
@@ -163,7 +176,7 @@ class Terminate(FrontendMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(BackendMessageType.NEGOTIATE_PROTOCOL_VERSION)
+@STANDARD_REGISTRY.register(b"v", direction=MessageDirection.BACKEND)
 @dataclass(slots=True)
 class NegotiateProtocolVersion(BackendMessage):
     """NegotiateProtocolVersion ('v') — server cannot support requested protocol."""

@@ -6,9 +6,10 @@ import struct
 from dataclasses import dataclass, field
 from typing import Self
 
-from pygwire.constants import BackendMessageType, FrontendMessageType
+from pygwire.constants import ConnectionPhase, MessageDirection
 
-from ._base import BackendMessage, FrontendMessage, _read_cstring, register
+from ._base import BackendMessage, FrontendMessage, _read_cstring
+from ._registry import STANDARD_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Struct helpers (pre-compiled for hot-path parsing)
@@ -23,7 +24,11 @@ _SINT32 = struct.Struct("!i")  # signed 32-bit (NULL parameter sentinel -1)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(FrontendMessageType.PARSE)
+@STANDARD_REGISTRY.register(
+    b"P",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.READY, ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class Parse(FrontendMessage):
     """Parse ('P') — create a prepared statement.
@@ -64,7 +69,11 @@ class Parse(FrontendMessage):
         return cls(statement=statement, query=query, param_types=param_types)
 
 
-@register(FrontendMessageType.BIND)
+@STANDARD_REGISTRY.register(
+    b"B",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.READY, ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class Bind(FrontendMessage):
     """Bind ('B') — bind parameters to a prepared statement, creating a portal.
@@ -154,7 +163,11 @@ class Bind(FrontendMessage):
         )
 
 
-@register(FrontendMessageType.DESCRIBE)
+@STANDARD_REGISTRY.register(
+    b"D",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.READY, ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class Describe(FrontendMessage):
     """Describe ('D') — request description of a statement or portal.
@@ -177,7 +190,11 @@ class Describe(FrontendMessage):
         return cls(kind=kind, name=name)
 
 
-@register(FrontendMessageType.EXECUTE)
+@STANDARD_REGISTRY.register(
+    b"E",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.READY, ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class Execute(FrontendMessage):
     """Execute ('E') — execute a portal.
@@ -200,7 +217,11 @@ class Execute(FrontendMessage):
         return cls(portal=portal, max_rows=max_rows)
 
 
-@register(FrontendMessageType.CLOSE)
+@STANDARD_REGISTRY.register(
+    b"C",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.READY, ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class Close(FrontendMessage):
     """Close ('C') — close a statement or portal.
@@ -223,7 +244,11 @@ class Close(FrontendMessage):
         return cls(kind=kind, name=name)
 
 
-@register(FrontendMessageType.SYNC)
+@STANDARD_REGISTRY.register(
+    b"S",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.READY, ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class Sync(FrontendMessage):
     """Sync ('S') — marks the end of an extended query cycle."""
@@ -236,7 +261,11 @@ class Sync(FrontendMessage):
         return cls()
 
 
-@register(FrontendMessageType.FLUSH)
+@STANDARD_REGISTRY.register(
+    b"H",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.READY, ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class Flush(FrontendMessage):
     """Flush ('H') — request the server to send any pending output."""
@@ -254,7 +283,11 @@ class Flush(FrontendMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(BackendMessageType.PARSE_COMPLETE)
+@STANDARD_REGISTRY.register(
+    b"1",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset({ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class ParseComplete(BackendMessage):
     """ParseComplete ('1')."""
@@ -267,7 +300,11 @@ class ParseComplete(BackendMessage):
         return cls()
 
 
-@register(BackendMessageType.BIND_COMPLETE)
+@STANDARD_REGISTRY.register(
+    b"2",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset({ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class BindComplete(BackendMessage):
     """BindComplete ('2')."""
@@ -280,7 +317,11 @@ class BindComplete(BackendMessage):
         return cls()
 
 
-@register(BackendMessageType.CLOSE_COMPLETE)
+@STANDARD_REGISTRY.register(
+    b"3",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset({ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class CloseComplete(BackendMessage):
     """CloseComplete ('3')."""
@@ -293,7 +334,11 @@ class CloseComplete(BackendMessage):
         return cls()
 
 
-@register(BackendMessageType.NO_DATA)
+@STANDARD_REGISTRY.register(
+    b"n",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset({ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class NoData(BackendMessage):
     """NoData ('n')."""
@@ -306,7 +351,11 @@ class NoData(BackendMessage):
         return cls()
 
 
-@register(BackendMessageType.PORTAL_SUSPENDED)
+@STANDARD_REGISTRY.register(
+    b"s",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset({ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class PortalSuspended(BackendMessage):
     """PortalSuspended ('s')."""
@@ -319,7 +368,11 @@ class PortalSuspended(BackendMessage):
         return cls()
 
 
-@register(BackendMessageType.PARAMETER_DESCRIPTION)
+@STANDARD_REGISTRY.register(
+    b"t",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset({ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class ParameterDescription(BackendMessage):
     """ParameterDescription ('t') — OIDs of parameters in a prepared statement."""

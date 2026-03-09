@@ -114,10 +114,10 @@ class TestBackendConnection:
         assert conn.phase == ConnectionPhase.STARTUP
         assert conn.is_active
 
-    def test_initialization_without_startup(self):
-        """Test that BackendConnection can skip startup mode."""
-        conn = BackendConnection(startup=False)
-        assert conn.phase == ConnectionPhase.STARTUP
+    def test_initialization_at_ready_phase(self):
+        """Test that BackendConnection can start at READY phase."""
+        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
+        assert conn.phase == ConnectionPhase.READY
 
     def test_send_encodes_and_tracks_state(self):
         """Test that send() encodes message and updates state machine."""

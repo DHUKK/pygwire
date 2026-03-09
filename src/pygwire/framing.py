@@ -1,0 +1,280 @@
+"""Framing strategies for PostgreSQL wire protocol message extraction.
+
+This module defines how to extract different types of PostgreSQL messages
+from a byte buffer. PostgreSQL uses three distinct framing modes:
+
+1. **Startup framing**: Int32(length) + payload (no identifier byte)
+   - Used during STARTUP phase for StartupMessage, SSLRequest, etc.
+   - First 4 bytes of payload contain version/request code
+
+2. **Negotiation framing**: Single byte (no length, no identifier)
+   - Used for SSL/GSS negotiation responses (b'S', b'N', b'G')
+   - The byte itself IS the complete message
+
+3. **Standard framing**: Byte1(identifier) + Int32(length) + payload
+   - Used for all other messages after authentication begins
+   - Most common framing mode
+"""
+
+from __future__ import annotations
+
+import struct
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+from pygwire.constants import ConnectionPhase, MessageDirection
+from pygwire.messages import (
+    NEGOTIATION_REGISTRY,
+    STANDARD_REGISTRY,
+    STARTUP_REGISTRY,
+    ProtocolError,
+)
+
+if TYPE_CHECKING:
+    from pygwire.messages import PGMessage
+
+# Struct format for the 4-byte length field (network byte order).
+_LENGTH_STRUCT = struct.Struct("!I")
+
+# Default maximum message size (1 GB, matching PostgreSQL's PQ_LARGE_MESSAGE_LIMIT).
+_DEFAULT_MAX_MESSAGE_SIZE = 1 * 1024 * 1024 * 1024
+
+
+class FramingStrategy(ABC):
+    """Abstract base class for message framing strategies.
+
+    A framing strategy knows how to extract a single message from a byte buffer
+    based on the PostgreSQL wire protocol framing rules. Different phases of
+    the protocol use different framing modes.
+    """
+
+    def __init__(self, max_message_size: int = _DEFAULT_MAX_MESSAGE_SIZE):
+        """Initialize framing strategy.
+
+        Args:
+            max_message_size: Maximum allowed message size in bytes.
+                Defaults to 1 GB (PostgreSQL's PQ_LARGE_MESSAGE_LIMIT).
+        """
+        self._max_message_size = max_message_size
+
+    @abstractmethod
+    def try_parse(
+        self,
+        buf: memoryview,
+        pos: int,
+        phase: ConnectionPhase,
+        direction: MessageDirection,
+    ) -> tuple[PGMessage, int] | None:
+        """Try to extract one message from the buffer.
+
+        Args:
+            buf: Buffer containing message bytes (memoryview for zero-copy)
+            pos: Current position in buffer
+            phase: Current connection phase
+            direction: Message direction (FRONTEND or BACKEND)
+
+        Returns:
+            (message, bytes_consumed) if successful, None if insufficient data
+
+        Raises:
+            ProtocolError: If message is malformed or unknown
+        """
+        ...
+
+
+class StartupFraming(FramingStrategy):
+    """Framing for startup messages: Int32(length) + payload.
+
+    Startup messages have no identifier byte. The frame starts with a 4-byte
+    length (including the length field itself), followed by payload. The first
+    4 bytes of the payload contain a version/request code that identifies the
+    message type.
+
+    Wire format:
+        Bytes 0-3:   Int32 length (including these 4 bytes)
+        Bytes 4-7:   Int32 version_code (part of payload)
+        Bytes 8+:    Remaining payload
+
+    Example:
+        StartupMessage: length=52, version_code=0x00030000, params...
+        SSLRequest:     length=8,  version_code=80877103
+    """
+
+    def try_parse(
+        self,
+        buf: memoryview,
+        pos: int,
+        phase: ConnectionPhase,
+        direction: MessageDirection,
+    ) -> tuple[PGMessage, int] | None:
+        # Need at least 4 bytes for length field
+        if len(buf) - pos < 4:
+            return None
+
+        # Extract length
+        (length,) = _LENGTH_STRUCT.unpack_from(buf, pos)
+
+        # Validate length
+        if length > self._max_message_size:
+            raise ProtocolError(
+                f"Startup message length {length} exceeds maximum allowed size "
+                f"({self._max_message_size})"
+            )
+
+        # Check if we have the full message
+        if len(buf) - pos < length:
+            return None
+
+        # Extract payload (starts right after length field)
+        payload_start = pos + 4
+        payload_end = pos + length
+        payload = buf[payload_start:payload_end]
+
+        # Extract version code from first 4 bytes of payload
+        if len(payload) < 4:
+            raise ProtocolError("Startup message payload too short for version code")
+
+        (version_code,) = _LENGTH_STRUCT.unpack_from(payload)
+
+        # Lookup message class by version code
+        msg_cls = STARTUP_REGISTRY.lookup(version_code)
+        if msg_cls is None:
+            raise ProtocolError(f"Unknown startup message version code: {version_code:#010x}")
+
+        # Decode message
+        try:
+            msg = msg_cls.decode(payload)
+        except struct.error as e:
+            raise ProtocolError(f"{msg_cls.__name__} message truncated or malformed: {e}") from e
+
+        return msg, length
+
+
+class NegotiationFraming(FramingStrategy):
+    """Framing for SSL/GSS negotiation: Single byte.
+
+    Negotiation messages are exactly 1 byte with no length field. The byte
+    value itself identifies the message and its meaning:
+        - b'S': SSL accepted
+        - b'N': SSL/GSS rejected
+        - b'G': GSS accepted
+
+    These are the only messages in the protocol without any length framing.
+    """
+
+    def try_parse(
+        self,
+        buf: memoryview,
+        pos: int,
+        phase: ConnectionPhase,
+        direction: MessageDirection,
+    ) -> tuple[PGMessage, int] | None:
+        # Need exactly 1 byte
+        if len(buf) - pos < 1:
+            return None
+
+        # Extract the single byte
+        byte_value = bytes(buf[pos : pos + 1])
+
+        # Lookup message class by byte value and phase
+        msg_cls = NEGOTIATION_REGISTRY.lookup(byte_value, phase)
+        if msg_cls is None:
+            raise ProtocolError(f"Unknown negotiation byte: {byte_value!r} in phase {phase.name}")
+
+        # Decode message (payload is the single byte)
+        payload = buf[pos : pos + 1]
+        try:
+            msg = msg_cls.decode(payload)
+        except struct.error as e:
+            raise ProtocolError(f"{msg_cls.__name__} message malformed: {e}") from e
+
+        return msg, 1
+
+
+class StandardFraming(FramingStrategy):
+    """Framing for standard messages: Byte1(identifier) + Int32(length) + payload.
+
+    This is the most common framing mode, used for all messages after the
+    initial handshake. Messages start with a 1-byte identifier, followed by
+    a 4-byte length (which includes the length field itself but NOT the
+    identifier byte), followed by payload.
+
+    Wire format:
+        Byte 0:      Identifier (e.g., 'Q' for Query, 'Z' for ReadyForQuery)
+        Bytes 1-4:   Int32 length (includes these 4 bytes, NOT identifier)
+        Bytes 5+:    Payload
+
+    Example:
+        Query('SELECT 1'): identifier=b'Q', length=14, payload="SELECT 1\x00"
+        ReadyForQuery(I):  identifier=b'Z', length=5,  payload=b'I'
+    """
+
+    def try_parse(
+        self,
+        buf: memoryview,
+        pos: int,
+        phase: ConnectionPhase,
+        direction: MessageDirection,
+    ) -> tuple[PGMessage, int] | None:
+        # Need at least 5 bytes: 1 identifier + 4 length
+        if len(buf) - pos < 5:
+            return None
+
+        # Extract identifier and length
+        identifier = bytes((buf[pos],))
+        (length,) = _LENGTH_STRUCT.unpack_from(buf, pos + 1)
+
+        # Validate length
+        if length > self._max_message_size:
+            raise ProtocolError(
+                f"Message length {length} exceeds maximum allowed size ({self._max_message_size})"
+            )
+
+        # Calculate total frame size: 1 byte identifier + length (which includes itself)
+        total = 1 + length
+        if len(buf) - pos < total:
+            return None
+
+        # Extract payload (starts after identifier + length)
+        payload_start = pos + 5
+        payload_end = pos + total
+        payload = buf[payload_start:payload_end]
+
+        # Lookup message class by identifier, phase, and direction
+        msg_cls = STANDARD_REGISTRY.lookup(identifier, phase, direction)
+        if msg_cls is None:
+            raise ProtocolError(
+                f"Unknown message identifier: {identifier!r} in phase {phase.name} "
+                f"for direction {direction.value}"
+            )
+
+        # Decode message
+        try:
+            msg = msg_cls.decode(payload)
+        except struct.error as e:
+            raise ProtocolError(f"{msg_cls.__name__} message truncated or malformed: {e}") from e
+
+        return msg, total
+
+
+# ---------------------------------------------------------------------------
+# Framing registry — maps (phase, direction) → FramingStrategy
+# ---------------------------------------------------------------------------
+
+_STANDARD = StandardFraming()
+_STARTUP = StartupFraming()
+_NEGOTIATION = NegotiationFraming()
+
+_FRAMING_REGISTRY: dict[tuple[ConnectionPhase, MessageDirection], FramingStrategy] = {
+    (ConnectionPhase.STARTUP, MessageDirection.FRONTEND): _STARTUP,
+    (ConnectionPhase.SSL_NEGOTIATION, MessageDirection.BACKEND): _NEGOTIATION,
+    (ConnectionPhase.GSS_NEGOTIATION, MessageDirection.BACKEND): _NEGOTIATION,
+}
+
+
+def lookup_framing(phase: ConnectionPhase, direction: MessageDirection) -> FramingStrategy:
+    """Find the framing strategy for a given phase and direction.
+
+    Returns the registered strategy, or standard framing as the default.
+    """
+    return _FRAMING_REGISTRY.get((phase, direction), _STANDARD)

@@ -113,14 +113,18 @@ class TestFrontendStateMachine:
 
         sm.send(StartupMessage(params={"user": "test"}))
         sm.receive(AuthenticationSASL(mechanisms=["SCRAM-SHA-256"]))
-        assert sm.phase == ConnectionPhase.AUTHENTICATING
+        assert sm.phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL
 
         sm.send(SASLInitialResponse(mechanism="SCRAM-SHA-256", data=b"client-first"))
-        assert sm.phase == ConnectionPhase.AUTHENTICATING
+        assert sm.phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL
 
         sm.receive(AuthenticationSASLContinue(data=b"server-first"))
+        assert sm.phase == ConnectionPhase.AUTHENTICATING_SASL_CONTINUE
+
         sm.send(SASLResponse(data=b"client-final"))
         sm.receive(AuthenticationSASLFinal(data=b"server-final"))
+        assert sm.phase == ConnectionPhase.AUTHENTICATING
+
         sm.receive(AuthenticationOk())
         assert sm.phase == ConnectionPhase.INITIALIZATION
 

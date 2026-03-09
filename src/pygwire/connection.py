@@ -1,10 +1,11 @@
-"""Sans-I/O connection coordination for PostgreSQL wire protocol.
+"""Sans-I/O connection classes for PostgreSQL wire protocol.
 
-This module provides high-level connection classes that coordinate message
-decoding/encoding with state machine tracking, without performing I/O operations.
+The Connection is the primary public API for pygwire. It coordinates message
+decoding, encoding, and state tracking as a single unit — because you cannot
+correctly decode a PostgreSQL byte stream without knowing the connection phase.
 
-The connection classes follow the sans-I/O design pattern - they manage protocol
-state and message serialization, but leave actual network I/O to the user.
+The connection classes follow the sans-I/O design pattern: they manage protocol
+state and message serialization, but leave actual network I/O to the caller.
 
 Usage (Frontend/Client)::
 
@@ -12,7 +13,6 @@ Usage (Frontend/Client)::
     from pygwire.messages import StartupMessage, Query
     import socket
 
-    # Create connection and socket
     conn = FrontendConnection()
     sock = socket.create_connection(("localhost", 5432))
 
@@ -35,7 +35,6 @@ Usage (Backend/Server)::
     # Receive client messages
     for msg in conn.receive(client_data):
         if isinstance(msg, StartupMessage):
-            # Send response
             client_sock.send(conn.send(AuthenticationOk()))
 
 Hooks for I/O Integration::
@@ -50,20 +49,29 @@ Hooks for I/O Integration::
 
     conn = SocketConnection(sock)
     conn.send(Query(...))  # Automatically sends to socket!
+
+Starting at a specific phase::
+
+    # For connection pooling or proxying where startup is already done:
+    conn = FrontendConnection(initial_phase=ConnectionPhase.READY)
 """
 
 from __future__ import annotations
 
+import logging
 from abc import ABC
 from collections.abc import Iterator
 
-from pygwire.codec import BackendMessageDecoder, FrontendMessageDecoder
-from pygwire.messages import BackendMessage, FrontendMessage, PGMessage
+from pygwire.codec import _BackendStreamDecoder, _FrontendStreamDecoder
+from pygwire.constants import ConnectionPhase
+from pygwire.messages import PGMessage
 from pygwire.state_machine import (
     BackendStateMachine,
-    ConnectionPhase,
     FrontendStateMachine,
+    StateMachineError,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "Connection",
@@ -78,15 +86,22 @@ class Connection(ABC):
     Coordinates a message decoder and state machine to provide a higher-level
     API for the PostgreSQL wire protocol without performing I/O operations.
 
-    This is an abstract base class - use FrontendConnection or BackendConnection.
+    The decoder reads the current phase from the state machine to determine
+    framing mode (startup, SSL/GSS negotiation, standard) and to dispatch
+    ambiguous identifiers (e.g. 'p' during SASL auth).
 
-    Attributes:
-        decoder: Message decoder for incoming data
-        state_machine: State machine for protocol validation
+    This is an abstract base class — use FrontendConnection or BackendConnection.
+
+    Args:
+        initial_phase: Starting connection phase. Defaults to STARTUP.
+        strict: If True (default), state machine violations raise
+            StateMachineError. If False, violations are logged as warnings
+            and the connection continues.
     """
 
-    decoder: BackendMessageDecoder | FrontendMessageDecoder
-    state_machine: FrontendStateMachine | BackendStateMachine
+    _decoder: _BackendStreamDecoder | _FrontendStreamDecoder
+    _state_machine: FrontendStateMachine | BackendStateMachine
+    _strict: bool
 
     def send(self, msg: PGMessage) -> bytes:
         """Prepare a message to send.
@@ -102,8 +117,9 @@ class Connection(ABC):
 
         Raises:
             StateMachineError: If message is invalid for current connection phase
+                (only when strict=True)
         """
-        self.state_machine.send(msg)  # type: ignore[arg-type]
+        self._send_to_state_machine(msg)
         wire_bytes = msg.to_wire()
         self.on_send(wire_bytes)
         return wire_bytes
@@ -123,15 +139,43 @@ class Connection(ABC):
         Raises:
             ProtocolError: If message framing is invalid
             StateMachineError: If message is invalid for current connection phase
+                (only when strict=True)
         """
-        self.decoder.feed(data)
-        for msg in self.decoder:
-            # Only track backend/frontend messages in state machine
-            # (SpecialMessage like SSLRequest are not tracked)
-            if isinstance(msg, (BackendMessage, FrontendMessage)):
-                self.state_machine.receive(msg)  # type: ignore[arg-type]
-                self.on_receive(msg)
+        self._decoder.feed(data)
+        for msg in self._decoder:
+            self._receive_to_state_machine(msg)
+            self.on_receive(msg)
             yield msg
+
+    def _send_to_state_machine(self, msg: PGMessage) -> None:
+        """Update state machine for a sent message."""
+        try:
+            self._state_machine.send(msg)  # type: ignore[arg-type]
+            # Sync decoder phase after state machine update
+            self._decoder.phase = self._state_machine.phase
+        except StateMachineError:
+            if self._strict:
+                raise
+            logger.warning(
+                "State machine error on send(%s) in phase %s (strict=False, continuing)",
+                type(msg).__name__,
+                self._state_machine.phase.name,
+            )
+
+    def _receive_to_state_machine(self, msg: PGMessage) -> None:
+        """Update state machine for a received message."""
+        try:
+            self._state_machine.receive(msg)  # type: ignore[arg-type]
+            # Sync decoder phase after state machine update
+            self._decoder.phase = self._state_machine.phase
+        except StateMachineError:
+            if self._strict:
+                raise
+            logger.warning(
+                "State machine error on receive(%s) in phase %s (strict=False, continuing)",
+                type(msg).__name__,
+                self._state_machine.phase.name,
+            )
 
     def on_send(self, data: bytes) -> None:  # noqa: B027
         """Hook called after encoding a message for sending.
@@ -157,21 +201,23 @@ class Connection(ABC):
 
     @property
     def phase(self) -> ConnectionPhase:
-        """Current connection phase.
-
-        Returns:
-            Current phase of the connection state machine
-        """
-        return self.state_machine.phase
+        """Current connection phase."""
+        return self._state_machine.phase
 
     @property
     def is_active(self) -> bool:
-        """Check if connection is active (not terminated or failed).
+        """Check if connection is active (not terminated or failed)."""
+        return self._state_machine.is_active
 
-        Returns:
-            True if connection is active, False if terminated/failed
-        """
-        return self.state_machine.is_active
+    @property
+    def is_ready(self) -> bool:
+        """Check if connection is ready to accept queries."""
+        return self._state_machine.is_ready
+
+    @property
+    def pending_syncs(self) -> int:
+        """Number of pending Sync responses (for pipelined extended queries)."""
+        return self._state_machine.pending_syncs
 
 
 class FrontendConnection(Connection):
@@ -204,14 +250,25 @@ class FrontendConnection(Connection):
                     print(msg.columns)
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        initial_phase: ConnectionPhase = ConnectionPhase.STARTUP,
+        strict: bool = True,
+    ) -> None:
         """Initialize a frontend connection.
 
-        Sets up a BackendMessageDecoder (to decode server responses) and
-        a FrontendStateMachine (to track client-side protocol state).
+        Args:
+            initial_phase: Starting connection phase. Defaults to STARTUP.
+                Use a later phase (e.g., READY) for connection pooling or
+                proxying where startup is already complete.
+            strict: If True (default), state machine violations raise
+                StateMachineError. If False, violations are logged as warnings.
         """
-        self.decoder = BackendMessageDecoder()
-        self.state_machine = FrontendStateMachine()
+        self._strict = strict
+        self._state_machine = FrontendStateMachine(phase=initial_phase)
+        self._decoder = _BackendStreamDecoder()
+        self._decoder.phase = initial_phase
 
 
 class BackendConnection(Connection):
@@ -227,30 +284,34 @@ class BackendConnection(Connection):
         # Receive startup message
         for msg in conn.receive(client_data):
             if isinstance(msg, StartupMessage):
-                # Send authentication
                 client_sock.send(conn.send(AuthenticationOk()))
                 client_sock.send(conn.send(ReadyForQuery(...)))
 
         # Receive and respond to queries
         for msg in conn.receive(client_data):
             if isinstance(msg, Query):
-                # Send results
                 client_sock.send(conn.send(RowDescription(...)))
                 client_sock.send(conn.send(DataRow(...)))
                 client_sock.send(conn.send(CommandComplete(...)))
                 client_sock.send(conn.send(ReadyForQuery(...)))
     """
 
-    def __init__(self, *, startup: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        initial_phase: ConnectionPhase = ConnectionPhase.STARTUP,
+        strict: bool = True,
+    ) -> None:
         """Initialize a backend connection.
 
-        Sets up a FrontendMessageDecoder (to decode client requests) and
-        a BackendStateMachine (to track server-side protocol state).
-
         Args:
-            startup: Whether to expect startup messages (default True).
-                Set to False if the connection has already completed startup
-                (e.g., for connection pooling or protocol proxying).
+            initial_phase: Starting connection phase. Defaults to STARTUP.
+                Use a later phase (e.g., READY) for connection pooling or
+                proxying where startup is already complete.
+            strict: If True (default), state machine violations raise
+                StateMachineError. If False, violations are logged as warnings.
         """
-        self.decoder = FrontendMessageDecoder(startup=startup)
-        self.state_machine = BackendStateMachine()
+        self._strict = strict
+        self._state_machine = BackendStateMachine(phase=initial_phase)
+        self._decoder = _FrontendStreamDecoder()
+        self._decoder.phase = initial_phase

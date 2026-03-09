@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import struct
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import ClassVar, Self
-
-from pygwire.constants import BackendMessageType, FrontendMessageType
 
 
 class PygwireError(Exception):
@@ -16,95 +13,6 @@ class PygwireError(Exception):
 
 class ProtocolError(PygwireError):
     """Raised when protocol framing or content is invalid."""
-
-
-# ---------------------------------------------------------------------------
-# Message registry (internal only)
-# ---------------------------------------------------------------------------
-# Maps a single-byte identifier to the message class that handles it.
-# Populated by the @register decorator.
-
-_BACKEND_REGISTRY: dict[bytes, type[BackendMessage]] = {}
-_FRONTEND_REGISTRY: dict[bytes, type[FrontendMessage]] = {}
-
-
-def register(
-    identifier: BackendMessageType | FrontendMessageType,
-) -> Callable[[type[PGMessage]], type[PGMessage]]:
-    """Class decorator that registers a message class for a given identifier byte.
-
-    A CommonMessage (which subclasses both) is registered in *both* registries
-    so it can be looked up from either side of the conversation.
-    """
-
-    def decorator(cls: type[PGMessage]) -> type[PGMessage]:
-        key = identifier.encode("ascii")
-        registered = False
-
-        if issubclass(cls, BackendMessage):
-            if key in _BACKEND_REGISTRY:
-                raise PygwireError(
-                    f"Duplicate backend registration for {identifier!r}: "
-                    f"{_BACKEND_REGISTRY[key].__name__} and {cls.__name__}"
-                )
-            _BACKEND_REGISTRY[key] = cls
-            registered = True
-
-        if issubclass(cls, FrontendMessage):
-            if key in _FRONTEND_REGISTRY:
-                raise PygwireError(
-                    f"Duplicate frontend registration for {identifier!r}: "
-                    f"{_FRONTEND_REGISTRY[key].__name__} and {cls.__name__}"
-                )
-            _FRONTEND_REGISTRY[key] = cls
-            registered = True
-
-        if not registered:
-            raise PygwireError(
-                f"Cannot register {cls.__name__}: must subclass FrontendMessage or BackendMessage"
-            )
-        cls.identifier = key
-        return cls
-
-    return decorator
-
-
-def lookup_backend(identifier: bytes) -> type[BackendMessage] | None:
-    """Return the BackendMessage subclass registered for *identifier*, or None."""
-    return _BACKEND_REGISTRY.get(identifier)
-
-
-def lookup_frontend(identifier: bytes) -> type[FrontendMessage] | None:
-    """Return the FrontendMessage subclass registered for *identifier*, or None."""
-    return _FRONTEND_REGISTRY.get(identifier)
-
-
-# ---------------------------------------------------------------------------
-# Special message registry (identifier-less startup-phase messages)
-# ---------------------------------------------------------------------------
-# Keyed by the Int32 protocol/request code that appears at bytes 4..8.
-
-_SPECIAL_REGISTRY: dict[int, type[SpecialMessage]] = {}
-
-
-def register_special(version_code: int) -> Callable[[type[SpecialMessage]], type[SpecialMessage]]:
-    """Class decorator that registers a SpecialMessage for a protocol version code."""
-
-    def decorator(cls: type[SpecialMessage]) -> type[SpecialMessage]:
-        if version_code in _SPECIAL_REGISTRY:
-            raise PygwireError(
-                f"Duplicate special registration for code {version_code:#x}: "
-                f"{_SPECIAL_REGISTRY[version_code].__name__} and {cls.__name__}"
-            )
-        _SPECIAL_REGISTRY[version_code] = cls
-        return cls
-
-    return decorator
-
-
-def lookup_special(version_code: int) -> type[SpecialMessage] | None:
-    """Return the SpecialMessage subclass for *version_code*, or None."""
-    return _SPECIAL_REGISTRY.get(version_code)
 
 
 # ---------------------------------------------------------------------------

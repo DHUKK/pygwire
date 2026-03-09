@@ -33,8 +33,7 @@ Usage (Backend)::
 
 from __future__ import annotations
 
-from enum import Enum, auto
-
+from pygwire.constants import ConnectionPhase
 from pygwire.messages import (
     Authentication,
     AuthenticationCleartextPassword,
@@ -71,6 +70,7 @@ from pygwire.messages import (
     FunctionCall,
     FunctionCallResponse,
     GSSEncRequest,
+    GSSResponse,
     NegotiateProtocolVersion,
     NoData,
     NoticeResponse,
@@ -89,6 +89,7 @@ from pygwire.messages import (
     SASLResponse,
     SpecialMessage,
     SSLRequest,
+    SSLResponse,
     StartupMessage,
     Sync,
     Terminate,
@@ -97,61 +98,6 @@ from pygwire.messages import (
 
 class StateMachineError(ProtocolError):
     """Raised when an invalid message is sent/received for the current state."""
-
-
-class ConnectionPhase(Enum):
-    """Connection phases in the PostgreSQL wire protocol lifecycle.
-
-    The protocol follows this general flow:
-
-    Frontend (Client):
-        STARTUP → AUTHENTICATING → READY → QUERYING/EXTENDED/COPY → READY → ...
-
-    Backend (Server):
-        STARTUP → AUTHENTICATING → READY → QUERYING/EXTENDED/COPY → READY → ...
-
-    Either side can enter TERMINATED at any time by sending/receiving Terminate.
-    Either side can enter FAILED at any time by receiving ErrorResponse.
-    """
-
-    # Initial state - waiting for or sending startup message
-    STARTUP = auto()
-
-    # SSL/GSS negotiation (optional)
-    SSL_NEGOTIATION = auto()
-    GSS_NEGOTIATION = auto()
-
-    # Authentication loop
-    AUTHENTICATING = auto()
-
-    # Post-auth, waiting for BackendKeyData and ParameterStatus messages
-    INITIALIZATION = auto()
-
-    # Ready to accept queries
-    READY = auto()
-
-    # Simple query protocol active
-    SIMPLE_QUERY = auto()
-
-    # Extended query protocol active
-    EXTENDED_QUERY = auto()
-
-    # COPY mode (COPY IN, COPY OUT, or COPY BOTH)
-    COPY_IN = auto()
-    COPY_OUT = auto()
-    COPY_BOTH = auto()
-
-    # Function call active (legacy)
-    FUNCTION_CALL = auto()
-
-    # Connection terminating gracefully
-    TERMINATING = auto()
-
-    # Connection terminated
-    TERMINATED = auto()
-
-    # Connection failed (received ErrorResponse during startup/auth)
-    FAILED = auto()
 
 
 class FrontendStateMachine:
@@ -277,11 +223,27 @@ class FrontendStateMachine:
             )
 
         elif phase == ConnectionPhase.AUTHENTICATING:
-            if isinstance(msg, (PasswordMessage, SASLInitialResponse, SASLResponse)):
-                # Stay in AUTHENTICATING until we receive AuthenticationOk
+            if isinstance(msg, PasswordMessage):
+                # Cleartext/MD5/GSSAPI/SSPI password response
                 return
             raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; expected authentication response"
+                f"Cannot send {msg_type} in phase {phase.name}; expected PasswordMessage"
+            )
+
+        elif phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL:
+            if isinstance(msg, SASLInitialResponse):
+                # After sending SASLInitialResponse, wait for server challenge
+                return
+            raise StateMachineError(
+                f"Cannot send {msg_type} in phase {phase.name}; expected SASLInitialResponse"
+            )
+
+        elif phase == ConnectionPhase.AUTHENTICATING_SASL_CONTINUE:
+            if isinstance(msg, SASLResponse):
+                # SASL continuation response
+                return
+            raise StateMachineError(
+                f"Cannot send {msg_type} in phase {phase.name}; expected SASLResponse"
             )
 
         elif phase == ConnectionPhase.INITIALIZATION:
@@ -434,6 +396,8 @@ class FrontendStateMachine:
                 ConnectionPhase.SSL_NEGOTIATION,
                 ConnectionPhase.GSS_NEGOTIATION,
                 ConnectionPhase.AUTHENTICATING,
+                ConnectionPhase.AUTHENTICATING_SASL_INITIAL,
+                ConnectionPhase.AUTHENTICATING_SASL_CONTINUE,
                 ConnectionPhase.INITIALIZATION,
             ):
                 # Fatal during startup/auth
@@ -469,6 +433,10 @@ class FrontendStateMachine:
                 # Trust authentication - skip AUTHENTICATING phase
                 self._phase = ConnectionPhase.INITIALIZATION
                 return
+            if isinstance(msg, AuthenticationSASL):
+                # SASL auth requested - next frontend message must be SASLInitialResponse
+                self._phase = ConnectionPhase.AUTHENTICATING_SASL_INITIAL
+                return
             if isinstance(
                 msg,
                 (
@@ -479,7 +447,6 @@ class FrontendStateMachine:
                     AuthenticationGSS,
                     AuthenticationGSSContinue,
                     AuthenticationSSPI,
-                    AuthenticationSASL,
                     AuthenticationSASLContinue,
                     AuthenticationSASLFinal,
                 ),
@@ -492,24 +459,31 @@ class FrontendStateMachine:
             )
 
         elif phase == ConnectionPhase.SSL_NEGOTIATION:
-            # SSL response is a single byte, not a message - handled externally
-            # If we receive a message here, it's an error
+            if isinstance(msg, SSLResponse):
+                # SSL response received - go back to STARTUP to send StartupMessage
+                self._phase = ConnectionPhase.STARTUP
+                return
             raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected single-byte SSL response"
+                f"Cannot receive {msg_type} in phase {phase.name}; expected SSLResponse"
             )
 
         elif phase == ConnectionPhase.GSS_NEGOTIATION:
-            # GSS response is a single byte, not a message - handled externally
+            if isinstance(msg, GSSResponse):
+                # GSS response received - go back to STARTUP to send StartupMessage
+                self._phase = ConnectionPhase.STARTUP
+                return
             raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; "
-                "expected single-byte GSS response"
+                f"Cannot receive {msg_type} in phase {phase.name}; expected GSSResponse"
             )
 
         elif phase == ConnectionPhase.AUTHENTICATING:
             if isinstance(msg, AuthenticationOk):
                 # Authentication successful - transition to INITIALIZATION
                 self._phase = ConnectionPhase.INITIALIZATION
+                return
+            elif isinstance(msg, AuthenticationSASL):
+                # SASL auth requested - next frontend message must be SASLInitialResponse
+                self._phase = ConnectionPhase.AUTHENTICATING_SASL_INITIAL
                 return
             elif isinstance(
                 msg,
@@ -520,7 +494,6 @@ class FrontendStateMachine:
                     AuthenticationGSS,
                     AuthenticationGSSContinue,
                     AuthenticationSSPI,
-                    AuthenticationSASL,
                     AuthenticationSASLContinue,
                     AuthenticationSASLFinal,
                 ),
@@ -529,6 +502,36 @@ class FrontendStateMachine:
                 return
             raise StateMachineError(
                 f"Cannot receive {msg_type} in phase {phase.name}; expected Authentication message"
+            )
+
+        elif phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL:
+            # Waiting for server challenge after client sent SASLInitialResponse
+            if isinstance(msg, AuthenticationSASLContinue):
+                self._phase = ConnectionPhase.AUTHENTICATING_SASL_CONTINUE
+                return
+            elif isinstance(msg, AuthenticationOk):
+                self._phase = ConnectionPhase.INITIALIZATION
+                return
+            raise StateMachineError(
+                f"Cannot receive {msg_type} in phase {phase.name}; "
+                "expected AuthenticationSASLContinue or AuthenticationOk"
+            )
+
+        elif phase == ConnectionPhase.AUTHENTICATING_SASL_CONTINUE:
+            # Waiting for final SASL message or another challenge
+            if isinstance(msg, AuthenticationSASLFinal):
+                # SASL complete - next will be AuthenticationOk
+                self._phase = ConnectionPhase.AUTHENTICATING
+                return
+            elif isinstance(msg, AuthenticationSASLContinue):
+                # Another round of SASL
+                return
+            elif isinstance(msg, AuthenticationOk):
+                self._phase = ConnectionPhase.INITIALIZATION
+                return
+            raise StateMachineError(
+                f"Cannot receive {msg_type} in phase {phase.name}; "
+                "expected AuthenticationSASLContinue, AuthenticationSASLFinal, or AuthenticationOk"
             )
 
         elif phase == ConnectionPhase.INITIALIZATION:
@@ -793,11 +796,27 @@ class BackendStateMachine:
             )
 
         elif phase == ConnectionPhase.AUTHENTICATING:
-            if isinstance(msg, (PasswordMessage, SASLInitialResponse, SASLResponse)):
-                # Stay in AUTHENTICATING until we send AuthenticationOk
+            if isinstance(msg, PasswordMessage):
+                # Cleartext/MD5/GSSAPI/SSPI password response
                 return
             raise StateMachineError(
-                f"Cannot receive {msg_type} in phase {phase.name}; expected authentication response"
+                f"Cannot receive {msg_type} in phase {phase.name}; expected PasswordMessage"
+            )
+
+        elif phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL:
+            if isinstance(msg, SASLInitialResponse):
+                # SASLInitialResponse received, server will send challenge next
+                return
+            raise StateMachineError(
+                f"Cannot receive {msg_type} in phase {phase.name}; expected SASLInitialResponse"
+            )
+
+        elif phase == ConnectionPhase.AUTHENTICATING_SASL_CONTINUE:
+            if isinstance(msg, SASLResponse):
+                # SASL continuation response
+                return
+            raise StateMachineError(
+                f"Cannot receive {msg_type} in phase {phase.name}; expected SASLResponse"
             )
 
         elif phase == ConnectionPhase.INITIALIZATION:
@@ -938,6 +957,8 @@ class BackendStateMachine:
                 ConnectionPhase.SSL_NEGOTIATION,
                 ConnectionPhase.GSS_NEGOTIATION,
                 ConnectionPhase.AUTHENTICATING,
+                ConnectionPhase.AUTHENTICATING_SASL_INITIAL,
+                ConnectionPhase.AUTHENTICATING_SASL_CONTINUE,
                 ConnectionPhase.INITIALIZATION,
             ):
                 # Fatal during startup/auth
@@ -973,6 +994,10 @@ class BackendStateMachine:
                 # Trust authentication - skip AUTHENTICATING phase
                 self._phase = ConnectionPhase.INITIALIZATION
                 return
+            if isinstance(msg, AuthenticationSASL):
+                # SASL auth requested - next frontend message must be SASLInitialResponse
+                self._phase = ConnectionPhase.AUTHENTICATING_SASL_INITIAL
+                return
             if isinstance(
                 msg,
                 (
@@ -983,7 +1008,6 @@ class BackendStateMachine:
                     AuthenticationGSS,
                     AuthenticationGSSContinue,
                     AuthenticationSSPI,
-                    AuthenticationSASL,
                     AuthenticationSASLContinue,
                     AuthenticationSASLFinal,
                 ),
@@ -996,21 +1020,31 @@ class BackendStateMachine:
             )
 
         elif phase == ConnectionPhase.SSL_NEGOTIATION:
-            # SSL response is a single byte, not a message - handled externally
+            if isinstance(msg, SSLResponse):
+                # SSL response sent - go back to STARTUP to receive StartupMessage
+                self._phase = ConnectionPhase.STARTUP
+                return
             raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; expected single-byte SSL response"
+                f"Cannot send {msg_type} in phase {phase.name}; expected SSLResponse"
             )
 
         elif phase == ConnectionPhase.GSS_NEGOTIATION:
-            # GSS response is a single byte, not a message - handled externally
+            if isinstance(msg, GSSResponse):
+                # GSS response sent - go back to STARTUP to receive StartupMessage
+                self._phase = ConnectionPhase.STARTUP
+                return
             raise StateMachineError(
-                f"Cannot send {msg_type} in phase {phase.name}; expected single-byte GSS response"
+                f"Cannot send {msg_type} in phase {phase.name}; expected GSSResponse"
             )
 
         elif phase == ConnectionPhase.AUTHENTICATING:
             if isinstance(msg, AuthenticationOk):
                 # Authentication successful - transition to INITIALIZATION
                 self._phase = ConnectionPhase.INITIALIZATION
+                return
+            elif isinstance(msg, AuthenticationSASL):
+                # SASL auth requested - next frontend message must be SASLInitialResponse
+                self._phase = ConnectionPhase.AUTHENTICATING_SASL_INITIAL
                 return
             elif isinstance(
                 msg,
@@ -1021,7 +1055,6 @@ class BackendStateMachine:
                     AuthenticationGSS,
                     AuthenticationGSSContinue,
                     AuthenticationSSPI,
-                    AuthenticationSASL,
                     AuthenticationSASLContinue,
                     AuthenticationSASLFinal,
                 ),
@@ -1030,6 +1063,36 @@ class BackendStateMachine:
                 return
             raise StateMachineError(
                 f"Cannot send {msg_type} in phase {phase.name}; expected Authentication message"
+            )
+
+        elif phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL:
+            # Server received SASLInitialResponse, sending challenge
+            if isinstance(msg, AuthenticationSASLContinue):
+                self._phase = ConnectionPhase.AUTHENTICATING_SASL_CONTINUE
+                return
+            elif isinstance(msg, AuthenticationOk):
+                self._phase = ConnectionPhase.INITIALIZATION
+                return
+            raise StateMachineError(
+                f"Cannot send {msg_type} in phase {phase.name}; "
+                "expected AuthenticationSASLContinue or AuthenticationOk"
+            )
+
+        elif phase == ConnectionPhase.AUTHENTICATING_SASL_CONTINUE:
+            # Server received SASLResponse, sending final or another challenge
+            if isinstance(msg, AuthenticationSASLFinal):
+                # SASL complete - next will be AuthenticationOk
+                self._phase = ConnectionPhase.AUTHENTICATING
+                return
+            elif isinstance(msg, AuthenticationSASLContinue):
+                # Another round of SASL
+                return
+            elif isinstance(msg, AuthenticationOk):
+                self._phase = ConnectionPhase.INITIALIZATION
+                return
+            raise StateMachineError(
+                f"Cannot send {msg_type} in phase {phase.name}; "
+                "expected AuthenticationSASLContinue, AuthenticationSASLFinal, or AuthenticationOk"
             )
 
         elif phase == ConnectionPhase.INITIALIZATION:

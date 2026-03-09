@@ -14,6 +14,7 @@ from pygwire.messages import (
     AuthenticationSASLContinue,
     AuthenticationSASLFinal,
     AuthenticationSSPI,
+    GSSResponse,
     PasswordMessage,
     ProtocolError,
     SASLInitialResponse,
@@ -23,30 +24,71 @@ from pygwire.messages import (
 
 
 class TestSSLResponse:
-    """Tests for SSLResponse enum."""
+    """Tests for SSLResponse message."""
 
-    def test_supported_value(self):
-        """Test SUPPORTED enum value."""
-        assert SSLResponse.SUPPORTED.value == b"S"
+    def test_accepted_encode(self):
+        """Test encoding accepted SSLResponse."""
+        msg = SSLResponse(accepted=True)
+        assert msg.encode() == b"S"
 
-    def test_not_supported_value(self):
-        """Test NOT_SUPPORTED enum value."""
-        assert SSLResponse.NOT_SUPPORTED.value == b"N"
+    def test_not_accepted_encode(self):
+        """Test encoding not-accepted SSLResponse."""
+        msg = SSLResponse(accepted=False)
+        assert msg.encode() == b"N"
 
-    def test_from_bytes_supported(self):
-        """Test from_bytes with 'S'."""
-        response = SSLResponse.from_bytes(b"S")
-        assert response == SSLResponse.SUPPORTED
+    def test_to_wire_is_single_byte(self):
+        """Test to_wire returns single byte (no identifier or length prefix)."""
+        assert SSLResponse(accepted=True).to_wire() == b"S"
+        assert SSLResponse(accepted=False).to_wire() == b"N"
 
-    def test_from_bytes_not_supported(self):
-        """Test from_bytes with 'N'."""
-        response = SSLResponse.from_bytes(b"N")
-        assert response == SSLResponse.NOT_SUPPORTED
+    def test_decode_supported(self):
+        """Test decoding 'S' byte."""
+        response = SSLResponse.decode(memoryview(b"S"))
+        assert response.accepted is True
 
-    def test_from_bytes_invalid_raises_error(self):
-        """Test from_bytes with invalid byte raises ProtocolError."""
+    def test_decode_not_supported(self):
+        """Test decoding 'N' byte."""
+        response = SSLResponse.decode(memoryview(b"N"))
+        assert response.accepted is False
+
+    def test_decode_invalid_raises_error(self):
+        """Test decoding invalid byte raises ProtocolError."""
         with pytest.raises(ProtocolError, match="Unexpected SSL response byte"):
-            SSLResponse.from_bytes(b"X")
+            SSLResponse.decode(memoryview(b"X"))
+
+
+class TestGSSResponse:
+    """Tests for GSSResponse message."""
+
+    def test_accepted_encode(self):
+        """Test encoding accepted GSSResponse."""
+        msg = GSSResponse(accepted=True)
+        assert msg.encode() == b"G"
+
+    def test_not_accepted_encode(self):
+        """Test encoding not-accepted GSSResponse."""
+        msg = GSSResponse(accepted=False)
+        assert msg.encode() == b"N"
+
+    def test_to_wire_is_single_byte(self):
+        """Test to_wire returns single byte (no identifier or length prefix)."""
+        assert GSSResponse(accepted=True).to_wire() == b"G"
+        assert GSSResponse(accepted=False).to_wire() == b"N"
+
+    def test_decode_supported(self):
+        """Test decoding 'G' byte."""
+        response = GSSResponse.decode(memoryview(b"G"))
+        assert response.accepted is True
+
+    def test_decode_not_supported(self):
+        """Test decoding 'N' byte."""
+        response = GSSResponse.decode(memoryview(b"N"))
+        assert response.accepted is False
+
+    def test_decode_invalid_raises_error(self):
+        """Test decoding invalid byte raises ProtocolError."""
+        with pytest.raises(ProtocolError, match="Unexpected GSS response byte"):
+            GSSResponse.decode(memoryview(b"X"))
 
 
 class TestAuthenticationOk:

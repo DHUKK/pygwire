@@ -8,7 +8,8 @@ from typing import Self
 
 from pygwire.constants import ProtocolVersion
 
-from ._base import SpecialMessage, _read_cstring, register_special
+from ._base import SpecialMessage, _read_cstring
+from ._registry import STARTUP_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Struct helpers (pre-compiled for hot-path parsing)
@@ -16,8 +17,8 @@ from ._base import SpecialMessage, _read_cstring, register_special
 _INT32 = struct.Struct("!I")  # unsigned 32-bit, network byte order
 
 
-@register_special(ProtocolVersion.V3_0)
-@register_special(ProtocolVersion.V3_2)
+@STARTUP_REGISTRY.register(version_code=ProtocolVersion.V3_0)
+@STARTUP_REGISTRY.register(version_code=ProtocolVersion.V3_2)
 @dataclass(slots=True)
 class StartupMessage(SpecialMessage):
     """StartupMessage — initial connection packet (Protocol 3.0 & 3.2).
@@ -58,7 +59,7 @@ class StartupMessage(SpecialMessage):
         return cls(params=params, protocol_version=protocol_version)
 
 
-@register_special(ProtocolVersion.SSL_REQUEST)
+@STARTUP_REGISTRY.register(version_code=ProtocolVersion.SSL_REQUEST)
 @dataclass(slots=True)
 class SSLRequest(SpecialMessage):
     """SSLRequest — asks if the server supports SSL.
@@ -74,7 +75,7 @@ class SSLRequest(SpecialMessage):
         return cls()
 
 
-@register_special(ProtocolVersion.GSSENC_REQUEST)
+@STARTUP_REGISTRY.register(version_code=ProtocolVersion.GSSENC_REQUEST)
 @dataclass(slots=True)
 class GSSEncRequest(SpecialMessage):
     """GSSEncRequest — asks if the server supports GSS encryption.
@@ -90,7 +91,7 @@ class GSSEncRequest(SpecialMessage):
         return cls()
 
 
-@register_special(ProtocolVersion.CANCEL_REQUEST)
+@STARTUP_REGISTRY.register(version_code=ProtocolVersion.CANCEL_REQUEST)
 @dataclass(slots=True)
 class CancelRequest(SpecialMessage):
     """CancelRequest — asks the server to cancel a running query.

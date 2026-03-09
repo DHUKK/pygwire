@@ -6,15 +6,15 @@ import struct
 from dataclasses import dataclass, field
 from typing import Self
 
-from pygwire.constants import BackendMessageType, FrontendMessageType
+from pygwire.constants import ConnectionPhase, MessageDirection
 
 from ._base import (
     BackendMessage,
     CommonMessage,
     FrontendMessage,
     _read_cstring,
-    register,
 )
+from ._registry import STANDARD_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Struct helpers (pre-compiled for hot-path parsing)
@@ -27,7 +27,20 @@ _INT16 = struct.Struct("!H")  # unsigned 16-bit, network byte order
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(FrontendMessageType.COPY_DATA)
+@STANDARD_REGISTRY.register(
+    b"d",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset(
+        {ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT, ConnectionPhase.COPY_BOTH}
+    ),
+)
+@STANDARD_REGISTRY.register(
+    b"d",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset(
+        {ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT, ConnectionPhase.COPY_BOTH}
+    ),
+)
 @dataclass(slots=True)
 class CopyData(CommonMessage):
     """CopyData ('d') — a chunk of COPY data (used by both Frontend and Backend)."""
@@ -42,7 +55,20 @@ class CopyData(CommonMessage):
         return cls(data=bytes(payload))
 
 
-@register(FrontendMessageType.COPY_DONE)
+@STANDARD_REGISTRY.register(
+    b"c",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset(
+        {ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT, ConnectionPhase.COPY_BOTH}
+    ),
+)
+@STANDARD_REGISTRY.register(
+    b"c",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset(
+        {ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT, ConnectionPhase.COPY_BOTH}
+    ),
+)
 @dataclass(slots=True)
 class CopyDone(CommonMessage):
     """CopyDone ('c') — signals end of COPY data (used by both Frontend and Backend)."""
@@ -60,7 +86,11 @@ class CopyDone(CommonMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(FrontendMessageType.COPY_FAIL)
+@STANDARD_REGISTRY.register(
+    b"f",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.COPY_IN}),
+)
 @dataclass(slots=True)
 class CopyFail(FrontendMessage):
     """CopyFail ('f') — client signals COPY failure with an error message."""
@@ -103,7 +133,11 @@ def _encode_copy_response(overall_format: int, col_formats: list[int]) -> bytes:
     return bytes(buf)
 
 
-@register(BackendMessageType.COPY_IN_RESPONSE)
+@STANDARD_REGISTRY.register(
+    b"G",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset({ConnectionPhase.SIMPLE_QUERY, ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class CopyInResponse(BackendMessage):
     """CopyInResponse ('G') — server is ready to accept COPY data."""
@@ -120,7 +154,11 @@ class CopyInResponse(BackendMessage):
         return cls(overall_format=fmt, col_formats=cols)
 
 
-@register(BackendMessageType.COPY_OUT_RESPONSE)
+@STANDARD_REGISTRY.register(
+    b"H",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset({ConnectionPhase.SIMPLE_QUERY, ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class CopyOutResponse(BackendMessage):
     """CopyOutResponse ('H') — server is about to send COPY data."""
@@ -137,7 +175,11 @@ class CopyOutResponse(BackendMessage):
         return cls(overall_format=fmt, col_formats=cols)
 
 
-@register(BackendMessageType.COPY_BOTH_RESPONSE)
+@STANDARD_REGISTRY.register(
+    b"W",
+    direction=MessageDirection.BACKEND,
+    phases=frozenset({ConnectionPhase.SIMPLE_QUERY, ConnectionPhase.EXTENDED_QUERY}),
+)
 @dataclass(slots=True)
 class CopyBothResponse(BackendMessage):
     """CopyBothResponse ('W') — used for streaming replication."""

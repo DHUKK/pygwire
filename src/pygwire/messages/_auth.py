@@ -5,18 +5,17 @@ from __future__ import annotations
 import struct
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import ClassVar, Self
 
-from pygwire.constants import BackendMessageType, FrontendMessageType
+from pygwire.constants import ConnectionPhase, MessageDirection
 
 from ._base import (
     BackendMessage,
     FrontendMessage,
     ProtocolError,
     _read_cstring,
-    register,
 )
+from ._registry import NEGOTIATION_REGISTRY, STANDARD_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Struct helpers (pre-compiled for hot-path parsing)
@@ -26,22 +25,76 @@ _SINT32 = struct.Struct("!i")  # signed 32-bit (NULL parameter sentinel -1)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# SSLResponse — single-byte reply to SSLRequest (not a regular message)
+# SSLResponse / GSSResponse — single-byte replies to negotiation requests
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class SSLResponse(Enum):
-    """Server's single-byte reply to an SSLRequest."""
+@NEGOTIATION_REGISTRY.register(b"S", ConnectionPhase.SSL_NEGOTIATION)
+@NEGOTIATION_REGISTRY.register(b"N", ConnectionPhase.SSL_NEGOTIATION)
+@dataclass(slots=True)
+class SSLResponse(BackendMessage):
+    """Server's single-byte reply to an SSLRequest.
 
-    SUPPORTED = b"S"
-    NOT_SUPPORTED = b"N"
+    This is a special message — it has no identifier byte and no length field.
+    It is a single byte: ``S`` (SSL supported) or ``N`` (not supported).
+
+    The decoder only produces this message when the connection is in the
+    ``SSL_NEGOTIATION`` phase.
+    """
+
+    accepted: bool = True
+
+    def encode(self) -> bytes:
+        return b"S" if self.accepted else b"N"
+
+    def to_wire(self) -> bytes:
+        return self.encode()
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> SSLResponse:
-        try:
-            return cls(data)
-        except ValueError:
-            raise ProtocolError(f"Unexpected SSL response byte: {data!r}") from None
+    def decode(cls, payload: memoryview) -> Self:
+        if len(payload) < 1:
+            raise ProtocolError("SSLResponse payload is empty")
+        byte = bytes(payload[0:1])
+        if byte == b"S":
+            return cls(accepted=True)
+        elif byte == b"N":
+            return cls(accepted=False)
+        else:
+            raise ProtocolError(f"Unexpected SSL response byte: {byte!r}")
+
+
+@NEGOTIATION_REGISTRY.register(b"G", ConnectionPhase.GSS_NEGOTIATION)
+@NEGOTIATION_REGISTRY.register(b"N", ConnectionPhase.GSS_NEGOTIATION)
+@dataclass(slots=True)
+class GSSResponse(BackendMessage):
+    """Server's single-byte reply to a GSSEncRequest.
+
+    This is a special message — it has no identifier byte and no length field.
+    It is a single byte: ``G`` (GSS encryption supported) or ``N`` (not supported).
+
+    The decoder only produces this message when the connection is in the
+    ``GSS_NEGOTIATION`` phase.
+    """
+
+    accepted: bool = True
+
+    def encode(self) -> bytes:
+        return b"G" if self.accepted else b"N"
+
+    def to_wire(self) -> bytes:
+        return self.encode()
+
+    @classmethod
+    def decode(cls, payload: memoryview) -> Self:
+        if len(payload) < 1:
+            raise ProtocolError("GSSResponse payload is empty")
+        byte = bytes(payload[0:1])
+        if byte == b"G":
+            return cls(accepted=True)
+        elif byte == b"N":
+            return cls(accepted=False)
+        else:
+            raise ProtocolError(f"Unexpected GSS response byte: {byte!r}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -81,7 +134,7 @@ def _register_auth(code: int) -> Callable[[type[AuthenticationBase]], type[Authe
     return decorator
 
 
-@register(BackendMessageType.AUTHENTICATION)
+@STANDARD_REGISTRY.register(b"R", direction=MessageDirection.BACKEND)  # No phase restriction
 @dataclass(slots=True)
 class Authentication(AuthenticationBase):
     """Dispatcher for Authentication ('R') messages.
@@ -248,7 +301,11 @@ class AuthenticationSASLFinal(AuthenticationBase):
 # while providing structured, self-documenting message types for encoding.
 
 
-@register(FrontendMessageType.PASSWORD)
+@STANDARD_REGISTRY.register(
+    b"p",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.AUTHENTICATING}),
+)
 @dataclass(slots=True)
 class PasswordMessage(FrontendMessage):
     """PasswordMessage ('p') — password response (cleartext or MD5-hashed).
@@ -287,14 +344,17 @@ class PasswordMessage(FrontendMessage):
             return cls(password=bytes(payload))
 
 
+@STANDARD_REGISTRY.register(
+    b"p",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.AUTHENTICATING_SASL_INITIAL}),
+)
 @dataclass(slots=True)
 class SASLInitialResponse(FrontendMessage):
     """SASLInitialResponse ('p') — first SASL message from client.
 
-    **Not registered**: This class is NOT registered in the message registry.
-    The codec always decodes 'p' as PasswordMessage. This class exists to
-    provide a structured, self-documenting way to *encode* SASL initial
-    responses with proper field names instead of manual byte manipulation.
+    Registered for phase-aware dispatch: The codec decodes 'p' as SASLInitialResponse
+    when in AUTHENTICATING_SASL_INITIAL phase.
 
     Format:
         String — mechanism name
@@ -326,13 +386,17 @@ class SASLInitialResponse(FrontendMessage):
         return cls(mechanism=mechanism, data=data)
 
 
+@STANDARD_REGISTRY.register(
+    b"p",
+    direction=MessageDirection.FRONTEND,
+    phases=frozenset({ConnectionPhase.AUTHENTICATING_SASL_CONTINUE}),
+)
 @dataclass(slots=True)
 class SASLResponse(FrontendMessage):
     """SASLResponse ('p') — subsequent SASL message from client.
 
-    **Not registered**: This class is NOT registered in the message registry.
-    The codec always decodes 'p' as PasswordMessage. This class exists to
-    provide a structured, self-documenting way to *encode* SASL continuation
+    Registered for phase-aware dispatch: The codec decodes 'p' as SASLResponse
+    when in AUTHENTICATING_SASL_CONTINUE phase.
     responses instead of using PasswordMessage directly.
 
     Format:

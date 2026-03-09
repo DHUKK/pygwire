@@ -1,62 +1,67 @@
-"""Sans-I/O StreamDecoder for the PostgreSQL wire protocol."""
+"""Sans-I/O StreamDecoder for the PostgreSQL wire protocol.
+
+The decoders in this module are internal implementation details of the
+Connection classes. They use the framing strategy system to extract messages
+based on the current connection phase.
+"""
 
 from __future__ import annotations
 
-import struct
 from collections import deque
-from collections.abc import Callable
 from typing import Self
 
-from pygwire.messages import (
-    BackendMessage,
-    FrontendMessage,
-    PGMessage,
-    ProtocolError,
-    StartupMessage,
-    lookup_backend,
-    lookup_frontend,
-    lookup_special,
-)
+from pygwire.constants import ConnectionPhase, MessageDirection
+from pygwire.framing import lookup_framing
+from pygwire.messages import PGMessage
 
-# Minimum standard message size: 1 byte identifier + 4 bytes length.
-_HEADER_SIZE = 5
-# Special (startup) messages have no identifier: just 4 bytes length.
-_SPECIAL_HEADER_SIZE = 4
-# Struct format for the 4-byte length field (network byte order).
-_LENGTH_STRUCT = struct.Struct("!I")
 # Compact the buffer once this many bytes have been consumed from the front.
 _COMPACTION_THRESHOLD = 4096
-# Default maximum message size (1 GB, matching PostgreSQL's PQ_LARGE_MESSAGE_LIMIT).
-_DEFAULT_MAX_MESSAGE_SIZE = 1 * 1024 * 1024 * 1024
 
 
 class _BaseStreamDecoder:
-    """Base class for stream decoders. Internal use only."""
+    """Base class for stream decoders. Internal use only.
 
-    __slots__ = ("_buf", "_pos", "_messages", "_lookup_fn", "_in_startup", "_max_message_size")
+    The decoder maintains its own phase that is synchronized by the Connection.
+    It uses framing strategies to extract messages based on the current phase
+    and direction.
+    """
 
-    def __init__(
-        self,
-        lookup_fn: Callable[[bytes], type[BackendMessage] | type[FrontendMessage] | None],
-        *,
-        startup: bool = False,
-        max_message_size: int = _DEFAULT_MAX_MESSAGE_SIZE,
-    ) -> None:
+    __slots__ = (
+        "_buf",
+        "_pos",
+        "_messages",
+        "_direction",
+        "_phase",
+    )
+
+    def __init__(self, direction: MessageDirection) -> None:
+        """Initialize decoder.
+
+        Args:
+            direction: Message direction (who sends these messages)
+        """
         self._buf = bytearray()
         self._pos: int = 0
         self._messages: deque[PGMessage] = deque()
-        self._lookup_fn = lookup_fn
-        self._in_startup = startup
-        self._max_message_size = max_message_size
+        self._direction = direction
+        self._phase = ConnectionPhase.STARTUP
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
     @property
-    def in_startup(self) -> bool:
-        """True while the decoder expects an identifier-less startup packet."""
-        return self._in_startup
+    def phase(self) -> ConnectionPhase:
+        """Current connection phase."""
+        return self._phase
+
+    @phase.setter
+    def phase(self, value: ConnectionPhase) -> None:
+        """Set connection phase.
+
+        The Connection updates this after each state machine transition.
+        """
+        self._phase = value
 
     @property
     def buffered(self) -> int:
@@ -64,19 +69,23 @@ class _BaseStreamDecoder:
         return len(self._buf) - self._pos
 
     def feed(self, data: bytes | bytearray | memoryview) -> None:
-        """Append *data* to the internal buffer and parse all complete messages.
+        """Append data to the internal buffer.
 
         This may be called with arbitrarily sized chunks — partial messages
-        are buffered until enough data arrives.
+        are buffered until enough data arrives. Messages are parsed lazily
+        when requested through the iterator protocol, allowing the phase to
+        be updated between each message.
+
+        Args:
+            data: Raw bytes to add to the buffer
         """
         if not data:
             return
 
         self._buf.extend(data)
-        self._parse()
 
     def read(self) -> PGMessage | None:
-        """Return the next decoded message, or ``None`` if none are ready."""
+        """Return the next decoded message, or None if none are ready."""
         if self._messages:
             return self._messages.popleft()
         return None
@@ -91,6 +100,13 @@ class _BaseStreamDecoder:
         return self
 
     def __next__(self) -> PGMessage:
+        # Try to get a message from the queue
+        msg = self.read()
+        if msg is not None:
+            return msg
+
+        # Queue is empty, try to parse one more message from buffer
+        self._parse()
         msg = self.read()
         if msg is None:
             raise StopIteration
@@ -106,14 +122,6 @@ class _BaseStreamDecoder:
     # Internal parsing
     # ------------------------------------------------------------------
 
-    def _lookup(self, identifier: int) -> type[PGMessage]:
-        """Resolve a single-byte identifier to a message class."""
-        key = bytes((identifier,))
-        cls = self._lookup_fn(key)
-        if cls is None:
-            raise ProtocolError(f"Unknown message identifier: {key!r}")
-        return cls
-
     def _compact(self) -> None:
         """Remove already-consumed bytes from the front of the buffer.
 
@@ -125,191 +133,67 @@ class _BaseStreamDecoder:
             self._pos = 0
 
     def _parse(self) -> None:
-        """Parse as many complete messages as possible from the buffer.
+        """Parse one complete message from the buffer if available.
 
-        Handles two framing modes:
-        - **Startup phase** (``_in_startup``): messages have no identifier
-          byte — framing is ``Int32(length) + payload``.  The first 4 bytes
-          of the payload contain the protocol version / request code used to
-          dispatch via the special-message registry.
-        - **Standard phase**: messages are ``Byte1(id) + Int32(length) + payload``.
+        Only parses a single message per call to allow the phase to be updated
+        between messages when they arrive in batches. The caller (Connection.receive)
+        will call this repeatedly through the iterator protocol.
 
-        Uses :class:`memoryview` for zero-copy payload slicing.  Views are
-        created and released per-message so the buffer can be compacted.
+        Uses framing strategies to extract messages based on the current
+        phase and direction. The framing strategy handles all the details
+        of message extraction and decoding.
+
+        Uses memoryview for zero-copy payload slicing.
         """
-        needs_compact = False
+        # Get framing strategy for current phase
+        framing = lookup_framing(self._phase, self._direction)
 
-        while True:
-            remaining = len(self._buf) - self._pos
+        # Let framing strategy try to parse a message
+        result = framing.try_parse(
+            buf=memoryview(self._buf),
+            pos=self._pos,
+            phase=self._phase,
+            direction=self._direction,
+        )
 
-            if self._in_startup:
-                msg = self._try_parse_startup(remaining)
-                if msg is None:
-                    break
-                self._messages.append(msg)
-                # Exit startup mode only after receiving StartupMessage
-                if isinstance(msg, StartupMessage):
-                    self._in_startup = False
-            else:
-                msg = self._try_parse_standard(remaining)
-                if msg is None:
-                    break
-                self._messages.append(msg)
+        if result is None:
+            # Not enough data for a complete message
+            return
 
-            if self._pos > _COMPACTION_THRESHOLD:
-                needs_compact = True
+        msg, consumed = result
+        self._pos += consumed
+        self._messages.append(msg)
 
-        if needs_compact:
+        # Check if we should compact the buffer
+        if self._pos > _COMPACTION_THRESHOLD:
             self._compact()
 
-    def _try_parse_startup(self, remaining: int) -> PGMessage | None:
-        """Attempt to parse a single identifier-less startup message.
 
-        Returns the decoded message or None if insufficient data.
-        """
-        if remaining < _SPECIAL_HEADER_SIZE:
-            return None
+class _FrontendStreamDecoder(_BaseStreamDecoder):
+    """Decoder for messages sent BY frontend (client).
 
-        (length,) = _LENGTH_STRUCT.unpack_from(self._buf, self._pos)
-        if length > self._max_message_size:
-            raise ProtocolError(
-                f"Startup message length {length} exceeds maximum allowed size "
-                f"({self._max_message_size})"
-            )
-        if remaining < length:
-            return None
+    Used by BackendConnection (server) to decode incoming client messages.
 
-        # Payload starts right after the 4-byte length.
-        payload_start = self._pos + _SPECIAL_HEADER_SIZE
-        payload_end = self._pos + length
-
-        view = memoryview(self._buf)
-        payload = view[payload_start:payload_end]
-
-        # First 4 bytes of the payload are the protocol version / request code.
-        if len(payload) < 4:
-            del payload, view
-            raise ProtocolError("Startup message payload too short for version code")
-
-        (version_code,) = _LENGTH_STRUCT.unpack_from(payload)
-
-        msg_cls = lookup_special(version_code)
-        if msg_cls is None:
-            del payload, view
-            raise ProtocolError(f"Unknown startup message version code: {version_code:#010x}")
-
-        try:
-            msg = msg_cls.decode(payload)
-        except struct.error as e:
-            raise ProtocolError(f"{msg_cls.__name__} message truncated or malformed: {e}") from e
-        finally:
-            del payload, view
-
-        self._pos = payload_end
-        return msg
-
-    def _try_parse_standard(self, remaining: int) -> PGMessage | None:
-        """Attempt to parse a single standard (identifier + length) message.
-
-        Returns the decoded message or None if insufficient data.
-        """
-        if remaining < _HEADER_SIZE:
-            return None
-
-        # Read identifier as an integer — avoids creating a bytes object.
-        ident_byte = self._buf[self._pos]
-        (length,) = _LENGTH_STRUCT.unpack_from(self._buf, self._pos + 1)
-        if length > self._max_message_size:
-            raise ProtocolError(
-                f"Message length {length} exceeds maximum allowed size ({self._max_message_size})"
-            )
-
-        total = 1 + length  # identifier byte + length-includes-self + payload
-        if remaining < total:
-            return None
-
-        payload_start = self._pos + _HEADER_SIZE
-        payload_end = self._pos + total
-
-        view = memoryview(self._buf)
-        payload = view[payload_start:payload_end]
-
-        msg_cls = self._lookup(ident_byte)
-        try:
-            msg = msg_cls.decode(payload)
-        except struct.error as e:
-            raise ProtocolError(f"{msg_cls.__name__} message truncated or malformed: {e}") from e
-        finally:
-            del payload, view
-
-        self._pos = payload_end
-        return msg
-
-
-class FrontendMessageDecoder(_BaseStreamDecoder):
-    """Decoder for frontend messages (sent by clients).
-
-    Use this decoder to parse frontend messages - that is, messages sent by PostgreSQL
-    clients (psql, application code, etc.) to the server.
-
-    Usage::
-
-        # In a PostgreSQL server or proxy:
-        decoder = FrontendMessageDecoder(startup=True)
-        decoder.feed(data_from_client)
-        for msg in decoder:
-            if isinstance(msg, Query):
-                # Client sent a query
-                pass
+    Examples:
+        - Query (client sends to server)
+        - StartupMessage (client initiates connection)
+        - PasswordMessage (client responds to auth challenge)
     """
 
-    def __init__(
-        self,
-        *,
-        startup: bool = False,
-        max_message_size: int = _DEFAULT_MAX_MESSAGE_SIZE,
-    ) -> None:
-        """Initialize a frontend message decoder.
-
-        Args:
-            startup: If True, expect identifier-less startup messages first.
-            max_message_size: Maximum allowed message size in bytes.
-                Raises ``ProtocolError`` if a message declares a length
-                exceeding this value.  Defaults to 1 GB.
-        """
-        super().__init__(lookup_frontend, startup=startup, max_message_size=max_message_size)
+    def __init__(self) -> None:
+        super().__init__(direction=MessageDirection.FRONTEND)
 
 
-class BackendMessageDecoder(_BaseStreamDecoder):
-    """Decoder for backend messages (sent by servers).
+class _BackendStreamDecoder(_BaseStreamDecoder):
+    """Decoder for messages sent BY backend (server).
 
-    Use this decoder to parse backend messages - that is, messages sent by PostgreSQL
-    servers back to clients in response to queries and other operations.
+    Used by FrontendConnection (client) to decode incoming server messages.
 
-    Note:
-        Backend messages never use startup mode. PostgreSQL servers only send
-        standard messages with identifier bytes, never identifier-less startup
-        messages (those are only sent by clients).
-
-    Usage::
-
-        # In a PostgreSQL client or proxy:
-        decoder = BackendMessageDecoder()
-        decoder.feed(data_from_server)
-        for msg in decoder:
-            if isinstance(msg, ReadyForQuery):
-                # Server is ready for next command
-                pass
+    Examples:
+        - RowDescription (server sends to client)
+        - ReadyForQuery (server signals ready state)
+        - AuthenticationOk (server accepts authentication)
     """
 
-    def __init__(self, *, max_message_size: int = _DEFAULT_MAX_MESSAGE_SIZE) -> None:
-        """Initialize a backend message decoder.
-
-        Backend messages always use standard framing (Byte1 + Int32 + payload).
-
-        Args:
-            max_message_size: Maximum allowed message size in bytes.
-                Raises ``ProtocolError`` if a message declares a length
-                exceeding this value.  Defaults to 1 GB.
-        """
-        super().__init__(lookup_backend, startup=False, max_message_size=max_message_size)
+    def __init__(self) -> None:
+        super().__init__(direction=MessageDirection.BACKEND)

@@ -105,10 +105,11 @@ class AsyncFrontendConnection(FrontendConnection):
         for msg in self.receive(data):
             yield msg
 
-    async def send_raw(self, data: bytes) -> None:
-        """Send raw bytes to stream (for special cases like SSL negotiation)."""
-        self._writer.write(data)
-        await self._writer.drain()
+    async def recv_next_message(self) -> messages.PGMessage | None:
+        """Receive and return the next message, or None if disconnected."""
+        async for msg in self.recv_messages():
+            return msg
+        return None
 
     async def close(self) -> None:
         """Close the connection."""
@@ -127,9 +128,8 @@ class AsyncBackendConnection(BackendConnection):
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
         connection_id: str = "unknown",
-        startup: bool = True,
     ):
-        super().__init__(startup=startup)
+        super().__init__()
         self._reader = reader
         self._writer = writer
         self.connection_id = connection_id
@@ -151,10 +151,11 @@ class AsyncBackendConnection(BackendConnection):
         for msg in self.receive(data):
             yield msg
 
-    async def send_raw(self, data: bytes) -> None:
-        """Send raw bytes to stream (for special cases like SSL negotiation)."""
-        self._writer.write(data)
-        await self._writer.drain()
+    async def recv_next_message(self) -> messages.PGMessage | None:
+        """Receive and return the next message, or None if disconnected."""
+        async for msg in self.recv_messages():
+            return msg
+        return None
 
     async def close(self) -> None:
         """Close the connection."""
@@ -199,7 +200,6 @@ class ProxyConnection:
             client_reader,
             client_writer,
             connection_id=self.connection_id,
-            startup=True,
         )
 
         # Server connection (will be set during connection)
@@ -356,34 +356,30 @@ class ProxyConnection:
         self.server_reader, self.server_writer = await asyncio.open_connection(
             self.server_host, self.server_port
         )
-
-        if self.server_ssl:
-            await self._negotiate_ssl()
-
         logger.info(f"[{self.connection_id}] Connected to server")
 
-    async def _negotiate_ssl(self) -> None:
-        """Negotiate SSL/TLS with the server."""
-        assert self.server_writer is not None
-        assert self.server_reader is not None
-
+    async def _negotiate_ssl(self, conn: AsyncFrontendConnection) -> None:
+        """Negotiate SSL/TLS with the server using the connection."""
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
 
-        # Send SSL request directly (before connection object is created)
-        ssl_req = messages.SSLRequest()
-        self.server_writer.write(ssl_req.to_wire())
-        await self.server_writer.drain()
+        # Send SSL request through connection (updates state machine)
+        await conn.send_message(messages.SSLRequest())
 
-        # Read SSL response (single byte, not a full message)
-        response_byte = await self.server_reader.readexactly(1)
-        ssl_response = messages.SSLResponse.from_bytes(response_byte)
-        logger.info(f"[{self.connection_id}] Server SSL response: {ssl_response.name}")
+        # Receive SSL response through connection (decoder handles it)
+        msg = await conn.recv_next_message()
+        if isinstance(msg, messages.SSLResponse):
+            logger.info(
+                f"[{self.connection_id}] Server SSL response: {'accepted' if msg.accepted else 'rejected'}"
+            )
+            if not msg.accepted:
+                raise RuntimeError("Server does not support SSL")
+        else:
+            raise RuntimeError(f"Expected SSLResponse, got {type(msg).__name__}")
 
-        if ssl_response != messages.SSLResponse.SUPPORTED:
-            raise RuntimeError("Server does not support SSL")
-
+        # Upgrade to TLS
+        assert self.server_writer is not None
         await self.server_writer.start_tls(ssl_context, server_hostname=self.server_host)
         logger.info(f"[{self.connection_id}] SSL handshake complete")
 
@@ -463,11 +459,15 @@ class ProxyConnection:
             assert self.server_writer is not None
 
             # Create frontend connection to server (we're acting as client)
-            auth_conn = AsyncFrontendConnection(
+            self.server_conn = AsyncFrontendConnection(
                 self.server_reader,
                 self.server_writer,
                 connection_id=self.connection_id,
             )
+
+            # Negotiate SSL if requested (before startup)
+            if self.server_ssl:
+                await self._negotiate_ssl(self.server_conn)
 
             # Send startup message
             startup = messages.StartupMessage(
@@ -476,30 +476,30 @@ class ProxyConnection:
                     "database": self.server_database or "postgres",
                 }
             )
-            await auth_conn.send_message(startup)
+            await self.server_conn.send_message(startup)
             logger.info(f"[{self.connection_id}] Sent startup to server")
 
             sasl_state: dict[str, str] | None = None
 
             while not self.server_authenticated:
                 has_messages = False
-                async for msg in auth_conn.recv_messages():
+                async for msg in self.server_conn.recv_messages():
                     has_messages = True
                     logger.info(f"[{self.connection_id}] Server auth: {type(msg).__name__}")
 
                     if isinstance(msg, messages.AuthenticationCleartextPassword):
-                        await self._authenticate_cleartext(auth_conn)
+                        await self._authenticate_cleartext(self.server_conn)
 
                     elif isinstance(msg, messages.AuthenticationMD5Password):
-                        await self._authenticate_md5(msg, auth_conn)
+                        await self._authenticate_md5(msg, self.server_conn)
 
                     elif isinstance(msg, messages.AuthenticationSASL):
-                        sasl_state = await self._authenticate_scram_start(msg, auth_conn)
+                        sasl_state = await self._authenticate_scram_start(msg, self.server_conn)
 
                     elif isinstance(msg, messages.AuthenticationSASLContinue):
                         if sasl_state is None:
                             raise RuntimeError("No SASL state for continue")
-                        await self._authenticate_scram_continue(msg, sasl_state, auth_conn)
+                        await self._authenticate_scram_continue(msg, sasl_state, self.server_conn)
 
                     elif isinstance(msg, messages.AuthenticationSASLFinal):
                         logger.info(f"[{self.connection_id}] SCRAM-SHA-256 authentication complete")
@@ -532,9 +532,6 @@ class ProxyConnection:
 
                 if self.server_authenticated:
                     break
-
-            # Reuse the connection for the proxy phase
-            self.server_conn = auth_conn
 
         except Exception as e:
             logger.error(f"[{self.connection_id}] Error connecting to server: {e}", exc_info=True)
@@ -569,7 +566,8 @@ class ProxyConnection:
                 logger.info(
                     f"[{self.connection_id}] Client requesting SSL (rejecting, not supported in auth proxy mode)"
                 )
-                await self.client_conn.send_raw(messages.SSLResponse.NOT_SUPPORTED.value)
+                ssl_reject = messages.SSLResponse(accepted=False)
+                await self.client_conn.send_message(ssl_reject)
 
                 new_msg: messages.PGMessage | None = None
                 async for decoded_msg in self.client_conn.recv_messages():

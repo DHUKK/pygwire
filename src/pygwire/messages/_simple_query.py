@@ -6,9 +6,13 @@ import struct
 from dataclasses import dataclass, field
 from typing import Self
 
-from pygwire.constants import BackendMessageType, FrontendMessageType, TransactionStatus
+from pygwire.constants import (
+    MessageDirection,
+    TransactionStatus,
+)
 
-from ._base import BackendMessage, FrontendMessage, _read_cstring, register
+from ._base import BackendMessage, FrontendMessage, _read_cstring
+from ._registry import STANDARD_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Struct helpers (pre-compiled for hot-path parsing)
@@ -23,7 +27,9 @@ _SINT32 = struct.Struct("!i")  # signed 32-bit (used for NULL sentinel -1)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(FrontendMessageType.QUERY)
+@STANDARD_REGISTRY.register(
+    b"Q", direction=MessageDirection.FRONTEND
+)  # No phase restriction - state machine validates
 @dataclass(slots=True)
 class Query(FrontendMessage):
     """Query ('Q') — simple query containing a SQL string."""
@@ -57,7 +63,7 @@ class FieldDescription:
     format_code: int = 0  # 0 = text, 1 = binary
 
 
-@register(BackendMessageType.ROW_DESCRIPTION)
+@STANDARD_REGISTRY.register(b"T", direction=MessageDirection.BACKEND)
 @dataclass(slots=True)
 class RowDescription(BackendMessage):
     """RowDescription ('T') — describes the columns in upcoming DataRow messages."""
@@ -112,7 +118,7 @@ class RowDescription(BackendMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(BackendMessageType.DATA_ROW)
+@STANDARD_REGISTRY.register(b"D", direction=MessageDirection.BACKEND)
 @dataclass(slots=True)
 class DataRow(BackendMessage):
     """DataRow ('D') — a single row of query results.
@@ -153,7 +159,7 @@ class DataRow(BackendMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(BackendMessageType.COMMAND_COMPLETE)
+@STANDARD_REGISTRY.register(b"C", direction=MessageDirection.BACKEND)
 @dataclass(slots=True)
 class CommandComplete(BackendMessage):
     """CommandComplete ('C') — the command tag (e.g. 'SELECT 42')."""
@@ -174,7 +180,9 @@ class CommandComplete(BackendMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(BackendMessageType.READY_FOR_QUERY)
+@STANDARD_REGISTRY.register(
+    b"Z", direction=MessageDirection.BACKEND
+)  # Valid in many phases, no restriction
 @dataclass(slots=True)
 class ReadyForQuery(BackendMessage):
     """ReadyForQuery ('Z') — server is ready for a new query cycle."""
@@ -194,7 +202,7 @@ class ReadyForQuery(BackendMessage):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@register(BackendMessageType.EMPTY_QUERY_RESPONSE)
+@STANDARD_REGISTRY.register(b"I", direction=MessageDirection.BACKEND)
 @dataclass(slots=True)
 class EmptyQueryResponse(BackendMessage):
     """EmptyQueryResponse ('I')."""

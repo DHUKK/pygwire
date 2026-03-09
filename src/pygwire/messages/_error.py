@@ -5,12 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Self
 
-from pygwire.constants import BackendMessageType
+from pygwire.constants import MessageDirection
 
-from ._base import BackendMessage, _decode_field_messages, _encode_field_messages, register
+from ._base import BackendMessage, _decode_field_messages, _encode_field_messages
+from ._registry import STANDARD_REGISTRY
 
 
-@register(BackendMessageType.ERROR_RESPONSE)
+@STANDARD_REGISTRY.register(b"E", direction=MessageDirection.BACKEND)
 @dataclass(slots=True)
 class ErrorResponse(BackendMessage):
     """ErrorResponse ('E') — structured error from the server.
