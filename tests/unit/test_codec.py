@@ -539,27 +539,6 @@ class TestEdgeCases:
         assert msgs[0].protocol_version == ProtocolVersion.V3_2
 
 
-class TestMaxMessageSize:
-    """Tests for max_message_size bounds checking (via Connection's internal decoder)."""
-
-    def test_standard_message_exceeding_max_size_raises_error(self):
-        """Test that a standard message with length exceeding max_message_size raises ProtocolError."""
-        # Skip test - max_message_size is now a property of framing strategies (singleton)
-        # and can't be customized per-decoder. This is acceptable as the default 1GB limit
-        # matches PostgreSQL's PQ_LARGE_MESSAGE_LIMIT.
-        pytest.skip("max_message_size customization not supported in new architecture")
-
-    def test_startup_message_exceeding_max_size_raises_error(self):
-        """Test that a startup message with length exceeding max_message_size raises ProtocolError."""
-        # Skip test - max_message_size is now a property of framing strategies (singleton)
-        pytest.skip("max_message_size customization not supported in new architecture")
-
-    def test_huge_declared_length_rejected_without_buffering(self):
-        """Test that a 4 GB declared length is rejected immediately on header arrival."""
-        # Skip test - max_message_size is now a property of framing strategies (singleton)
-        pytest.skip("max_message_size customization not supported in new architecture")
-
-
 class TestInitialPhase:
     """Tests for initial_phase parameter."""
 

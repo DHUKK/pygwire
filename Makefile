@@ -1,4 +1,4 @@
-.PHONY: help install test test-unit test-functional test-infra-up test-infra-down test-infra-logs test-infra-rebuild lint format typecheck check clean serve-docs
+.PHONY: help install test test-unit test-functional test-infra-up test-infra-down test-infra-logs test-infra-rebuild test-cov lint format typecheck check clean serve-docs
 
 COMPOSE_FILE = tests/infrastructure/docker-compose.yml
 
@@ -21,6 +21,11 @@ test-integration: ## Run integration tests only
 	uv run pytest tests/integration/ -v
 
 test-all: test test-functional ## Run all tests including functional tests
+
+test-cov: ## Run tests with coverage and generate HTML report
+	uv run pytest tests/unit/ tests/integration/ --cov-report=term-missing  --cov=src/pygwire --cov-report=html --cov-report=term
+	@echo ""
+	@echo "Coverage report generated in htmlcov/index.html"
 
 test-functional: test-infra-up ## Start test infrastructure and run functional tests
 	@echo "Waiting for services to be healthy..."
@@ -71,6 +76,6 @@ serve-docs: ## Serve documentation locally
 	uv run --group docs mkdocs serve
 
 clean: ## Clean up cache and temporary files
-	rm -rf .pytest_cache .mypy_cache .ruff_cache
+	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name '*.pyc' -delete

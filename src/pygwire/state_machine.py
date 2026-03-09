@@ -65,9 +65,6 @@ class _Transition:
     def __call__(self, sm: _StateMachineCore) -> None:
         sm._state = replace(sm._state, phase=self._phase)
 
-    def __repr__(self) -> str:
-        return f"-> {self._phase.name}"
-
 
 class _Stay:
     """Remain in the current phase (no-op)."""
@@ -76,9 +73,6 @@ class _Stay:
 
     def __call__(self, sm: _StateMachineCore) -> None:
         pass
-
-    def __repr__(self) -> str:
-        return "(stay)"
 
 
 class _ExtStart:
@@ -94,9 +88,6 @@ class _ExtStart:
             pending_syncs=sm._state.pending_syncs + 1,
         )
 
-    def __repr__(self) -> str:
-        return "-> EXTENDED_QUERY (new batch)"
-
 
 class _ExtContinue:
     """Continue in extended query with pipelining support."""
@@ -111,9 +102,6 @@ class _ExtContinue:
                 pending_syncs=sm._state.pending_syncs + 1,
             )
 
-    def __repr__(self) -> str:
-        return "(extend batch / pipeline)"
-
 
 class _ExtSync:
     """Sync message in extended query ends batch or adds sync point."""
@@ -125,9 +113,6 @@ class _ExtSync:
             sm._state = replace(sm._state, in_extended_batch=False)
         else:
             sm._state = replace(sm._state, pending_syncs=sm._state.pending_syncs + 1)
-
-    def __repr__(self) -> str:
-        return "(sync)"
 
 
 class _ExtReadyForQuery:
@@ -142,9 +127,6 @@ class _ExtReadyForQuery:
         else:
             sm._state = replace(sm._state, pending_syncs=new_pending)
 
-    def __repr__(self) -> str:
-        return "(resolve sync)"
-
 
 class _CopyDone:
     """CopyDone/CopyFail ends COPY phase and returns to SIMPLE_QUERY."""
@@ -153,9 +135,6 @@ class _CopyDone:
 
     def __call__(self, sm: _StateMachineCore) -> None:
         sm._state = replace(sm._state, phase=_P.SIMPLE_QUERY)
-
-    def __repr__(self) -> str:
-        return "-> SIMPLE_QUERY (copy done)"
 
 
 class _SyncFromReady:
@@ -170,9 +149,6 @@ class _SyncFromReady:
             pending_syncs=sm._state.pending_syncs + 1,
             in_extended_batch=False,
         )
-
-    def __repr__(self) -> str:
-        return "-> EXTENDED_QUERY (sync from ready)"
 
 
 stay = _Stay()
