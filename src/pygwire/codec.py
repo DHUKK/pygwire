@@ -107,30 +107,24 @@ class StreamDecoder:
 
         self._buf.extend(data)
 
-    def read(self) -> PGMessage | None:
+    def _read(self) -> PGMessage | None:
         """Return the next decoded message, or None if none are ready."""
         if self._messages:
             return self._messages.popleft()
         return None
-
-    def read_all(self) -> list[PGMessage]:
-        """Drain and return all currently decoded messages."""
-        msgs = list(self._messages)
-        self._messages.clear()
-        return msgs
 
     def __iter__(self) -> Self:
         return self
 
     def __next__(self) -> PGMessage:
         # Try to get a message from the queue
-        msg = self.read()
+        msg = self._read()
         if msg is not None:
             return msg
 
         # Queue is empty, try to parse one more message from buffer
         self._parse()
-        msg = self.read()
+        msg = self._read()
         if msg is None:
             raise StopIteration
         return msg
