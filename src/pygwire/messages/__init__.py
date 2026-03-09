@@ -81,7 +81,7 @@ from ._notification import (
     NotificationResponse,
     ParameterStatus,
 )
-from ._registry import (  # noqa: E402
+from ._registry import (
     NEGOTIATION_REGISTRY,
     STANDARD_REGISTRY,
     STARTUP_REGISTRY,
