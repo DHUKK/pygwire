@@ -33,16 +33,21 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.sdist]
+# Exclude development files, tests, docs, and examples from source distribution
 exclude = [
     "/.github",
     "/docs",
     "/tests",
-    "/examples",
+    "/examples",  # Documentation examples - not needed in distribution
     "/mkdocs.yml",
     "/Makefile",
     "/.python-version",
     "/uv.lock",
 ]
+
+[tool.hatch.build.targets.wheel]
+# Only include src/pygwire package in wheel (examples, tests, docs excluded by default)
+packages = ["src/pygwire"]
 
 [dependency-groups]
 dev = [
