@@ -40,88 +40,16 @@ uv add pygwire
 
 ## 🚀 Quick Start
 
-### Using Connection (recommended)
+**[📖 Read the full documentation →](https://dhukk.github.io/pygwire)**
 
 ```python
-import socket
-
-from pygwire import FrontendConnection, ConnectionPhase
-from pygwire.messages import StartupMessage, Query, DataRow
+from pygwire import FrontendConnection
+from pygwire.messages import StartupMessage, Query
 
 conn = FrontendConnection()
-sock = socket.create_connection(("localhost", 5432))
-
-# Send startup
 sock.send(conn.send(StartupMessage(params={"user": "postgres", "database": "mydb"})))
 
-# Handle authentication
-while conn.phase != ConnectionPhase.READY:
-    for msg in conn.receive(sock.recv(4096)):
-        ...  # handle auth messages
-
-# Send a query and read results
-sock.send(conn.send(Query(query_string="SELECT 1")))
-for msg in conn.receive(sock.recv(4096)):
-    if isinstance(msg, DataRow):
-        print(msg.columns)
-```
-
-### Decoding server messages (client-side)
-
-```python
-from pygwire import BackendMessageDecoder
-
-decoder = BackendMessageDecoder()
-decoder.feed(data_from_server)
-
-for msg in decoder:
-    print(f"{type(msg).__name__}: {msg}")
-```
-
-### Decoding client messages (server/proxy-side)
-
-```python
-from pygwire import FrontendMessageDecoder
-
-decoder = FrontendMessageDecoder(startup=True)
-decoder.feed(data_from_client)
-
-for msg in decoder:
-    print(f"{type(msg).__name__}: {msg}")
-```
-
-### Encoding messages
-
-```python
-from pygwire.messages import Query
-
-query = Query(query_string="SELECT * FROM users")
-wire_bytes = query.to_wire()
-```
-
-### Tracking connection state
-
-```python
-from pygwire import FrontendStateMachine, ConnectionPhase
-from pygwire.constants import TransactionStatus
-from pygwire.messages import (
-    AuthenticationOk,
-    BackendKeyData,
-    ParameterStatus,
-    ReadyForQuery,
-    StartupMessage,
-)
-
-sm = FrontendStateMachine()
-
-sm.send(StartupMessage(params={"user": "postgres", "database": "mydb"}))
-print(sm.phase)  # ConnectionPhase.AUTHENTICATING
-
-sm.receive(AuthenticationOk())
-sm.receive(ParameterStatus(name="server_version", value="15.0"))
-sm.receive(BackendKeyData(process_id=1234, secret_key=b"\x00\x00\x00\x01"))
-sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-print(sm.phase)  # ConnectionPhase.READY
+# Authentication, queries, and more - see the docs!
 ```
 
 ## 🏗️ Architecture
@@ -147,7 +75,10 @@ Use the lower layers independently for maximum control, or use **Connection** fo
 
 ## 📚 Documentation
 
-- [Pygwire Documentation](https://dhukk.github.io/pygwire) (full API reference and guides)
+**[📖 Full documentation, tutorials, and API reference →](https://dhukk.github.io/pygwire)**
+
+### Additional Resources
+
 - [PostgreSQL Wire Protocol (official)](https://www.postgresql.org/docs/current/protocol.html)
 - [PostgreSQL Message Formats](https://www.postgresql.org/docs/current/protocol-message-formats.html)
 
