@@ -793,6 +793,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#connectionphase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ConnectionPhase
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#messagedirection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MessageDirection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#protocolversion" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -993,6 +1015,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#connectionphase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ConnectionPhase
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#messagedirection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MessageDirection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#protocolversion" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1058,6 +1102,105 @@
 
 <h1 id="constants">Constants<a class="headerlink" href="#constants" title="Permanent link">&para;</a></h1>
 <p>Protocol-level enums and constants.</p>
+<h2 id="connectionphase"><code>ConnectionPhase</code><a class="headerlink" href="#connectionphase" title="Permanent link">&para;</a></h2>
+<p><code>Enum</code> of connection lifecycle phases. Used by state machines and decoders to track protocol flow.</p>
+<table>
+<thead>
+<tr>
+<th>Member</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>STARTUP</code></td>
+<td>Initial state, waiting for startup message</td>
+</tr>
+<tr>
+<td><code>SSL_NEGOTIATION</code></td>
+<td>SSL/TLS negotiation in progress</td>
+</tr>
+<tr>
+<td><code>GSS_NEGOTIATION</code></td>
+<td>GSS encryption negotiation in progress</td>
+</tr>
+<tr>
+<td><code>AUTHENTICATING</code></td>
+<td>Authentication exchange active</td>
+</tr>
+<tr>
+<td><code>AUTHENTICATING_SASL_INITIAL</code></td>
+<td>SASL authentication initial response</td>
+</tr>
+<tr>
+<td><code>AUTHENTICATING_SASL_CONTINUE</code></td>
+<td>SASL authentication continuation</td>
+</tr>
+<tr>
+<td><code>INITIALIZATION</code></td>
+<td>Post-auth setup (ParameterStatus, BackendKeyData)</td>
+</tr>
+<tr>
+<td><code>READY</code></td>
+<td>Idle, ready for queries</td>
+</tr>
+<tr>
+<td><code>SIMPLE_QUERY</code></td>
+<td>Simple query protocol active</td>
+</tr>
+<tr>
+<td><code>EXTENDED_QUERY</code></td>
+<td>Extended query protocol active</td>
+</tr>
+<tr>
+<td><code>COPY_IN</code></td>
+<td>COPY FROM stdin active</td>
+</tr>
+<tr>
+<td><code>COPY_OUT</code></td>
+<td>COPY TO stdout active</td>
+</tr>
+<tr>
+<td><code>COPY_BOTH</code></td>
+<td>Bidirectional copy (streaming replication)</td>
+</tr>
+<tr>
+<td><code>FUNCTION_CALL</code></td>
+<td>Legacy function call active</td>
+</tr>
+<tr>
+<td><code>TERMINATED</code></td>
+<td>Connection closed</td>
+</tr>
+<tr>
+<td><code>FAILED</code></td>
+<td>Unrecoverable error</td>
+</tr>
+</tbody>
+</table>
+<h2 id="messagedirection"><code>MessageDirection</code><a class="headerlink" href="#messagedirection" title="Permanent link">&para;</a></h2>
+<p><code>StrEnum</code> indicating which side sends a message type.</p>
+<table>
+<thead>
+<tr>
+<th>Member</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FRONTEND</code></td>
+<td><code>"frontend"</code></td>
+<td>Message sent by client</td>
+</tr>
+<tr>
+<td><code>BACKEND</code></td>
+<td><code>"backend"</code></td>
+<td>Message sent by server</td>
+</tr>
+</tbody>
+</table>
 <h2 id="protocolversion"><code>ProtocolVersion</code><a class="headerlink" href="#protocolversion" title="Permanent link">&para;</a></h2>
 <p><code>IntEnum</code> of PostgreSQL protocol version codes. Used in <code>StartupMessage</code> and special request messages.</p>
 <table>

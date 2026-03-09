@@ -544,10 +544,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#startup-mode" class="md-nav__link">
+  <a href="#phase-aware-framing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Startup mode
+        Phase-aware framing
       
     </span>
   </a>
@@ -1147,10 +1147,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#startup-mode" class="md-nav__link">
+  <a href="#phase-aware-framing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Startup mode
+        Phase-aware framing
       
     </span>
   </a>
@@ -1216,31 +1216,29 @@
 <hr />
 <h2 id="backendmessagedecoder"><code>BackendMessageDecoder</code><a class="headerlink" href="#backendmessagedecoder" title="Permanent link">&para;</a></h2>
 <p>Decoder for backend (server to client) messages.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackendMessageDecoder</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.codec</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackendMessageDecoder</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">BackendMessageDecoder</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">max_message_size</span><span class="o">=</span><span class="mi">1073741824</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">BackendMessageDecoder</span><span class="p">()</span>
 </code></pre></div>
-<p><strong>Parameters:</strong></p>
-<ul>
-<li><code>max_message_size</code> (<code>int</code>, default 1 GB): Maximum allowed message size in bytes. Raises <code>ProtocolError</code> if a message declares a length exceeding this value.</li>
-</ul>
+<p><strong>Parameters:</strong> None</p>
+<p>The decoder automatically uses phase-aware framing based on the current connection phase. When used standalone (without <code>Connection</code>), you must manually update the <code>phase</code> property as the connection state changes.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><code>BackendMessageDecoder</code> has no <code>startup</code> parameter. Backend messages always use standard framing (identifier byte + length + payload).</p>
+<p>Backend messages use standard framing (identifier byte + length + payload) except during SSL/GSSAPI negotiation. The decoder handles phase transitions automatically when coordinated with <code>FrontendConnection</code>.</p>
 </div>
 <hr />
 <h2 id="frontendmessagedecoder"><code>FrontendMessageDecoder</code><a class="headerlink" href="#frontendmessagedecoder" title="Permanent link">&para;</a></h2>
 <p>Decoder for frontend (client to server) messages.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendMessageDecoder</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.codec</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendMessageDecoder</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">FrontendMessageDecoder</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">startup</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">max_message_size</span><span class="o">=</span><span class="mi">1073741824</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">FrontendMessageDecoder</span><span class="p">()</span>
 </code></pre></div>
-<p><strong>Parameters:</strong></p>
-<ul>
-<li><code>startup</code> (<code>bool</code>, default <code>False</code>): If <code>True</code>, expect identifier-less startup messages first. The decoder switches to standard framing automatically after receiving a <code>StartupMessage</code>.</li>
-<li><code>max_message_size</code> (<code>int</code>, default 1 GB): Maximum allowed message size in bytes.</li>
-</ul>
-<p>For server-side usage, set <code>startup=True</code> to handle the initial startup handshake where messages lack an identifier byte.</p>
+<p><strong>Parameters:</strong> None</p>
+<p>The decoder automatically uses phase-aware framing based on the current connection phase. Startup messages (StartupMessage, SSLRequest, etc.) use identifier-less framing, while standard messages use identifier byte + length + payload.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>When using the decoder standalone (without <code>BackendConnection</code>), you are responsible for updating the <code>phase</code> property to match connection state transitions. The <code>Connection</code> classes handle this automatically.</p>
+</div>
 <hr />
 <h2 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h2>
 <table>
@@ -1285,9 +1283,9 @@
 </thead>
 <tbody>
 <tr>
-<td><code>in_startup</code></td>
-<td><code>bool</code></td>
-<td><code>True</code> while expecting startup-phase messages</td>
+<td><code>phase</code></td>
+<td><code>ConnectionPhase</code></td>
+<td>Current connection phase (read/write). Update this manually when using decoder standalone.</td>
 </tr>
 <tr>
 <td><code>buffered</code></td>
@@ -1304,52 +1302,97 @@
 </code></pre></div>
 <hr />
 <h2 id="basic-usage">Basic usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackendMessageDecoder</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="sd">&quot;&quot;&quot;Codec: Basic usage.&quot;&quot;&quot;</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">BackendMessageDecoder</span><span class="p">()</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># Feed bytes from your transport layer</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">raw_bytes</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.codec</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendMessageDecoder</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">StartupMessage</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">FrontendMessageDecoder</span><span class="p">()</span>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># Read messages one at a time</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">msg</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># Or iterate over all available messages</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="c1"># Or drain all at once</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="n">messages</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">read_all</span><span class="p">()</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># Feed bytes from your transport layer</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># (Using fake data for demonstration)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">startup_msg</span> <span class="o">=</span> <span class="n">StartupMessage</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;user&quot;</span><span class="p">:</span> <span class="s2">&quot;postgres&quot;</span><span class="p">,</span> <span class="s2">&quot;database&quot;</span><span class="p">:</span> <span class="s2">&quot;postgres&quot;</span><span class="p">})</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">raw_bytes</span> <span class="o">=</span> <span class="n">startup_msg</span><span class="o">.</span><span class="n">to_wire</span><span class="p">()</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">raw_bytes</span><span class="p">)</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="c1"># Read messages one at a time</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="n">msg</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">decoder</span><span class="p">)</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="c1"># Or iterate over all available messages</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="c1"># Update phase as connection progresses</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="c1"># (Connection class handles this automatically)</span>
 </code></pre></div>
 <h2 id="streaming-and-partial-messages">Streaming and partial messages<a class="headerlink" href="#streaming-and-partial-messages" title="Permanent link">&para;</a></h2>
 <p>The decoder handles arbitrarily chunked input. Feed one byte at a time or megabytes at once. It buffers internally until a complete message is available:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">BackendMessageDecoder</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="sd">&quot;&quot;&quot;Codec: Streaming and partial messages.&quot;&quot;&quot;</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># These three feeds together form one complete message</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">first_chunk</span><span class="p">)</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">second_chunk</span><span class="p">)</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">third_chunk</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.codec</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendMessageDecoder</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">StartupMessage</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">FrontendMessageDecoder</span><span class="p">()</span>
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># Now the complete message is available</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">msg</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># Create a startup message and convert to wire format</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">startup_msg</span> <span class="o">=</span> <span class="n">StartupMessage</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;user&quot;</span><span class="p">:</span> <span class="s2">&quot;postgres&quot;</span><span class="p">,</span> <span class="s2">&quot;database&quot;</span><span class="p">:</span> <span class="s2">&quot;postgres&quot;</span><span class="p">})</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">wire_data</span> <span class="o">=</span> <span class="n">startup_msg</span><span class="o">.</span><span class="n">to_wire</span><span class="p">()</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="c1"># Split the wire data into three chunks to simulate streaming</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">chunk_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">wire_data</span><span class="p">)</span> <span class="o">//</span> <span class="mi">3</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">first_chunk</span> <span class="o">=</span> <span class="n">wire_data</span><span class="p">[:</span><span class="n">chunk_size</span><span class="p">]</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="n">second_chunk</span> <span class="o">=</span> <span class="n">wire_data</span><span class="p">[</span><span class="n">chunk_size</span> <span class="p">:</span> <span class="n">chunk_size</span> <span class="o">*</span> <span class="mi">2</span><span class="p">]</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="n">third_chunk</span> <span class="o">=</span> <span class="n">wire_data</span><span class="p">[</span><span class="n">chunk_size</span> <span class="o">*</span> <span class="mi">2</span> <span class="p">:]</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="c1"># Feed chunks one at a time - decoder buffers until complete message</span>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">first_chunk</span><span class="p">)</span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">second_chunk</span><span class="p">)</span>
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">third_chunk</span><span class="p">)</span>
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="c1"># Now the complete message is available</span>
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="n">msg</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span>
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>    <span class="n">msg</span> <span class="o">=</span> <span class="n">m</span>
+<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>    <span class="k">break</span>
+<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Decoded: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;User: </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-<h2 id="startup-mode">Startup mode<a class="headerlink" href="#startup-mode" title="Permanent link">&para;</a></h2>
-<p>The PostgreSQL wire protocol uses two framing formats:</p>
+<h2 id="phase-aware-framing">Phase-aware framing<a class="headerlink" href="#phase-aware-framing" title="Permanent link">&para;</a></h2>
+<p>The PostgreSQL wire protocol uses different framing formats based on connection phase:</p>
 <ol>
-<li><strong>Startup phase</strong>: messages have no identifier byte (length + payload only)</li>
-<li><strong>Standard phase</strong>: messages have an identifier byte + length + payload</li>
+<li><strong>STARTUP phase</strong>: messages have no identifier byte (length + payload only)</li>
+<li><strong>SSL_NEGOTIATION/GSS_NEGOTIATION</strong>: single-byte responses</li>
+<li><strong>Standard phases</strong>: messages have identifier byte + length + payload</li>
 </ol>
-<p>For server-side decoding, enable startup mode:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendMessageDecoder</span>
+<p>The decoder automatically selects the correct framing based on the <code>phase</code> property:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="sd">&quot;&quot;&quot;Codec: Phase-aware framing.&quot;&quot;&quot;</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">FrontendMessageDecoder</span><span class="p">(</span><span class="n">startup</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">first_data_from_client</span><span class="p">)</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="c1"># First message will be StartupMessage, SSLRequest, etc.</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="c1"># Decoder switches to standard framing after StartupMessage</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.codec</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendMessageDecoder</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConnectionPhase</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">StartupMessage</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">decoder</span> <span class="o">=</span> <span class="n">FrontendMessageDecoder</span><span class="p">()</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">assert</span> <span class="n">decoder</span><span class="o">.</span><span class="n">phase</span> <span class="o">==</span> <span class="n">ConnectionPhase</span><span class="o">.</span><span class="n">STARTUP</span>  <span class="c1"># Start in STARTUP</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1"># Simulate client data (would come from socket.recv())</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">first_data_from_client</span> <span class="o">=</span> <span class="n">StartupMessage</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;user&quot;</span><span class="p">:</span> <span class="s2">&quot;postgres&quot;</span><span class="p">,</span> <span class="s2">&quot;database&quot;</span><span class="p">:</span> <span class="s2">&quot;mydb&quot;</span><span class="p">})</span><span class="o">.</span><span class="n">to_wire</span><span class="p">()</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="n">decoder</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">first_data_from_client</span><span class="p">)</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">decoder</span><span class="p">:</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>    <span class="c1"># First message will be StartupMessage, SSLRequest, etc.</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="c1"># Manually update phase based on message</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">StartupMessage</span><span class="p">):</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>        <span class="n">decoder</span><span class="o">.</span><span class="n">phase</span> <span class="o">=</span> <span class="n">ConnectionPhase</span><span class="o">.</span><span class="n">AUTHENTICATING</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">decoder</span><span class="o">.</span><span class="n">phase</span><span class="p">)</span>
 </code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Use <code>FrontendConnection</code> or <code>BackendConnection</code> to automatically coordinate decoder phase with state machine transitions.</p>
+</div>
 <h2 id="buffer-management">Buffer management<a class="headerlink" href="#buffer-management" title="Permanent link">&para;</a></h2>
 <p>The decoder uses <code>memoryview</code> for zero-copy payload slicing. It automatically compacts its internal buffer when consumed data exceeds 4 KB. You do not need to manage the buffer yourself.</p>
 <p>To discard all buffered data and pending messages:</p>
