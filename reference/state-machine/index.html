@@ -1403,7 +1403,20 @@
 
 
 <h1 id="state-machine">State Machine<a class="headerlink" href="#state-machine" title="Permanent link">&para;</a></h1>
-<p>The state machine tracks the PostgreSQL connection lifecycle and validates that messages are sent and received in the correct order for the current protocol phase.</p>
+<p>The state machine tracks connection phases at the level of detail pygwire needs for correct decoding and useful lifecycle information. It is not intended to enforce every rule of the PostgreSQL protocol.</p>
+<p>Phases exist for three reasons:</p>
+<ol>
+<li>
+<p><strong>Framing.</strong> The PostgreSQL wire protocol uses different message framing depending on the connection phase. During <code>STARTUP</code> messages have no identifier byte (just length + payload). During <code>SSL_NEGOTIATION</code> and <code>GSS_NEGOTIATION</code> the server responds with a single byte. All other phases use standard framing (identifier byte + length + payload). The state machine is used to determine the framing mode the codec should use.</p>
+</li>
+<li>
+<p><strong>Message disambiguation.</strong> Some message identifiers are reused across phases. The <code>'p'</code> byte can mean <code>PasswordMessage</code>, <code>SASLInitialResponse</code>, or <code>SASLResponse</code> depending on the current authentication phase. The SASL sub-phases (<code>AUTHENTICATING_SASL_INITIAL</code>, <code>AUTHENTICATING_SASL_CONTINUE</code>) exist so the codec can decode the correct message type.</p>
+</li>
+<li>
+<p><strong>Lifecycle tracking.</strong> Phases like <code>READY</code>, <code>SIMPLE_QUERY</code>, <code>EXTENDED_QUERY</code>, and the <code>COPY_*</code> phases let consumers answer questions like "is it safe to send a query?" or "is the server still processing my request?". These phases are not required by the codec itself but are useful for building clients, proxies, and connection pools (etc.) on top of pygwire.</p>
+</li>
+</ol>
+<p>The state machine does <strong>not</strong> validate message ordering within a phase. For example, it will not reject a <code>DataRow</code> sent before <code>RowDescription</code> during <code>SIMPLE_QUERY</code>, because both are valid message types in that phase. Enforcing that kind of sequencing would require SQL-level knowledge and belongs in a higher-level layer built on top of pygwire.</p>
 <h2 id="state-machines">State machines<a class="headerlink" href="#state-machines" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1417,16 +1430,16 @@
 <tr>
 <td><code>FrontendStateMachine</code></td>
 <td>Client</td>
-<td>Validate client-side protocol flow</td>
+<td>Track client-side protocol phase</td>
 </tr>
 <tr>
 <td><code>BackendStateMachine</code></td>
 <td>Server</td>
-<td>Validate server-side protocol flow</td>
+<td>Track server-side protocol phase</td>
 </tr>
 </tbody>
 </table>
-<p>Both track a <code>ConnectionPhase</code> and raise <code>StateMachineError</code> if an invalid message is sent or received.</p>
+<p>Both track a <code>ConnectionPhase</code> and raise <code>StateMachineError</code> if a message type is not valid for the current phase.</p>
 <hr />
 <h2 id="frontendstatemachine"><code>FrontendStateMachine</code><a class="headerlink" href="#frontendstatemachine" title="Permanent link">&para;</a></h2>
 <p>Tracks protocol state from the client's perspective.</p>

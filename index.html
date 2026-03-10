@@ -1123,8 +1123,7 @@
 <ul>
 <li><strong>Sans-I/O design.</strong> No I/O dependencies. Bring your own transport.</li>
 <li><strong>Zero-copy parsing.</strong> Uses <code>memoryview</code> for buffer slicing.</li>
-<li><strong>Complete protocol coverage.</strong> All PostgreSQL v3.0 and v3.2 wire protocol messages.</li>
-<li><strong>Protocol state machines.</strong> Validate message sequences for both client and server roles.</li>
+<li><strong>Complete protocol coverage.</strong> All PostgreSQL v3.0 and v3.2 wire protocol messages with connection phase tracking.</li>
 <li><strong>Zero dependencies.</strong> No runtime dependencies.</li>
 <li><strong>Fully typed.</strong> Ships with <code>py.typed</code> marker for PEP 561 support.</li>
 </ul>
@@ -1152,7 +1151,7 @@
 <tr>
 <td><strong>State Machine</strong></td>
 <td><code>pygwire.state_machine</code></td>
-<td>Protocol phase tracking and message validation</td>
+<td>Connection phase tracking for framing, disambiguation, and lifecycle</td>
 </tr>
 <tr>
 <td><strong>Connection</strong></td>
