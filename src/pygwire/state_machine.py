@@ -1,8 +1,10 @@
 """Sans-I/O state machine for PostgreSQL wire protocol connection lifecycle.
 
 This module provides state machines that track the connection phase for both
-frontend (client) and backend (server) roles. The state machine validates
-whether a given message type is legal to send or receive in the current phase.
+frontend (client) and backend (server) roles. The state machine tracks the
+phase transitions that pygwire needs (for framing, message disambiguation,
+and lifecycle) and does not go finer-grained than that. It does not validate
+message ordering within a phase.
 
 Usage (Frontend)::
 

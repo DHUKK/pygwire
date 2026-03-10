@@ -1,15 +1,25 @@
 # State Machine
 
-The state machine tracks the PostgreSQL connection lifecycle and validates that messages are sent and received in the correct order for the current protocol phase.
+The state machine tracks connection phases at the level of detail pygwire needs for correct decoding and useful lifecycle information. It is not intended to enforce every rule of the PostgreSQL protocol.
+
+Phases exist for three reasons:
+
+1. **Framing.** The PostgreSQL wire protocol uses different message framing depending on the connection phase. During `STARTUP` messages have no identifier byte (just length + payload). During `SSL_NEGOTIATION` and `GSS_NEGOTIATION` the server responds with a single byte. All other phases use standard framing (identifier byte + length + payload). The state machine is used to determine the framing mode the codec should use.
+
+2. **Message disambiguation.** Some message identifiers are reused across phases. The `'p'` byte can mean `PasswordMessage`, `SASLInitialResponse`, or `SASLResponse` depending on the current authentication phase. The SASL sub-phases (`AUTHENTICATING_SASL_INITIAL`, `AUTHENTICATING_SASL_CONTINUE`) exist so the codec can decode the correct message type.
+
+3. **Lifecycle tracking.** Phases like `READY`, `SIMPLE_QUERY`, `EXTENDED_QUERY`, and the `COPY_*` phases let consumers answer questions like "is it safe to send a query?" or "is the server still processing my request?". These phases are not required by the codec itself but are useful for building clients, proxies, and connection pools (etc.) on top of pygwire.
+
+The state machine does **not** validate message ordering within a phase. For example, it will not reject a `DataRow` sent before `RowDescription` during `SIMPLE_QUERY`, because both are valid message types in that phase. Enforcing that kind of sequencing would require SQL-level knowledge and belongs in a higher-level layer built on top of pygwire.
 
 ## State machines
 
 | State Machine | Role | Use case |
 |---------------|------|----------|
-| `FrontendStateMachine` | Client | Validate client-side protocol flow |
-| `BackendStateMachine` | Server | Validate server-side protocol flow |
+| `FrontendStateMachine` | Client | Track client-side protocol phase |
+| `BackendStateMachine` | Server | Track server-side protocol phase |
 
-Both track a `ConnectionPhase` and raise `StateMachineError` if an invalid message is sent or received.
+Both track a `ConnectionPhase` and raise `StateMachineError` if a message type is not valid for the current phase.
 
 ---
 
