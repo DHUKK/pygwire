@@ -17,8 +17,7 @@ Pygwire is a **sans-I/O** PostgreSQL wire protocol (v3.0 and v3.2) codec. All co
 
 - **Sans-I/O design.** No I/O dependencies. Bring your own transport.
 - **Zero-copy parsing.** Uses `memoryview` for buffer slicing.
-- **Complete protocol coverage.** All PostgreSQL v3.0 and v3.2 wire protocol messages.
-- **Protocol state machines.** Validate message sequences for both client and server roles.
+- **Complete protocol coverage.** All PostgreSQL v3.0 and v3.2 wire protocol messages with connection phase tracking.
 - **Zero dependencies.** No runtime dependencies.
 - **Fully typed.** Ships with `py.typed` marker for PEP 561 support.
 
@@ -30,7 +29,7 @@ Pygwire is organized into four layers, from low-level to high-level:
 |-------|--------|---------|
 | **Messages** | `pygwire.messages` | Encode and decode all PostgreSQL protocol messages |
 | **Codec** | `pygwire.codec` | Incremental stream decoder with zero-copy framing |
-| **State Machine** | `pygwire.state_machine` | Protocol phase tracking and message validation |
+| **State Machine** | `pygwire.state_machine` | Connection phase tracking for framing, disambiguation, and lifecycle |
 | **Connection** | `pygwire.connection` | Coordinated decoder + state machine (sans-I/O) |
 
 Use the lower layers independently for maximum control, or use **Connection** for a higher-level API that coordinates them together.
