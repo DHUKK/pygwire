@@ -1443,8 +1443,8 @@
 <hr />
 <h2 id="frontendstatemachine"><code>FrontendStateMachine</code><a class="headerlink" href="#frontendstatemachine" title="Permanent link">&para;</a></h2>
 <p>Tracks protocol state from the client's perspective.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConnectionPhase</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.state_machine</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendStateMachine</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConnectionPhase</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrontendStateMachine</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">sm</span> <span class="o">=</span> <span class="n">FrontendStateMachine</span><span class="p">(</span><span class="n">phase</span><span class="o">=</span><span class="n">ConnectionPhase</span><span class="o">.</span><span class="n">STARTUP</span><span class="p">)</span>
 </code></pre></div>
@@ -1492,8 +1492,8 @@
 <hr />
 <h2 id="backendstatemachine"><code>BackendStateMachine</code><a class="headerlink" href="#backendstatemachine" title="Permanent link">&para;</a></h2>
 <p>Tracks protocol state from the server's perspective. Same API as <code>FrontendStateMachine</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConnectionPhase</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.state_machine</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackendStateMachine</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConnectionPhase</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackendStateMachine</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">sm</span> <span class="o">=</span> <span class="n">BackendStateMachine</span><span class="p">(</span><span class="n">phase</span><span class="o">=</span><span class="n">ConnectionPhase</span><span class="o">.</span><span class="n">STARTUP</span><span class="p">)</span>
 </code></pre></div>
@@ -1589,7 +1589,7 @@
 </code></pre></div>
 <hr />
 <h2 id="statemachineerror"><code>StateMachineError</code><a class="headerlink" href="#statemachineerror" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.state_machine</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateMachineError</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateMachineError</span>
 </code></pre></div>
 <p>Raised when an invalid message is sent or received for the current connection phase. Subclass of <code>ProtocolError</code>.</p>
 <hr />
