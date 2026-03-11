@@ -20,7 +20,6 @@ Protocol-level enums and constants.
 | `EXTENDED_QUERY` | Extended query protocol active |
 | `COPY_IN` | COPY FROM stdin active |
 | `COPY_OUT` | COPY TO stdout active |
-| `COPY_BOTH` | Bidirectional copy (streaming replication) |
 | `FUNCTION_CALL` | Legacy function call active |
 | `TERMINATED` | Connection closed |
 | `FAILED` | Unrecoverable error |

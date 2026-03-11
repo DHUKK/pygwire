@@ -59,10 +59,9 @@ class ConnectionPhase(Enum):
     # Extended query protocol active
     EXTENDED_QUERY = auto()
 
-    # COPY mode (COPY IN, COPY OUT, or COPY BOTH)
+    # COPY mode (COPY IN or COPY OUT)
     COPY_IN = auto()
     COPY_OUT = auto()
-    COPY_BOTH = auto()
 
     # Function call active (legacy)
     FUNCTION_CALL = auto()
@@ -123,7 +122,7 @@ class BackendMessageType(StrEnum):
     COPY_DONE = "c"  # Shared
     COPY_IN_RESPONSE = "G"
     COPY_OUT_RESPONSE = "H"
-    COPY_BOTH_RESPONSE = "W"
+    COPY_BOTH_RESPONSE = "W"  # Streaming replication only (not modeled by state machine)
     DATA_ROW = "D"
     EMPTY_QUERY_RESPONSE = "I"
     ERROR_RESPONSE = "E"

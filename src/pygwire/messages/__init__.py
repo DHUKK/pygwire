@@ -36,7 +36,6 @@ from ._base import (
 
 # COPY protocol
 from ._copy import (
-    CopyBothResponse,
     CopyData,
     CopyDone,
     CopyFail,
@@ -169,7 +168,6 @@ __all__ = [
     "CopyFail",
     "CopyInResponse",
     "CopyOutResponse",
-    "CopyBothResponse",
     # Notifications and status
     "NotificationResponse",
     "NoticeResponse",

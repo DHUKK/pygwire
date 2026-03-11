@@ -6,7 +6,6 @@ Messages used during the COPY protocol for bulk data transfer.
 |---------|-----------|-------------|
 | `CopyInResponse` | Backend | Ready for COPY IN data |
 | `CopyOutResponse` | Backend | Starting COPY OUT data |
-| `CopyBothResponse` | Backend | Bidirectional copy (streaming replication) |
 | `CopyData` | Both | COPY data chunk |
 | `CopyDone` | Both | COPY complete |
 | `CopyFail` | Frontend | Abort COPY with error |
@@ -33,22 +32,13 @@ Server is about to send COPY data to the client.
 | `overall_format` | `int` | Overall format (0 = text, 1 = binary) |
 | `col_formats` | `list[int]` | Per-column format codes |
 
-### `CopyBothResponse`
-
-Bidirectional COPY mode (used in streaming replication).
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `overall_format` | `int` | Overall format (0 = text, 1 = binary) |
-| `col_formats` | `list[int]` | Per-column format codes |
-
 ---
 
 ## Bidirectional messages
 
 ### `CopyData`
 
-A chunk of COPY data. Sent by the client during COPY IN, by the server during COPY OUT, and by both during COPY BOTH.
+A chunk of COPY data. Sent by the client during COPY IN and by the server during COPY OUT.
 
 | Field | Type | Description |
 |-------|------|-------------|

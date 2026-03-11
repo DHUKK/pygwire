@@ -784,7 +784,6 @@ class TestConnectionPhaseEnum:
             "EXTENDED_QUERY",
             "COPY_IN",
             "COPY_OUT",
-            "COPY_BOTH",
             "FUNCTION_CALL",
             "TERMINATED",
             "FAILED",

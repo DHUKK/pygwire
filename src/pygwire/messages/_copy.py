@@ -22,16 +22,12 @@ _INT16 = struct.Struct("!H")
 @STANDARD_REGISTRY.register(
     b"d",
     direction=MessageDirection.FRONTEND,
-    phases=frozenset(
-        {ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT, ConnectionPhase.COPY_BOTH}
-    ),
+    phases=frozenset({ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT}),
 )
 @STANDARD_REGISTRY.register(
     b"d",
     direction=MessageDirection.BACKEND,
-    phases=frozenset(
-        {ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT, ConnectionPhase.COPY_BOTH}
-    ),
+    phases=frozenset({ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT}),
 )
 @dataclass(slots=True)
 class CopyData(CommonMessage):
@@ -50,16 +46,12 @@ class CopyData(CommonMessage):
 @STANDARD_REGISTRY.register(
     b"c",
     direction=MessageDirection.FRONTEND,
-    phases=frozenset(
-        {ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT, ConnectionPhase.COPY_BOTH}
-    ),
+    phases=frozenset({ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT}),
 )
 @STANDARD_REGISTRY.register(
     b"c",
     direction=MessageDirection.BACKEND,
-    phases=frozenset(
-        {ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT, ConnectionPhase.COPY_BOTH}
-    ),
+    phases=frozenset({ConnectionPhase.COPY_IN, ConnectionPhase.COPY_OUT}),
 )
 @dataclass(slots=True)
 class CopyDone(CommonMessage):
@@ -104,7 +96,7 @@ class CopyFail(FrontendMessage):
 
 
 def _decode_copy_response(payload: memoryview) -> tuple[int, list[int]]:
-    """Shared decoder for CopyInResponse, CopyOutResponse, CopyBothResponse."""
+    """Shared decoder for CopyInResponse and CopyOutResponse."""
     overall_format = payload[0]
     (num_cols,) = _INT16.unpack_from(payload, 1)
     col_formats: list[int] = []
@@ -154,27 +146,6 @@ class CopyInResponse(BackendMessage):
 @dataclass(slots=True)
 class CopyOutResponse(BackendMessage):
     """CopyOutResponse ('H') — server is about to send COPY data."""
-
-    overall_format: int = 0
-    col_formats: list[int] = field(default_factory=list)
-
-    def encode(self) -> bytes:
-        return _encode_copy_response(self.overall_format, self.col_formats)
-
-    @classmethod
-    def decode(cls, payload: memoryview) -> Self:
-        fmt, cols = _decode_copy_response(payload)
-        return cls(overall_format=fmt, col_formats=cols)
-
-
-@STANDARD_REGISTRY.register(
-    b"W",
-    direction=MessageDirection.BACKEND,
-    phases=frozenset({ConnectionPhase.SIMPLE_QUERY, ConnectionPhase.EXTENDED_QUERY}),
-)
-@dataclass(slots=True)
-class CopyBothResponse(BackendMessage):
-    """CopyBothResponse ('W') — used for streaming replication."""
 
     overall_format: int = 0
     col_formats: list[int] = field(default_factory=list)
