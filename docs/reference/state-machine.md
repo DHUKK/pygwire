@@ -28,8 +28,8 @@ Both track a `ConnectionPhase` and raise `StateMachineError` if a message type i
 Tracks protocol state from the client's perspective.
 
 ```python
-from pygwire.constants import ConnectionPhase
-from pygwire.state_machine import FrontendStateMachine
+from pygwire import ConnectionPhase
+from pygwire import FrontendStateMachine
 
 sm = FrontendStateMachine(phase=ConnectionPhase.STARTUP)
 ```
@@ -64,8 +64,8 @@ Record receiving a backend message. Raises `StateMachineError` if the message is
 Tracks protocol state from the server's perspective. Same API as `FrontendStateMachine`.
 
 ```python
-from pygwire.constants import ConnectionPhase
-from pygwire.state_machine import BackendStateMachine
+from pygwire import ConnectionPhase
+from pygwire import BackendStateMachine
 
 sm = BackendStateMachine(phase=ConnectionPhase.STARTUP)
 ```
