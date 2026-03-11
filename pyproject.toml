@@ -1,6 +1,6 @@
 [project]
 name = "pygwire"
-version = "0.0.2"
+version = "0.1.0"
 description = "Low-level PostgreSQL wire protocol (3.0 & 3.2) codec for Python"
 readme = "README.md"
 authors = [
@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 license = "MIT"
 keywords = ["postgresql", "wire-protocol", "codec", "sans-io", "database"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
