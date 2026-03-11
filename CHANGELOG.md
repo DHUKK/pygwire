@@ -39,6 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `FrontendConnection` and `BackendConnection` coordinating decoder and state machine.
 - `py.typed` marker for PEP 561 typed package support.
 
-[Unreleased]: https://github.com/DHUKK/pygwire/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/DHUKK/pygwire/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/DHUKK/pygwire/compare/v0.0.2...v0.1.0
 [0.0.2]: https://github.com/DHUKK/pygwire/releases/tag/v0.0.2
-[0.0.1]: https://github.com/DHUKK/pygwire/releases/tag/v0.0.1

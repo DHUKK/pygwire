@@ -7,11 +7,12 @@
 [![CI](https://github.com/DHUKK/pygwire/actions/workflows/ci.yml/badge.svg)](https://github.com/DHUKK/pygwire/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI](https://img.shields.io/pypi/v/pygwire)](https://pypi.org/project/pygwire/)
 
 </div>
 
->[!WARNING]
-> **Early stage project.** Pygwire is under active development. The API is not yet stable and breaking changes should be expected between releases.
+>[!NOTE]
+> **Beta.** Pygwire is under active development. The API may change between minor releases until 1.0. See the [changelog](CHANGELOG.md) for migration notes.
 
 ---
 

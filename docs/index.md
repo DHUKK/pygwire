@@ -6,8 +6,8 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-!!! warning "Early stage project"
-    Pygwire is under active development. The API is not yet stable and breaking changes should be expected between releases.
+!!! note "Beta"
+    Pygwire is under active development. The API may change between minor releases until 1.0. See the [changelog](https://github.com/DHUKK/pygwire/blob/main/CHANGELOG.md) for migration notes.
 
 ---
 
