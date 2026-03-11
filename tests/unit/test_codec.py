@@ -11,7 +11,7 @@ import pytest
 
 from pygwire.connection import BackendConnection, FrontendConnection
 from pygwire.constants import ProtocolVersion, TransactionStatus
-from pygwire.exceptions import ProtocolError
+from pygwire.exceptions import FramingError
 from pygwire.messages import (
     AuthenticationOk,
     AuthenticationSASL,
@@ -292,16 +292,16 @@ class TestStartupPhase:
         assert isinstance(msgs[0], Query)
 
     def test_startup_message_too_short_raises_error(self):
-        """Test that short startup message raises ProtocolError."""
+        """Test that short startup message raises FramingError."""
         conn = BackendConnection()
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             list(conn.receive(b"\x00\x00\x00\x06\x00\x01"))
 
     def test_unknown_startup_version_raises_error(self):
-        """Test unknown startup version code raises ProtocolError."""
+        """Test unknown startup version code raises FramingError."""
         conn = BackendConnection()
         wire = b"\x00\x00\x00\x08\xff\xff\xff\xff"
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             list(conn.receive(wire))
 
 
@@ -416,14 +416,14 @@ class TestDecoderErrors:
         """Test that unknown backend message identifier raises error."""
         conn = FrontendConnection(initial_phase=ConnectionPhase.READY, strict=False)
         wire = b"x\x00\x00\x00\x04"
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             list(conn.receive(wire))
 
     def test_unknown_frontend_message_identifier(self):
         """Test that unknown frontend message identifier raises error."""
         conn = BackendConnection(initial_phase=ConnectionPhase.READY, strict=False)
         wire = b"Z\x00\x00\x00\x05I"  # 'Z' is backend ReadyForQuery, not a frontend message
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             list(conn.receive(wire))
 
 

@@ -5,7 +5,7 @@ import struct
 import pytest
 
 from pygwire.constants import ConnectionPhase, MessageDirection
-from pygwire.exceptions import ProtocolError
+from pygwire.exceptions import FramingError, ProtocolError
 from pygwire.framing import (
     NegotiationFraming,
     StandardFraming,
@@ -92,40 +92,40 @@ class TestStartupFraming:
         assert result is None
 
     def test_message_exceeds_max_size(self):
-        """Test that oversized messages raise ProtocolError."""
+        """Test that oversized messages raise FramingError."""
         # Create a message that claims to be huge
         wire = struct.pack("!I", 2 * 1024 * 1024 * 1024)  # 2 GB
 
         framing = StartupFraming(max_message_size=1024 * 1024)  # 1 MB limit
-        with pytest.raises(ProtocolError, match="exceeds maximum allowed size"):
+        with pytest.raises(FramingError, match="exceeds maximum allowed size"):
             framing.try_parse(
                 memoryview(wire), 0, ConnectionPhase.STARTUP, MessageDirection.FRONTEND
             )
 
     def test_payload_too_short_for_version_code(self):
-        """Test that payload shorter than 4 bytes raises ProtocolError."""
+        """Test that payload shorter than 4 bytes raises FramingError."""
         # Length = 5 (header) + 2 (payload) = 7, but payload needs 4 bytes for version
         wire = struct.pack("!I", 6) + b"ab"
 
         framing = StartupFraming()
-        with pytest.raises(ProtocolError, match="payload too short for version code"):
+        with pytest.raises(FramingError, match="payload too short for version code"):
             framing.try_parse(
                 memoryview(wire), 0, ConnectionPhase.STARTUP, MessageDirection.FRONTEND
             )
 
     def test_unknown_version_code_raises_error(self):
-        """Test that unknown version code raises ProtocolError."""
+        """Test that unknown version code raises FramingError."""
         # Create message with invalid version code
         wire = struct.pack("!II", 8, 0xDEADBEEF)  # Invalid version code
 
         framing = StartupFraming()
-        with pytest.raises(ProtocolError, match="Unknown startup message version code"):
+        with pytest.raises(FramingError, match="Unknown startup message version code"):
             framing.try_parse(
                 memoryview(wire), 0, ConnectionPhase.STARTUP, MessageDirection.FRONTEND
             )
 
     def test_malformed_message_raises_error(self):
-        """Test that malformed message payload raises ProtocolError."""
+        """Test that malformed message payload raises ProtocolError (FramingError or DecodingError)."""
         # StartupMessage with correct version but truncated params
         wire = struct.pack("!II", 12, 0x00030000) + b"user"  # Missing null terminators
 
@@ -242,9 +242,9 @@ class TestNegotiationFraming:
         assert result is None
 
     def test_unknown_negotiation_byte(self):
-        """Test that unknown negotiation byte raises ProtocolError."""
+        """Test that unknown negotiation byte raises FramingError."""
         framing = NegotiationFraming()
-        with pytest.raises(ProtocolError, match="Unknown negotiation byte"):
+        with pytest.raises(FramingError, match="Unknown negotiation byte"):
             framing.try_parse(
                 memoryview(b"X"),
                 0,
@@ -253,10 +253,10 @@ class TestNegotiationFraming:
             )
 
     def test_invalid_byte_in_phase(self):
-        """Test that valid byte in wrong phase raises ProtocolError."""
+        """Test that valid byte in wrong phase raises FramingError."""
         # 'G' is valid for GSS but not SSL
         framing = NegotiationFraming()
-        with pytest.raises(ProtocolError, match="Unknown negotiation byte.*SSL_NEGOTIATION"):
+        with pytest.raises(FramingError, match="Unknown negotiation byte.*SSL_NEGOTIATION"):
             framing.try_parse(
                 memoryview(b"G"),
                 0,
@@ -265,7 +265,7 @@ class TestNegotiationFraming:
             )
 
     def test_malformed_message_raises_error(self):
-        """Test that decode errors are wrapped in ProtocolError."""
+        """Test that decode errors are wrapped in FramingError."""
         # This should never happen in practice since negotiation messages
         # are just single bytes, but test the error handling path
         framing = NegotiationFraming()
@@ -360,25 +360,25 @@ class TestStandardFraming:
         assert result is None
 
     def test_message_exceeds_max_size(self):
-        """Test that oversized messages raise ProtocolError."""
+        """Test that oversized messages raise FramingError."""
         # Create a message that claims to be huge
         wire = b"Q" + struct.pack("!I", 2 * 1024 * 1024 * 1024)  # 2 GB
 
         framing = StandardFraming(max_message_size=1024 * 1024)  # 1 MB limit
-        with pytest.raises(ProtocolError, match="exceeds maximum allowed size"):
+        with pytest.raises(FramingError, match="exceeds maximum allowed size"):
             framing.try_parse(memoryview(wire), 0, ConnectionPhase.READY, MessageDirection.FRONTEND)
 
     def test_unknown_message_identifier(self):
-        """Test that unknown identifier raises ProtocolError."""
+        """Test that unknown identifier raises FramingError."""
         # Invalid identifier '@' with valid length (not used in PostgreSQL protocol)
         wire = b"@" + struct.pack("!I", 4)
 
         framing = StandardFraming()
-        with pytest.raises(ProtocolError, match="Unknown message identifier"):
+        with pytest.raises(FramingError, match="Unknown message identifier"):
             framing.try_parse(memoryview(wire), 0, ConnectionPhase.READY, MessageDirection.FRONTEND)
 
     def test_unknown_identifier_in_phase(self):
-        """Test that valid identifier in wrong phase raises ProtocolError."""
+        """Test that valid identifier in wrong phase raises FramingError."""
         # Parse ('P') is valid in EXTENDED_QUERY/READY but not in AUTHENTICATING
         from pygwire.messages import Parse
 
@@ -386,7 +386,7 @@ class TestStandardFraming:
         wire = msg.to_wire()
 
         framing = StandardFraming()
-        with pytest.raises(ProtocolError, match="Unknown message identifier"):
+        with pytest.raises(FramingError, match="Unknown message identifier"):
             framing.try_parse(
                 memoryview(wire),
                 0,
@@ -395,12 +395,12 @@ class TestStandardFraming:
             )
 
     def test_malformed_message_raises_error(self):
-        """Test that malformed message payload raises ProtocolError."""
+        """Test that malformed message payload raises FramingError."""
         # AuthenticationOk with truncated payload (should have 8 bytes total)
         wire = b"R" + struct.pack("!I", 2) + b""  # Length too short
 
         framing = StandardFraming()
-        with pytest.raises(ProtocolError, match="truncated or malformed"):
+        with pytest.raises(FramingError, match="truncated or malformed"):
             framing.try_parse(
                 memoryview(wire),
                 0,
@@ -598,7 +598,7 @@ class TestFramingIntegration:
 
         # Test startup framing respects limit
         huge_startup = struct.pack("!I", max_size + 1)
-        with pytest.raises(ProtocolError, match="exceeds maximum"):
+        with pytest.raises(FramingError, match="exceeds maximum"):
             startup_framing.try_parse(
                 memoryview(huge_startup),
                 0,
@@ -608,7 +608,7 @@ class TestFramingIntegration:
 
         # Test standard framing respects limit
         huge_standard = b"Q" + struct.pack("!I", max_size + 1)
-        with pytest.raises(ProtocolError, match="exceeds maximum"):
+        with pytest.raises(FramingError, match="exceeds maximum"):
             standard_framing.try_parse(
                 memoryview(huge_standard),
                 0,

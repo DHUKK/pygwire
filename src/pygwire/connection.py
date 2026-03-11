@@ -64,11 +64,11 @@ from collections.abc import Iterator
 
 from pygwire.codec import BackendMessageDecoder, FrontendMessageDecoder
 from pygwire.constants import ConnectionPhase
+from pygwire.exceptions import StateMachineError
 from pygwire.messages import PGMessage
 from pygwire.state_machine import (
     BackendStateMachine,
     FrontendStateMachine,
-    StateMachineError,
 )
 
 logger = logging.getLogger(__name__)

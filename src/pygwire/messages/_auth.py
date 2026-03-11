@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import ClassVar, Self
 
 from pygwire.constants import ConnectionPhase, MessageDirection
-from pygwire.exceptions import ProtocolError
+from pygwire.exceptions import DecodingError
 from pygwire.messages._base import BackendMessage, FrontendMessage, _read_cstring
 
 from ._registry import NEGOTIATION_REGISTRY, STANDARD_REGISTRY
@@ -41,14 +41,14 @@ class SSLResponse(BackendMessage):
     @classmethod
     def decode(cls, payload: memoryview) -> Self:
         if len(payload) < 1:
-            raise ProtocolError("SSLResponse payload is empty")
+            raise DecodingError("SSLResponse payload is empty")
         byte = bytes(payload[0:1])
         if byte == b"S":
             return cls(accepted=True)
         elif byte == b"N":
             return cls(accepted=False)
         else:
-            raise ProtocolError(f"Unexpected SSL response byte: {byte!r}")
+            raise DecodingError(f"Unexpected SSL response byte: {byte!r}")
 
 
 @NEGOTIATION_REGISTRY.register(b"G", ConnectionPhase.GSS_NEGOTIATION)
@@ -75,14 +75,14 @@ class GSSResponse(BackendMessage):
     @classmethod
     def decode(cls, payload: memoryview) -> Self:
         if len(payload) < 1:
-            raise ProtocolError("GSSResponse payload is empty")
+            raise DecodingError("GSSResponse payload is empty")
         byte = bytes(payload[0:1])
         if byte == b"G":
             return cls(accepted=True)
         elif byte == b"N":
             return cls(accepted=False)
         else:
-            raise ProtocolError(f"Unexpected GSS response byte: {byte!r}")
+            raise DecodingError(f"Unexpected GSS response byte: {byte!r}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -137,7 +137,7 @@ class Authentication(AuthenticationBase):
         (code,) = _INT32.unpack_from(payload)
         sub_cls = _AUTH_SUBTYPE_REGISTRY.get(code)
         if sub_cls is None:
-            raise ProtocolError(f"Unknown authentication code: {code}")
+            raise DecodingError(f"Unknown authentication code: {code}")
         return sub_cls.decode(payload)  # type: ignore[return-value]
 
 
@@ -323,7 +323,7 @@ class PasswordMessage(FrontendMessage):
         try:
             pwd, _ = _read_cstring(payload, 0)
             return cls(password=pwd)
-        except ProtocolError:
+        except DecodingError:
             return cls(password=bytes(payload))
 
 

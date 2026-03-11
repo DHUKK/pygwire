@@ -23,7 +23,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from pygwire.constants import ConnectionPhase, MessageDirection
-from pygwire.exceptions import ProtocolError
+from pygwire.exceptions import FramingError
 from pygwire.messages import (
     NEGOTIATION_REGISTRY,
     STANDARD_REGISTRY,
@@ -82,7 +82,7 @@ class FramingStrategy(ABC):
             (message, bytes_consumed) if successful, None if insufficient data
 
         Raises:
-            ProtocolError: If message is malformed or unknown
+            FramingError: If message is malformed or unknown
         """
         ...
 
@@ -117,7 +117,7 @@ class StartupFraming(FramingStrategy):
 
         (length,) = _LENGTH_STRUCT.unpack_from(buf, pos)
         if length > self._max_message_size:
-            raise ProtocolError(
+            raise FramingError(
                 f"Startup message length {length} exceeds maximum allowed size "
                 f"({self._max_message_size})"
             )
@@ -129,17 +129,17 @@ class StartupFraming(FramingStrategy):
         payload_end = pos + length
         payload = buf[payload_start:payload_end]
         if len(payload) < 4:
-            raise ProtocolError("Startup message payload too short for version code")
+            raise FramingError("Startup message payload too short for version code")
 
         (version_code,) = _LENGTH_STRUCT.unpack_from(payload)
 
         msg_cls = STARTUP_REGISTRY.lookup(version_code)
         if msg_cls is None:
-            raise ProtocolError(f"Unknown startup message version code: {version_code:#010x}")
+            raise FramingError(f"Unknown startup message version code: {version_code:#010x}")
         try:
             msg = msg_cls.decode(payload)
         except struct.error as e:
-            raise ProtocolError(f"{msg_cls.__name__} message truncated or malformed: {e}") from e
+            raise FramingError(f"{msg_cls.__name__} message truncated or malformed: {e}") from e
 
         return msg, length
 
@@ -170,13 +170,13 @@ class NegotiationFraming(FramingStrategy):
 
         msg_cls = NEGOTIATION_REGISTRY.lookup(byte_value, phase)
         if msg_cls is None:
-            raise ProtocolError(f"Unknown negotiation byte: {byte_value!r} in phase {phase.name}")
+            raise FramingError(f"Unknown negotiation byte: {byte_value!r} in phase {phase.name}")
 
         payload = buf[pos : pos + 1]
         try:
             msg = msg_cls.decode(payload)
         except struct.error as e:
-            raise ProtocolError(f"{msg_cls.__name__} message malformed: {e}") from e
+            raise FramingError(f"{msg_cls.__name__} message malformed: {e}") from e
 
         return msg, 1
 
@@ -212,7 +212,7 @@ class StandardFraming(FramingStrategy):
         identifier = bytes((buf[pos],))
         (length,) = _LENGTH_STRUCT.unpack_from(buf, pos + 1)
         if length > self._max_message_size:
-            raise ProtocolError(
+            raise FramingError(
                 f"Message length {length} exceeds maximum allowed size ({self._max_message_size})"
             )
 
@@ -226,14 +226,14 @@ class StandardFraming(FramingStrategy):
 
         msg_cls = STANDARD_REGISTRY.lookup(identifier, phase, direction)
         if msg_cls is None:
-            raise ProtocolError(
+            raise FramingError(
                 f"Unknown message identifier: {identifier!r} in phase {phase.name} "
                 f"for direction {direction.value}"
             )
         try:
             msg = msg_cls.decode(payload)
         except struct.error as e:
-            raise ProtocolError(f"{msg_cls.__name__} message truncated or malformed: {e}") from e
+            raise FramingError(f"{msg_cls.__name__} message truncated or malformed: {e}") from e
 
         return msg, total
 
