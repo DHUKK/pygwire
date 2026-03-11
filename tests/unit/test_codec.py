@@ -18,6 +18,8 @@ from pygwire.messages import (
     CancelRequest,
     CommandComplete,
     DataRow,
+    FunctionCall,
+    FunctionCallResponse,
     GSSResponse,
     PasswordMessage,
     ProtocolError,
@@ -106,6 +108,41 @@ class TestBackendDecoding:
         assert len(msgs) == 1
         assert isinstance(msgs[0], RowDescription)
         assert msgs[0].fields == []
+
+    def test_decode_function_call_response_in_function_call_phase(self):
+        """Test that FunctionCallResponse decodes in FUNCTION_CALL phase.
+
+        FunctionCallResponse ('V') must be decodable when the connection is in
+        FUNCTION_CALL phase. This tests the full Connection path: send FunctionCall
+        from READY (which transitions to FUNCTION_CALL), then receive the response.
+
+        Regression test: FunctionCallResponse was registered in the standard
+        registry for READY phase instead of FUNCTION_CALL, causing a ProtocolError
+        when the decoder tried to look up identifier b'V' in FUNCTION_CALL phase.
+        """
+        conn = FrontendConnection(initial_phase=ConnectionPhase.READY)
+
+        # Send FunctionCall — transitions state machine to FUNCTION_CALL
+        conn.send(FunctionCall(function_oid=1))
+        assert conn.phase == ConnectionPhase.FUNCTION_CALL
+
+        # Server responds with FunctionCallResponse — must decode without error
+        response = FunctionCallResponse(result=b"test_result")
+        msgs = list(conn.receive(response.to_wire()))
+        assert len(msgs) == 1
+        assert isinstance(msgs[0], FunctionCallResponse)
+        assert msgs[0].result == b"test_result"
+
+    def test_decode_function_call_response_null_result(self):
+        """Test decoding FunctionCallResponse with NULL result via Connection."""
+        conn = FrontendConnection(initial_phase=ConnectionPhase.READY)
+        conn.send(FunctionCall(function_oid=1))
+
+        response = FunctionCallResponse(result=None)
+        msgs = list(conn.receive(response.to_wire()))
+        assert len(msgs) == 1
+        assert isinstance(msgs[0], FunctionCallResponse)
+        assert msgs[0].result is None
 
 
 class TestFrontendDecoding:
