@@ -1,6 +1,6 @@
 """Unit tests for simple query protocol messages."""
 
-from pygwire.constants import BackendMessageType, FrontendMessageType, TransactionStatus
+from pygwire.constants import TransactionStatus
 from pygwire.messages import (
     CommandComplete,
     DataRow,
@@ -82,7 +82,7 @@ ORDER BY name"""
     def test_identifier(self):
         """Test Query has correct identifier."""
         msg = Query(query_string="SELECT 1")
-        assert msg.identifier == FrontendMessageType.QUERY.encode("ascii")
+        assert msg.identifier == b"Q"
 
     def test_to_wire(self):
         """Test Query.to_wire() includes proper framing."""
@@ -214,7 +214,7 @@ class TestRowDescription:
     def test_identifier(self):
         """Test RowDescription has correct identifier."""
         msg = RowDescription(fields=[])
-        assert msg.identifier == BackendMessageType.ROW_DESCRIPTION.encode("ascii")
+        assert msg.identifier == b"T"
 
     def test_binary_format_code(self):
         """Test RowDescription with binary format."""
@@ -321,7 +321,7 @@ class TestDataRow:
     def test_identifier(self):
         """Test DataRow has correct identifier."""
         msg = DataRow(columns=[])
-        assert msg.identifier == BackendMessageType.DATA_ROW.encode("ascii")
+        assert msg.identifier == b"D"
 
     def test_empty_string_column(self):
         """Test DataRow with empty string (not NULL)."""
@@ -392,7 +392,7 @@ class TestCommandComplete:
     def test_identifier(self):
         """Test CommandComplete has correct identifier."""
         msg = CommandComplete(tag="SELECT 1")
-        assert msg.identifier == BackendMessageType.COMMAND_COMPLETE.encode("ascii")
+        assert msg.identifier == b"C"
 
     def test_empty_tag(self):
         """Test CommandComplete with empty tag."""
@@ -465,7 +465,7 @@ class TestReadyForQuery:
     def test_identifier(self):
         """Test ReadyForQuery has correct identifier."""
         msg = ReadyForQuery(status=TransactionStatus.IDLE)
-        assert msg.identifier == BackendMessageType.READY_FOR_QUERY.encode("ascii")
+        assert msg.identifier == b"Z"
 
     def test_default_status(self):
         """Test ReadyForQuery default initialization."""
@@ -502,7 +502,7 @@ class TestEmptyQueryResponse:
     def test_identifier(self):
         """Test EmptyQueryResponse has correct identifier."""
         msg = EmptyQueryResponse()
-        assert msg.identifier == BackendMessageType.EMPTY_QUERY_RESPONSE.encode("ascii")
+        assert msg.identifier == b"I"
 
     def test_to_wire(self):
         """Test EmptyQueryResponse.to_wire() includes proper framing."""

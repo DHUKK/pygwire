@@ -7,7 +7,6 @@ from pygwire.messages import (
     BindComplete,
     Close,
     CloseComplete,
-    CopyBothResponse,
     # COPY protocol
     CopyData,
     CopyDone,
@@ -549,35 +548,6 @@ class TestCopyOutResponse:
         original = CopyOutResponse(overall_format=0, col_formats=[0, 1, 0])
         wire = original.encode()
         decoded = CopyOutResponse.decode(memoryview(wire))
-
-        assert decoded.overall_format == original.overall_format
-        assert decoded.col_formats == original.col_formats
-
-
-class TestCopyBothResponse:
-    """Tests for CopyBothResponse message (backend)."""
-
-    def test_encode(self):
-        """Test encoding CopyBothResponse."""
-        msg = CopyBothResponse(overall_format=0, col_formats=[0])
-        wire = msg.encode()
-
-        assert len(wire) > 0
-
-    def test_decode(self):
-        """Test decoding CopyBothResponse."""
-        msg = CopyBothResponse(overall_format=1, col_formats=[1, 1])
-        wire = msg.encode()
-        decoded = CopyBothResponse.decode(memoryview(wire))
-
-        assert decoded.overall_format == 1
-        assert decoded.col_formats == [1, 1]
-
-    def test_round_trip(self):
-        """Test encode/decode round-trip."""
-        original = CopyBothResponse(overall_format=0, col_formats=[0, 0, 0, 0])
-        wire = original.encode()
-        decoded = CopyBothResponse.decode(memoryview(wire))
 
         assert decoded.overall_format == original.overall_format
         assert decoded.col_formats == original.col_formats

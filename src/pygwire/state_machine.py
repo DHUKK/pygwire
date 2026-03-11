@@ -233,11 +233,6 @@ _FRONTEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
     _P.COPY_OUT: [
         ((messages.Terminate,), to(_P.TERMINATED)),
     ],
-    _P.COPY_BOTH: [
-        ((messages.CopyData,), stay),
-        ((messages.CopyDone, messages.CopyFail), copy_done),
-        ((messages.Terminate,), to(_P.TERMINATED)),
-    ],
     _P.FUNCTION_CALL: [
         ((messages.Terminate,), to(_P.TERMINATED)),
     ],
@@ -319,7 +314,6 @@ _BACKEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
         ((messages.ReadyForQuery,), to(_P.READY)),
         ((messages.CopyInResponse,), to(_P.COPY_IN)),
         ((messages.CopyOutResponse,), to(_P.COPY_OUT)),
-        ((messages.CopyBothResponse,), to(_P.COPY_BOTH)),
         ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
         ((messages.ErrorResponse,), stay),
     ],
@@ -342,7 +336,6 @@ _BACKEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
         ((messages.ReadyForQuery,), ext_rfq),
         ((messages.CopyInResponse,), to(_P.COPY_IN)),
         ((messages.CopyOutResponse,), to(_P.COPY_OUT)),
-        ((messages.CopyBothResponse,), to(_P.COPY_BOTH)),
         ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
         ((messages.ErrorResponse,), stay),
     ],
@@ -353,14 +346,6 @@ _BACKEND_MSG_RULES: dict[ConnectionPhase, list[_Rule]] = {
         ((messages.ErrorResponse,), stay),
     ],
     _P.COPY_OUT: [
-        ((messages.CopyData,), stay),
-        ((messages.CopyDone,), copy_done),
-        ((messages.CommandComplete,), stay),
-        ((messages.ReadyForQuery,), to(_P.READY)),
-        ((messages.NoticeResponse, messages.ParameterStatus, messages.NotificationResponse), stay),
-        ((messages.ErrorResponse,), stay),
-    ],
-    _P.COPY_BOTH: [
         ((messages.CopyData,), stay),
         ((messages.CopyDone,), copy_done),
         ((messages.CommandComplete,), stay),

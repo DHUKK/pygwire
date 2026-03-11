@@ -59,10 +59,9 @@ class ConnectionPhase(Enum):
     # Extended query protocol active
     EXTENDED_QUERY = auto()
 
-    # COPY mode (COPY IN, COPY OUT, or COPY BOTH)
+    # COPY mode (COPY IN or COPY OUT)
     COPY_IN = auto()
     COPY_OUT = auto()
-    COPY_BOTH = auto()
 
     # Function call active (legacy)
     FUNCTION_CALL = auto()
@@ -90,51 +89,3 @@ class TransactionStatus(StrEnum):
     IDLE = "I"
     IN_TRANSACTION = "T"
     ERROR_TRANSACTION = "E"
-
-
-class FrontendMessageType(StrEnum):
-    """Identifiers for messages sent by the Frontend (Client)."""
-
-    BIND = "B"
-    CLOSE = "C"
-    COPY_DATA = "d"  # Shared
-    COPY_DONE = "c"  # Shared
-    COPY_FAIL = "f"
-    DESCRIBE = "D"
-    EXECUTE = "E"
-    FLUSH = "H"
-    FUNCTION_CALL = "F"
-    PARSE = "P"
-    PASSWORD = "p"  # Also used for GSS/SSPI/SASL responses
-    QUERY = "Q"
-    SYNC = "S"
-    TERMINATE = "X"
-
-
-class BackendMessageType(StrEnum):
-    """Identifiers for messages sent by the Backend (Server)."""
-
-    AUTHENTICATION = "R"
-    BACKEND_KEY_DATA = "K"
-    BIND_COMPLETE = "2"
-    CLOSE_COMPLETE = "3"
-    COMMAND_COMPLETE = "C"
-    COPY_DATA = "d"  # Shared
-    COPY_DONE = "c"  # Shared
-    COPY_IN_RESPONSE = "G"
-    COPY_OUT_RESPONSE = "H"
-    COPY_BOTH_RESPONSE = "W"
-    DATA_ROW = "D"
-    EMPTY_QUERY_RESPONSE = "I"
-    ERROR_RESPONSE = "E"
-    FUNCTION_CALL_RESPONSE = "V"
-    NEGOTIATE_PROTOCOL_VERSION = "v"
-    NO_DATA = "n"
-    NOTICE_RESPONSE = "N"
-    NOTIFICATION_RESPONSE = "A"
-    PARAMETER_DESCRIPTION = "t"
-    PARAMETER_STATUS = "S"
-    PARSE_COMPLETE = "1"
-    PORTAL_SUSPENDED = "s"
-    READY_FOR_QUERY = "Z"
-    ROW_DESCRIPTION = "T"

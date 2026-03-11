@@ -20,7 +20,6 @@ Protocol-level enums and constants.
 | `EXTENDED_QUERY` | Extended query protocol active |
 | `COPY_IN` | COPY FROM stdin active |
 | `COPY_OUT` | COPY TO stdout active |
-| `COPY_BOTH` | Bidirectional copy (streaming replication) |
 | `FUNCTION_CALL` | Legacy function call active |
 | `TERMINATED` | Connection closed |
 | `FAILED` | Unrecoverable error |
@@ -56,54 +55,3 @@ Protocol-level enums and constants.
 | `IN_TRANSACTION` | `"T"` | In a transaction block |
 | `ERROR_TRANSACTION` | `"E"` | In a failed transaction block |
 
-## `FrontendMessageType`
-
-`StrEnum` of single-byte identifiers for client-to-server messages.
-
-| Member | Value | Description |
-|--------|-------|-------------|
-| `BIND` | `"B"` | Bind parameters to statement |
-| `CLOSE` | `"C"` | Close statement or portal |
-| `COPY_DATA` | `"d"` | COPY data chunk |
-| `COPY_DONE` | `"c"` | COPY complete |
-| `COPY_FAIL` | `"f"` | Abort COPY |
-| `DESCRIBE` | `"D"` | Describe statement or portal |
-| `EXECUTE` | `"E"` | Execute portal |
-| `FLUSH` | `"H"` | Flush output |
-| `FUNCTION_CALL` | `"F"` | Legacy function call |
-| `PARSE` | `"P"` | Parse SQL statement |
-| `PASSWORD` | `"p"` | Password / SASL response |
-| `QUERY` | `"Q"` | Simple query |
-| `SYNC` | `"S"` | Synchronization point |
-| `TERMINATE` | `"X"` | Close connection |
-
-## `BackendMessageType`
-
-`StrEnum` of single-byte identifiers for server-to-client messages.
-
-| Member | Value | Description |
-|--------|-------|-------------|
-| `AUTHENTICATION` | `"R"` | Authentication request/response |
-| `BACKEND_KEY_DATA` | `"K"` | Process ID and secret key |
-| `BIND_COMPLETE` | `"2"` | Bind succeeded |
-| `CLOSE_COMPLETE` | `"3"` | Close succeeded |
-| `COMMAND_COMPLETE` | `"C"` | Command finished |
-| `COPY_DATA` | `"d"` | COPY data chunk |
-| `COPY_DONE` | `"c"` | COPY complete |
-| `COPY_IN_RESPONSE` | `"G"` | Ready for COPY IN |
-| `COPY_OUT_RESPONSE` | `"H"` | Starting COPY OUT |
-| `COPY_BOTH_RESPONSE` | `"W"` | Bidirectional copy |
-| `DATA_ROW` | `"D"` | Result row |
-| `EMPTY_QUERY_RESPONSE` | `"I"` | Empty query |
-| `ERROR_RESPONSE` | `"E"` | Error |
-| `FUNCTION_CALL_RESPONSE` | `"V"` | Function result |
-| `NEGOTIATE_PROTOCOL_VERSION` | `"v"` | Version negotiation |
-| `NO_DATA` | `"n"` | No data to return |
-| `NOTICE_RESPONSE` | `"N"` | Warning or notice |
-| `NOTIFICATION_RESPONSE` | `"A"` | Async notification |
-| `PARAMETER_DESCRIPTION` | `"t"` | Parameter type info |
-| `PARAMETER_STATUS` | `"S"` | Runtime parameter |
-| `PARSE_COMPLETE` | `"1"` | Parse succeeded |
-| `PORTAL_SUSPENDED` | `"s"` | Portal suspended |
-| `READY_FOR_QUERY` | `"Z"` | Ready for next command |
-| `ROW_DESCRIPTION` | `"T"` | Column metadata |
