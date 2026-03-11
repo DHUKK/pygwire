@@ -1,5 +1,12 @@
 from enum import Enum, IntEnum, StrEnum, auto
 
+__all__ = [
+    "ConnectionPhase",
+    "MessageDirection",
+    "ProtocolVersion",
+    "TransactionStatus",
+]
+
 
 class MessageDirection(StrEnum):
     """Message direction: indicates who sends this message type.

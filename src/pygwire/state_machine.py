@@ -43,6 +43,13 @@ from pygwire import messages
 from pygwire.constants import ConnectionPhase
 from pygwire.exceptions import ProtocolError
 
+__all__ = [
+    "BackendStateMachine",
+    "FrontendStateMachine",
+    "MessageAction",
+    "StateMachineError",
+]
+
 _P = ConnectionPhase
 
 
