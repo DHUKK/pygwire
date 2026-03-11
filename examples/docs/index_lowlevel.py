@@ -1,6 +1,6 @@
 """Index: Using the low-level API."""
 
-from pygwire.codec import BackendMessageDecoder
+from pygwire import BackendMessageDecoder
 from pygwire.messages import ParameterStatus, Query
 
 # Decode server messages

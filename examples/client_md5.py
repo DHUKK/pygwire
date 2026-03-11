@@ -15,7 +15,7 @@ import hashlib
 import socket
 from collections.abc import Iterator
 
-from pygwire import FrontendConnection
+from pygwire import ConnectionPhase, FrontendConnection
 from pygwire.messages import (
     AuthenticationMD5Password,
     DataRow,
@@ -25,7 +25,6 @@ from pygwire.messages import (
     StartupMessage,
     Terminate,
 )
-from pygwire.state_machine import ConnectionPhase
 
 
 # --8<-- [start:socket_connection]
@@ -47,6 +46,8 @@ class SocketConnection(FrontendConnection):
         """Convenience method: receive data and yield decoded messages."""
         data = self.sock.recv(4096)
         yield from self.receive(data)
+
+
 # --8<-- [end:socket_connection]
 
 
@@ -62,6 +63,8 @@ def compute_md5_password(password: str, username: str, salt: bytes) -> str:
     inner = hashlib.md5(f"{password}{username}".encode()).hexdigest()
     outer = hashlib.md5(f"{inner}".encode() + salt).hexdigest()
     return f"md5{outer}"
+
+
 # --8<-- [end:md5_hash]
 
 

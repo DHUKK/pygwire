@@ -1,6 +1,6 @@
 """State Machine: Proxy usage."""
 
-from pygwire.state_machine import BackendStateMachine, FrontendStateMachine
+from pygwire import BackendStateMachine, FrontendStateMachine
 
 frontend_sm = FrontendStateMachine()
 backend_sm = BackendStateMachine()

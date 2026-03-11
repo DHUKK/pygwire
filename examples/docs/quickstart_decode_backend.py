@@ -1,6 +1,6 @@
 """Quickstart: Decoding server messages (client-side)."""
 
-from pygwire.codec import BackendMessageDecoder
+from pygwire import BackendMessageDecoder
 from pygwire.messages import AuthenticationOk
 
 decoder = BackendMessageDecoder()

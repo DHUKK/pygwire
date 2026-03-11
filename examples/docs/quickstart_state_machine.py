@@ -1,6 +1,6 @@
 """Quickstart: Tracking connection state."""
 
-from pygwire.constants import TransactionStatus
+from pygwire import FrontendStateMachine, TransactionStatus
 from pygwire.messages import (
     AuthenticationOk,
     BackendKeyData,
@@ -9,7 +9,6 @@ from pygwire.messages import (
     ReadyForQuery,
     StartupMessage,
 )
-from pygwire.state_machine import FrontendStateMachine
 
 sm = FrontendStateMachine()
 

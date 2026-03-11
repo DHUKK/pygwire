@@ -1,7 +1,6 @@
 """Quickstart: Using Connection (decoder + state machine together)."""
 
-from pygwire.connection import FrontendConnection
-from pygwire.constants import TransactionStatus
+from pygwire import FrontendConnection, TransactionStatus
 from pygwire.messages import (
     AuthenticationOk,
     BackendKeyData,

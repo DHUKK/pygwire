@@ -1,6 +1,6 @@
 """State Machine: Basic usage."""
 
-from pygwire.constants import TransactionStatus
+from pygwire import FrontendStateMachine, TransactionStatus
 from pygwire.messages import (
     AuthenticationOk,
     BackendKeyData,
@@ -8,7 +8,6 @@ from pygwire.messages import (
     ReadyForQuery,
     StartupMessage,
 )
-from pygwire.state_machine import FrontendStateMachine
 
 sm = FrontendStateMachine()
 print(sm.phase)  # ConnectionPhase.STARTUP

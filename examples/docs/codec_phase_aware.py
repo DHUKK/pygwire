@@ -1,7 +1,6 @@
 """Codec: Phase-aware framing."""
 
-from pygwire.codec import FrontendMessageDecoder
-from pygwire.constants import ConnectionPhase
+from pygwire import ConnectionPhase, FrontendMessageDecoder
 from pygwire.messages import StartupMessage
 
 decoder = FrontendMessageDecoder()

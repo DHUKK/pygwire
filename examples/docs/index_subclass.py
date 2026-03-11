@@ -2,7 +2,7 @@
 
 import socket
 
-from pygwire.connection import ConnectionPhase, FrontendConnection
+from pygwire import ConnectionPhase, FrontendConnection
 from pygwire.messages import PGMessage, Query, StartupMessage
 
 sock = socket.create_connection(("localhost", 5432))
