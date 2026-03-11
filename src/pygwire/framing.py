@@ -23,11 +23,11 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from pygwire.constants import ConnectionPhase, MessageDirection
+from pygwire.exceptions import ProtocolError
 from pygwire.messages import (
     NEGOTIATION_REGISTRY,
     STANDARD_REGISTRY,
     STARTUP_REGISTRY,
-    ProtocolError,
 )
 
 if TYPE_CHECKING:

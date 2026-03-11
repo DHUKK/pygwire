@@ -8,6 +8,7 @@ from pygwire.connection import (
     FrontendConnection,
 )
 from pygwire.constants import ConnectionPhase, ProtocolVersion, TransactionStatus
+from pygwire.exceptions import ProtocolError, PygwireError
 from pygwire.state_machine import (
     BackendStateMachine,
     FrontendStateMachine,
@@ -20,7 +21,9 @@ __all__ = [
     "Connection",
     "FrontendConnection",
     "BackendConnection",
+    "ProtocolError",
     "ProtocolVersion",
+    "PygwireError",
     "TransactionStatus",
     "BackendStateMachine",
     "ConnectionPhase",

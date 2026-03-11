@@ -3,10 +3,10 @@
 import pytest
 
 from pygwire.constants import ProtocolVersion
+from pygwire.exceptions import ProtocolError
 from pygwire.messages import (
     CancelRequest,
     GSSEncRequest,
-    ProtocolError,
     SSLRequest,
     StartupMessage,
 )

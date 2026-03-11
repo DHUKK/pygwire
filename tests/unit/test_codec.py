@@ -11,6 +11,7 @@ import pytest
 
 from pygwire.connection import BackendConnection, FrontendConnection
 from pygwire.constants import ProtocolVersion, TransactionStatus
+from pygwire.exceptions import ProtocolError
 from pygwire.messages import (
     AuthenticationOk,
     AuthenticationSASL,
@@ -20,7 +21,6 @@ from pygwire.messages import (
     DataRow,
     GSSResponse,
     PasswordMessage,
-    ProtocolError,
     Query,
     ReadyForQuery,
     RowDescription,

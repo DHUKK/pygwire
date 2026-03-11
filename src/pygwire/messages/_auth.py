@@ -8,13 +8,9 @@ from dataclasses import dataclass, field
 from typing import ClassVar, Self
 
 from pygwire.constants import ConnectionPhase, MessageDirection
+from pygwire.exceptions import ProtocolError
+from pygwire.messages._base import BackendMessage, FrontendMessage, _read_cstring
 
-from ._base import (
-    BackendMessage,
-    FrontendMessage,
-    ProtocolError,
-    _read_cstring,
-)
 from ._registry import NEGOTIATION_REGISTRY, STANDARD_REGISTRY
 
 _INT32 = struct.Struct("!I")
