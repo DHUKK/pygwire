@@ -76,6 +76,7 @@ select = [
     "UP",  # pyupgrade
     "B",   # flake8-bugbear
     "SIM", # flake8-simplify
+    "TID",
 ]
 ignore = [
     "E501",   # line too long
@@ -86,6 +87,10 @@ ignore = [
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "parents"
 
 [tool.mypy]
 python_version = "3.11"
