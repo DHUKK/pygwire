@@ -117,10 +117,9 @@ def _read_cstring(payload: memoryview, offset: int) -> tuple[str, int]:
     Uses C-level byte scanning via bytes.index() for better performance.
     """
     try:
-        # Convert to bytes and find null terminator using C-level scanning
-        null_pos = bytes(payload[offset:]).index(0)
-        end = offset + null_pos
-        value = bytes(payload[offset:end]).decode("utf-8")
-        return value, end + 1
+        raw = bytes(payload[offset:])
+        null_pos = raw.index(0)
+        value = raw[:null_pos].decode("utf-8")
+        return value, offset + null_pos + 1
     except ValueError:
         raise DecodingError("Unterminated string in payload") from None
