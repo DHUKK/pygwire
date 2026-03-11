@@ -1,7 +1,7 @@
 """State Machine: Error handling."""
 
+from pygwire import FrontendStateMachine, StateMachineError
 from pygwire.messages import Query
-from pygwire.state_machine import FrontendStateMachine, StateMachineError
 
 sm = FrontendStateMachine()
 

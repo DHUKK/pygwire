@@ -3,9 +3,7 @@
 import hashlib
 import socket
 
-from pygwire import messages
-from pygwire.connection import FrontendConnection
-from pygwire.constants import ConnectionPhase
+from pygwire import ConnectionPhase, FrontendConnection, messages
 
 conn = FrontendConnection()
 sock = socket.create_connection(("localhost", 5432))

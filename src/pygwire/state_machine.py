@@ -41,6 +41,14 @@ from enum import StrEnum
 
 from pygwire import messages
 from pygwire.constants import ConnectionPhase
+from pygwire.exceptions import ProtocolError
+
+__all__ = [
+    "BackendStateMachine",
+    "FrontendStateMachine",
+    "MessageAction",
+    "StateMachineError",
+]
 
 _P = ConnectionPhase
 
@@ -52,7 +60,7 @@ class MessageAction(StrEnum):
     RECEIVE = "receive"
 
 
-class StateMachineError(messages.ProtocolError):
+class StateMachineError(ProtocolError):
     """Raised when an invalid message is sent/received for the current state."""
 
 

@@ -5,6 +5,7 @@ import struct
 import pytest
 
 from pygwire.constants import ConnectionPhase, MessageDirection
+from pygwire.exceptions import ProtocolError
 from pygwire.framing import (
     NegotiationFraming,
     StandardFraming,
@@ -15,7 +16,6 @@ from pygwire.messages import (
     AuthenticationOk,
     GSSEncRequest,
     GSSResponse,
-    ProtocolError,
     Query,
     SSLRequest,
     SSLResponse,

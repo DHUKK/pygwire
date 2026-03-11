@@ -5,6 +5,7 @@ import struct
 import pytest
 
 from pygwire.codec import BackendMessageDecoder, FrontendMessageDecoder
+from pygwire.exceptions import ProtocolError
 from pygwire.messages import (
     AuthenticationSASL,
     Bind,
@@ -12,7 +13,6 @@ from pygwire.messages import (
     ErrorResponse,
     FieldDescription,
     NotificationResponse,
-    ProtocolError,
     RowDescription,
 )
 from pygwire.state_machine import ConnectionPhase

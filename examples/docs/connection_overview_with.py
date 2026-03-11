@@ -2,7 +2,7 @@
 
 import socket
 
-from pygwire.connection import FrontendConnection
+from pygwire import FrontendConnection
 from pygwire.messages import StartupMessage
 
 conn = FrontendConnection()

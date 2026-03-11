@@ -23,15 +23,23 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from pygwire.constants import ConnectionPhase, MessageDirection
+from pygwire.exceptions import ProtocolError
 from pygwire.messages import (
     NEGOTIATION_REGISTRY,
     STANDARD_REGISTRY,
     STARTUP_REGISTRY,
-    ProtocolError,
 )
 
 if TYPE_CHECKING:
     from pygwire.messages import PGMessage
+
+__all__ = [
+    "FramingStrategy",
+    "NegotiationFraming",
+    "StandardFraming",
+    "StartupFraming",
+    "lookup_framing",
+]
 
 _LENGTH_STRUCT = struct.Struct("!I")
 _DEFAULT_MAX_MESSAGE_SIZE = 1 * 1024 * 1024 * 1024

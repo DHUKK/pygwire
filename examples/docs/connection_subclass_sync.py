@@ -2,8 +2,7 @@
 
 import socket
 
-from pygwire.connection import FrontendConnection
-from pygwire.constants import ConnectionPhase
+from pygwire import ConnectionPhase, FrontendConnection
 from pygwire.messages import PGMessage, Query, StartupMessage
 
 

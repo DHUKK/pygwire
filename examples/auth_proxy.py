@@ -60,8 +60,7 @@ import ssl
 import sys
 from collections.abc import AsyncIterator
 
-from pygwire import BackendConnection, FrontendConnection, messages
-from pygwire.constants import TransactionStatus
+from pygwire import BackendConnection, FrontendConnection, TransactionStatus, messages
 
 logging.basicConfig(
     level=logging.INFO,
@@ -319,6 +318,7 @@ class ProxyConnection:
             raise
         except Exception as e:
             logger.error(f"[{self.connection_id}] Server->Client proxy error: {e}", exc_info=True)
+
     # --8<-- [end:message_forwarding]
 
     async def _handle_frontend_message(self, msg: messages.PGMessage) -> None:
@@ -385,6 +385,7 @@ class ProxyConnection:
         assert self.server_writer is not None
         await self.server_writer.start_tls(ssl_context, server_hostname=self.server_host)
         logger.info(f"[{self.connection_id}] SSL handshake complete")
+
     # --8<-- [end:ssl_negotiation]
 
     async def _authenticate_cleartext(self, conn: AsyncFrontendConnection) -> None:
@@ -409,6 +410,7 @@ class ProxyConnection:
         md5_password = compute_md5_password(self.server_password, user, msg.salt)
         pwd_msg = messages.PasswordMessage(password=md5_password)
         await conn.send_message(pwd_msg)
+
     # --8<-- [end:md5_auth]
 
     # --8<-- [start:scram_auth]
@@ -436,6 +438,7 @@ class ProxyConnection:
             "client_nonce": nonce,
             "client_first_bare": client_first_bare,
         }
+
     # --8<-- [end:scram_auth]
 
     async def _authenticate_scram_continue(

@@ -6,8 +6,7 @@ with trust authentication configured for the 'postgres' user.
 
 import socket
 
-from pygwire.connection import FrontendConnection
-from pygwire.constants import ConnectionPhase
+from pygwire import ConnectionPhase, FrontendConnection
 from pygwire.messages import DataRow, Query, StartupMessage
 
 conn = FrontendConnection()

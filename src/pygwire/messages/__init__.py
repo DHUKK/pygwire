@@ -29,8 +29,6 @@ from ._base import (
     CommonMessage,
     FrontendMessage,
     PGMessage,
-    ProtocolError,
-    PygwireError,
     SpecialMessage,
 )
 
@@ -116,8 +114,6 @@ __all__ = [
     "BackendMessage",
     "CommonMessage",
     "SpecialMessage",
-    "ProtocolError",
-    "PygwireError",
     # Startup phase
     "StartupMessage",
     "SSLRequest",

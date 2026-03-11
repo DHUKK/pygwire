@@ -2,9 +2,8 @@
 
 import socket
 
-from pygwire.codec import BackendMessageDecoder
+from pygwire import BackendMessageDecoder, FrontendStateMachine
 from pygwire.messages import StartupMessage
-from pygwire.state_machine import FrontendStateMachine
 
 decoder = BackendMessageDecoder()
 sm = FrontendStateMachine()

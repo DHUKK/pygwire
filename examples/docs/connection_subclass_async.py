@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 
-from pygwire.connection import FrontendConnection
+from pygwire import FrontendConnection
 from pygwire.messages import PGMessage
 
 

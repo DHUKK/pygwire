@@ -1,6 +1,6 @@
 """Codec: Basic usage."""
 
-from pygwire.codec import FrontendMessageDecoder
+from pygwire import FrontendMessageDecoder
 from pygwire.messages import StartupMessage
 
 decoder = FrontendMessageDecoder()

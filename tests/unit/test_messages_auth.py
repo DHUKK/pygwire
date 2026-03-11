@@ -2,6 +2,7 @@
 
 import pytest
 
+from pygwire.exceptions import ProtocolError
 from pygwire.messages import (
     Authentication,
     AuthenticationCleartextPassword,
@@ -16,7 +17,6 @@ from pygwire.messages import (
     AuthenticationSSPI,
     GSSResponse,
     PasswordMessage,
-    ProtocolError,
     SASLInitialResponse,
     SASLResponse,
     SSLResponse,

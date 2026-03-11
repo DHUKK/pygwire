@@ -1,7 +1,6 @@
 """Quickstart: Decoding client messages (server/proxy-side)."""
 
-from pygwire.codec import FrontendMessageDecoder
-from pygwire.constants import ConnectionPhase
+from pygwire import ConnectionPhase, FrontendMessageDecoder
 from pygwire.messages import Query, StartupMessage
 
 decoder = FrontendMessageDecoder()
