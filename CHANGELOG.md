@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `FramingError` and `DecodingError` exception subclasses of `ProtocolError` for fine-grained error handling.
+- `BackendMessageDecoder` and `FrontendMessageDecoder` exported from the top-level `pygwire` package.
+- `__all__` defined on all public modules.
+
+### Changed
+
+- `StateMachineError` moved to `pygwire.exceptions`.
+
+### Fixed
+
+- `FunctionCallResponse` registered under `FUNCTION_CALL` phase instead of `READY`.
+
+### Removed
+
+- `FrontendMessageType` and `BackendMessageType` enums (unused).
+- `COPY_BOTH` phase and `CopyBothResponse` message (not part of the standard client/server protocol).
+
 ## [0.0.2] - 2026-03-09
 
 ### Added
@@ -18,5 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `FrontendConnection` and `BackendConnection` coordinating decoder and state machine.
 - `py.typed` marker for PEP 561 typed package support.
 
-[Unreleased]: https://github.com/DHUKK/pygwire/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/DHUKK/pygwire/compare/v0.0.2...HEAD
+[0.0.2]: https://github.com/DHUKK/pygwire/releases/tag/v0.0.2
 [0.0.1]: https://github.com/DHUKK/pygwire/releases/tag/v0.0.1

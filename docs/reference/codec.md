@@ -18,7 +18,7 @@ Both share the same API.
 Decoder for backend (server to client) messages.
 
 ```python
-from pygwire.codec import BackendMessageDecoder
+from pygwire import BackendMessageDecoder
 
 decoder = BackendMessageDecoder()
 ```
@@ -37,7 +37,7 @@ The decoder automatically uses phase-aware framing based on the current connecti
 Decoder for frontend (client to server) messages.
 
 ```python
-from pygwire.codec import FrontendMessageDecoder
+from pygwire import FrontendMessageDecoder
 
 decoder = FrontendMessageDecoder()
 ```

@@ -115,7 +115,7 @@ conn = BackendConnection()
 
 ```python
 from pygwire import BackendConnection
-from pygwire.constants import TransactionStatus
+from pygwire import TransactionStatus
 from pygwire.messages import AuthenticationOk, ReadyForQuery, StartupMessage
 
 conn = BackendConnection()
