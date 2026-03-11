@@ -2,7 +2,7 @@
 
 import pytest
 
-from pygwire.exceptions import ProtocolError
+from pygwire.exceptions import DecodingError
 from pygwire.messages import (
     Authentication,
     AuthenticationCleartextPassword,
@@ -52,8 +52,8 @@ class TestSSLResponse:
         assert response.accepted is False
 
     def test_decode_invalid_raises_error(self):
-        """Test decoding invalid byte raises ProtocolError."""
-        with pytest.raises(ProtocolError, match="Unexpected SSL response byte"):
+        """Test decoding invalid byte raises DecodingError."""
+        with pytest.raises(DecodingError, match="Unexpected SSL response byte"):
             SSLResponse.decode(memoryview(b"X"))
 
 
@@ -86,8 +86,8 @@ class TestGSSResponse:
         assert response.accepted is False
 
     def test_decode_invalid_raises_error(self):
-        """Test decoding invalid byte raises ProtocolError."""
-        with pytest.raises(ProtocolError, match="Unexpected GSS response byte"):
+        """Test decoding invalid byte raises DecodingError."""
+        with pytest.raises(DecodingError, match="Unexpected GSS response byte"):
             GSSResponse.decode(memoryview(b"X"))
 
 
@@ -501,9 +501,9 @@ class TestAuthenticationDispatcher:
     """Tests for Authentication message dispatcher."""
 
     def test_unknown_auth_code_raises_error(self):
-        """Test that unknown auth code raises ProtocolError."""
+        """Test that unknown auth code raises DecodingError."""
         wire = b"\x00\x00\x99\x99"  # Unknown auth code
-        with pytest.raises(ProtocolError, match="Unknown authentication code"):
+        with pytest.raises(DecodingError, match="Unknown authentication code"):
             Authentication.decode(memoryview(wire))
 
     def test_dispatcher_routes_to_correct_subclass(self):

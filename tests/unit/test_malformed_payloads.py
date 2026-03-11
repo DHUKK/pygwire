@@ -5,7 +5,7 @@ import struct
 import pytest
 
 from pygwire.codec import BackendMessageDecoder, FrontendMessageDecoder
-from pygwire.exceptions import ProtocolError
+from pygwire.exceptions import DecodingError, FramingError
 from pygwire.messages import (
     AuthenticationSASL,
     Bind,
@@ -73,8 +73,8 @@ class TestTruncatedPayloads:
         corrupted = wire[:1] + wire[1:5] + struct.pack("!H", 5) + wire[7:]
 
         # Feed the corrupted message and try to read
-        # This should raise ProtocolError due to incomplete data or struct.unpack failure
-        with pytest.raises(ProtocolError):
+        # This should raise DecodingError due to incomplete data or struct.unpack failure
+        with pytest.raises(DecodingError):
             decoder.feed(corrupted)
             next(decoder)
 
@@ -90,8 +90,8 @@ class TestTruncatedPayloads:
         # Wire format: 'D' + Int32(length) + Int16(column_count) + columns
         corrupted = wire[:1] + wire[1:5] + struct.pack("!H", 10) + wire[7:]
 
-        # Either feed or read should raise ProtocolError
-        with pytest.raises(ProtocolError):
+        # Either feed or read should raise FramingError
+        with pytest.raises(FramingError):
             decoder.feed(corrupted)
             next(decoder)
 
@@ -111,7 +111,7 @@ class TestTruncatedPayloads:
         new_length = len(truncated) - 1
         truncated = truncated[:1] + struct.pack("!I", new_length) + truncated[5:]
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(DecodingError):
             decoder.feed(truncated)
             next(decoder)
 
@@ -134,7 +134,7 @@ class TestTruncatedPayloads:
         new_length = len(truncated) - 1
         truncated = truncated[:1] + struct.pack("!I", new_length) + truncated[5:]
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             decoder.feed(truncated)
             next(decoder)
 
@@ -159,7 +159,7 @@ class TestTruncatedPayloads:
         new_length = len(truncated) - 1
         truncated = truncated[:1] + struct.pack("!I", new_length) + truncated[5:]
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(DecodingError):
             decoder.feed(truncated)
             next(decoder)
 
@@ -177,7 +177,7 @@ class TestInvalidCountFields:
         length = len(payload) + 4
         wire = b"t" + struct.pack("!I", length) + payload
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             decoder.feed(wire)
             next(decoder)
 
@@ -190,7 +190,7 @@ class TestInvalidCountFields:
         length = len(payload) + 4
         wire = b"T" + struct.pack("!I", length) + payload
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(DecodingError):
             decoder.feed(wire)
             next(decoder)
 
@@ -203,7 +203,7 @@ class TestInvalidCountFields:
         length = len(payload) + 4
         wire = b"D" + struct.pack("!I", length) + payload
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             decoder.feed(wire)
             next(decoder)
 
@@ -216,7 +216,7 @@ class TestInvalidCountFields:
         length = len(payload) + 4
         wire = b"G" + struct.pack("!I", length) + payload
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             decoder.feed(wire)
             next(decoder)
 
@@ -229,7 +229,7 @@ class TestInvalidCountFields:
         length = len(payload) + 4
         wire = b"F" + struct.pack("!I", length) + payload
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             decoder.feed(wire)
             next(decoder)
 
@@ -314,7 +314,7 @@ class TestMinimumPayloadSize:
         # 'D' + length(4) + empty payload
         wire = b"D" + struct.pack("!I", 4)
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             decoder.feed(wire)
             next(decoder)
 
@@ -325,7 +325,7 @@ class TestMinimumPayloadSize:
         # 'T' + length(4) + empty payload
         wire = b"T" + struct.pack("!I", 4)
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             decoder.feed(wire)
             next(decoder)
 
@@ -338,7 +338,7 @@ class TestMinimumPayloadSize:
         length = len(payload) + 4
         wire = b"A" + struct.pack("!I", length) + payload
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(DecodingError):
             decoder.feed(wire)
             next(decoder)
 
@@ -366,7 +366,7 @@ class TestInvalidNullHandling:
         length = len(payload) + 4
         wire = b"B" + struct.pack("!I", length) + payload
 
-        with pytest.raises(ProtocolError):
+        with pytest.raises(FramingError):
             decoder.feed(wire)
             next(decoder)
 

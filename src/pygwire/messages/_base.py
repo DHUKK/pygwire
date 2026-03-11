@@ -6,7 +6,7 @@ import struct
 from dataclasses import dataclass
 from typing import ClassVar, Self
 
-from pygwire.exceptions import ProtocolError
+from pygwire.exceptions import DecodingError
 
 # ---------------------------------------------------------------------------
 # Base message classes
@@ -123,4 +123,4 @@ def _read_cstring(payload: memoryview, offset: int) -> tuple[str, int]:
         value = bytes(payload[offset:end]).decode("utf-8")
         return value, end + 1
     except ValueError:
-        raise ProtocolError("Unterminated string in payload") from None
+        raise DecodingError("Unterminated string in payload") from None

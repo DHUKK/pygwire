@@ -3,7 +3,7 @@
 import pytest
 
 from pygwire.constants import ProtocolVersion
-from pygwire.exceptions import ProtocolError
+from pygwire.exceptions import DecodingError
 from pygwire.messages import (
     CancelRequest,
     GSSEncRequest,
@@ -127,11 +127,11 @@ class TestStartupMessage:
         assert msg.params == params
 
     def test_decode_unterminated_string_raises_error(self):
-        """Test that unterminated string raises ProtocolError."""
+        """Test that unterminated string raises DecodingError."""
         # Create malformed payload: version + "user" without null terminator
         wire = ProtocolVersion.V3_0.to_bytes(4, "big") + b"user"
 
-        with pytest.raises(ProtocolError, match="Unterminated string"):
+        with pytest.raises(DecodingError, match="Unterminated string"):
             StartupMessage.decode(memoryview(wire))
 
     def test_special_characters_in_params(self):

@@ -9,11 +9,16 @@ from pygwire.connection import (
     FrontendConnection,
 )
 from pygwire.constants import ConnectionPhase, ProtocolVersion, TransactionStatus
-from pygwire.exceptions import ProtocolError, PygwireError
+from pygwire.exceptions import (
+    DecodingError,
+    FramingError,
+    ProtocolError,
+    PygwireError,
+    StateMachineError,
+)
 from pygwire.state_machine import (
     BackendStateMachine,
     FrontendStateMachine,
-    StateMachineError,
 )
 
 __version__ = version("pygwire")
@@ -24,6 +29,8 @@ __all__ = [
     "BackendStateMachine",
     "Connection",
     "ConnectionPhase",
+    "DecodingError",
+    "FramingError",
     "FrontendConnection",
     "FrontendMessageDecoder",
     "FrontendStateMachine",
