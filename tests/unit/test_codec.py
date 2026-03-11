@@ -599,7 +599,7 @@ class TestInitialPhase:
 
     def test_strict_true_raises(self):
         """Test that strict=True raises StateMachineError."""
-        from pygwire.state_machine import StateMachineError
+        from pygwire import StateMachineError
 
         conn = FrontendConnection(initial_phase=ConnectionPhase.READY, strict=True)
         with pytest.raises(StateMachineError):

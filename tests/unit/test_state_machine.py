@@ -3,6 +3,7 @@
 import pytest
 
 from pygwire.constants import TransactionStatus
+from pygwire.exceptions import StateMachineError
 from pygwire.messages import (
     AuthenticationCleartextPassword,
     AuthenticationMD5Password,
@@ -48,7 +49,6 @@ from pygwire.state_machine import (
     BackendStateMachine,
     ConnectionPhase,
     FrontendStateMachine,
-    StateMachineError,
 )
 
 

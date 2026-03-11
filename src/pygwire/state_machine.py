@@ -47,7 +47,6 @@ __all__ = [
     "BackendStateMachine",
     "FrontendStateMachine",
     "MessageAction",
-    "StateMachineError",
 ]
 
 _P = ConnectionPhase

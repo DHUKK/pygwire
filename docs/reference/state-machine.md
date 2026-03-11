@@ -127,7 +127,7 @@ STARTUP → AUTHENTICATING → INITIALIZATION → READY
 ## `StateMachineError`
 
 ```python
-from pygwire.state_machine import StateMachineError
+from pygwire import StateMachineError
 ```
 
 Raised when an invalid message is sent or received for the current connection phase. Subclass of `ProtocolError`.
