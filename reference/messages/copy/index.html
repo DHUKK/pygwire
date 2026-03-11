@@ -708,17 +708,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#copybothresponse" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CopyBothResponse
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1101,17 +1090,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#copybothresponse" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CopyBothResponse
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1226,11 +1204,6 @@
 <td>Starting COPY OUT data</td>
 </tr>
 <tr>
-<td><code>CopyBothResponse</code></td>
-<td>Backend</td>
-<td>Bidirectional copy (streaming replication)</td>
-</tr>
-<tr>
 <td><code>CopyData</code></td>
 <td>Both</td>
 <td>COPY data chunk</td>
@@ -1295,33 +1268,10 @@
 </tr>
 </tbody>
 </table>
-<h3 id="copybothresponse"><code>CopyBothResponse</code><a class="headerlink" href="#copybothresponse" title="Permanent link">&para;</a></h3>
-<p>Bidirectional COPY mode (used in streaming replication).</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>overall_format</code></td>
-<td><code>int</code></td>
-<td>Overall format (0 = text, 1 = binary)</td>
-</tr>
-<tr>
-<td><code>col_formats</code></td>
-<td><code>list[int]</code></td>
-<td>Per-column format codes</td>
-</tr>
-</tbody>
-</table>
 <hr />
 <h2 id="bidirectional-messages">Bidirectional messages<a class="headerlink" href="#bidirectional-messages" title="Permanent link">&para;</a></h2>
 <h3 id="copydata"><code>CopyData</code><a class="headerlink" href="#copydata" title="Permanent link">&para;</a></h3>
-<p>A chunk of COPY data. Sent by the client during COPY IN, by the server during COPY OUT, and by both during COPY BOTH.</p>
+<p>A chunk of COPY data. Sent by the client during COPY IN and by the server during COPY OUT.</p>
 <table>
 <thead>
 <tr>
