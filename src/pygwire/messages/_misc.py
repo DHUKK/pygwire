@@ -124,7 +124,7 @@ class FunctionCall(FrontendMessage):
 @STANDARD_REGISTRY.register(
     b"V",
     direction=MessageDirection.BACKEND,
-    phases=frozenset({ConnectionPhase.READY}),
+    phases=frozenset({ConnectionPhase.FUNCTION_CALL}),
 )
 @dataclass(slots=True)
 class FunctionCallResponse(BackendMessage):
