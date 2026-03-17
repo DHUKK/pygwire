@@ -578,17 +578,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#lookup-functions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Lookup functions
-      
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -1049,17 +1038,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#lookup-functions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Lookup functions
-      
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -1168,22 +1146,6 @@
 </tr>
 </tbody>
 </table>
-<h2 id="lookup-functions">Lookup functions<a class="headerlink" href="#lookup-functions" title="Permanent link">&para;</a></h2>
-<p>Look up message classes by their wire protocol identifier:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pygwire.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">lookup_backend</span><span class="p">,</span> <span class="n">lookup_frontend</span><span class="p">,</span> <span class="n">lookup_special</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># Look up by single-byte identifier</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">msg_cls</span> <span class="o">=</span> <span class="n">lookup_backend</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>    <span class="c1"># RowDescription</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">msg_cls</span> <span class="o">=</span> <span class="n">lookup_frontend</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;Q&quot;</span><span class="p">)</span>   <span class="c1"># Query</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Look up startup messages by version code</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">msg_cls</span> <span class="o">=</span> <span class="n">lookup_special</span><span class="p">(</span><span class="mh">0x00030000</span><span class="p">)</span>  <span class="c1"># StartupMessage (v3.0)</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">lookup_backend</span><span class="p">(</span><span class="n">identifier</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">BackendMessage</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">lookup_frontend</span><span class="p">(</span><span class="n">identifier</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">FrontendMessage</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">lookup_special</span><span class="p">(</span><span class="n">version_code</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">SpecialMessage</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
-</code></pre></div>
-<p>Returns <code>None</code> if no message matches.</p>
 
 
 
