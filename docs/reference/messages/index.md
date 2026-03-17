@@ -62,25 +62,3 @@ print(msg.query_string)  # SELECT 1
 | [Errors and Notices](errors.md) | `ErrorResponse`, `NoticeResponse`, `NotificationResponse`, `ParameterStatus` |
 | [Miscellaneous](misc.md) | `BackendKeyData`, `FunctionCall`, `Terminate`, `NegotiateProtocolVersion` |
 
-## Lookup functions
-
-Look up message classes by their wire protocol identifier:
-
-```python
-from pygwire.messages import lookup_backend, lookup_frontend, lookup_special
-
-# Look up by single-byte identifier
-msg_cls = lookup_backend(b"T")    # RowDescription
-msg_cls = lookup_frontend(b"Q")   # Query
-
-# Look up startup messages by version code
-msg_cls = lookup_special(0x00030000)  # StartupMessage (v3.0)
-```
-
-```python
-lookup_backend(identifier: bytes) -> type[BackendMessage] | None
-lookup_frontend(identifier: bytes) -> type[FrontendMessage] | None
-lookup_special(version_code: int) -> type[SpecialMessage] | None
-```
-
-Returns `None` if no message matches.
