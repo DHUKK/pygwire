@@ -43,13 +43,19 @@ uv add pygwire
 **[📖 Read the full documentation →](https://dhukk.github.io/pygwire)**
 
 ```python
-from pygwire import FrontendConnection
-from pygwire.messages import StartupMessage, Query
+from pygwire import BackendMessageDecoder
+from pygwire.messages import Query, ParameterStatus
 
-conn = FrontendConnection()
-sock.send(conn.send(StartupMessage(params={"user": "postgres", "database": "mydb"})))
+# Encode a client message to wire bytes
+query = Query(query_string="SELECT * FROM users")
+wire_bytes = query.to_wire()  # b'Q\x00\x00\x00\x18SELECT * FROM users\x00'
 
-# Authentication, queries, and more - see the docs!
+# Decode server messages from raw bytes
+decoder = BackendMessageDecoder()
+decoder.feed(ParameterStatus(name="server_version", value="16.1").to_wire())
+
+for msg in decoder:
+    print(msg)  # ParameterStatus(name='server_version', value='16.1')
 ```
 
 ## 🏗️ Architecture
@@ -84,4 +90,4 @@ Use the lower layers independently for maximum control, or use **Connection** fo
 
 ## 🤝 Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+See [CONTRIBUTING.md](https://github.com/DHUKK/pygwire/blob/main/CONTRIBUTING.md) for development setup and guidelines.
