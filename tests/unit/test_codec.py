@@ -1,606 +1,593 @@
-"""Unit tests for Connection-based decoding (formerly standalone decoders).
+"""True unit tests for pygwire.codec (StreamDecoder, BackendMessageDecoder, FrontendMessageDecoder).
 
-Tests verify that the Connection classes correctly decode messages from wire
-format, handling startup framing, standard framing, SSL/GSS negotiation,
-and SASL authentication dispatch.
+All external dependencies (lookup_framing, PGMessage) are mocked so these tests
+exercise only the codec module's own logic: buffering, compaction, iteration,
+phase management, and feed mechanics.
 """
 
-import struct
+from __future__ import annotations
+
+from dataclasses import dataclass
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pygwire.connection import BackendConnection, FrontendConnection
-from pygwire.constants import ProtocolVersion, TransactionStatus
-from pygwire.exceptions import FramingError
-from pygwire.messages import (
-    AuthenticationOk,
-    AuthenticationSASL,
-    AuthenticationSASLContinue,
-    CancelRequest,
-    CommandComplete,
-    DataRow,
-    FunctionCall,
-    FunctionCallResponse,
-    GSSResponse,
-    PasswordMessage,
-    Query,
-    ReadyForQuery,
-    RowDescription,
-    SASLInitialResponse,
-    SASLResponse,
-    SSLRequest,
-    SSLResponse,
-    StartupMessage,
+from pygwire.codec import (
+    _COMPACTION_THRESHOLD,
+    BackendMessageDecoder,
+    FrontendMessageDecoder,
 )
-from pygwire.state_machine import ConnectionPhase
-
-
-class TestBackendDecoding:
-    """Tests for decoding backend (server) messages via FrontendConnection."""
-
-    def test_default_initialization(self):
-        """Test connection initializes in STARTUP phase."""
-        conn = FrontendConnection()
-        assert conn.phase == ConnectionPhase.STARTUP
-        assert conn.is_active
-
-    def test_decode_authentication_ok(self):
-        """Test decoding AuthenticationOk message."""
-        conn = FrontendConnection()
-        conn.send(StartupMessage(params={"user": "test"}))
-
-        msg = AuthenticationOk()
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], AuthenticationOk)
-
-    def test_decode_ready_for_query(self):
-        """Test decoding ReadyForQuery message."""
-        conn = FrontendConnection()
-        conn.send(StartupMessage(params={"user": "test"}))
-
-        auth_wire = AuthenticationOk().to_wire()
-        ready_wire = ReadyForQuery(status=TransactionStatus.IDLE).to_wire()
-        msgs = list(conn.receive(auth_wire + ready_wire))
-
-        assert len(msgs) == 2
-        assert isinstance(msgs[1], ReadyForQuery)
-        assert msgs[1].status == TransactionStatus.IDLE
-
-    def test_decode_command_complete(self):
-        """Test decoding CommandComplete message."""
-        conn = FrontendConnection(initial_phase=ConnectionPhase.SIMPLE_QUERY, strict=False)
-        msg = CommandComplete(tag="SELECT 42")
-
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], CommandComplete)
-        assert msgs[0].tag == "SELECT 42"
-
-    def test_decode_data_row_with_values(self):
-        """Test decoding DataRow with actual values."""
-        conn = FrontendConnection(initial_phase=ConnectionPhase.SIMPLE_QUERY, strict=False)
-        msg = DataRow(columns=[b"value1", b"value2", b"value3"])
-
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], DataRow)
-        assert msgs[0].columns == [b"value1", b"value2", b"value3"]
-
-    def test_decode_data_row_with_nulls(self):
-        """Test decoding DataRow with NULL values."""
-        conn = FrontendConnection(initial_phase=ConnectionPhase.SIMPLE_QUERY, strict=False)
-        msg = DataRow(columns=[b"value1", None, b"value3"])
-
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], DataRow)
-        assert msgs[0].columns[0] == b"value1"
-        assert msgs[0].columns[1] is None
-        assert msgs[0].columns[2] == b"value3"
-
-    def test_decode_row_description_empty(self):
-        """Test decoding empty RowDescription."""
-        conn = FrontendConnection(initial_phase=ConnectionPhase.SIMPLE_QUERY, strict=False)
-        msg = RowDescription(fields=[])
-
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], RowDescription)
-        assert msgs[0].fields == []
-
-    def test_decode_function_call_response_in_function_call_phase(self):
-        """Test that FunctionCallResponse decodes in FUNCTION_CALL phase.
-
-        FunctionCallResponse ('V') must be decodable when the connection is in
-        FUNCTION_CALL phase. This tests the full Connection path: send FunctionCall
-        from READY (which transitions to FUNCTION_CALL), then receive the response.
-
-        Regression test: FunctionCallResponse was registered in the standard
-        registry for READY phase instead of FUNCTION_CALL, causing a ProtocolError
-        when the decoder tried to look up identifier b'V' in FUNCTION_CALL phase.
-        """
-        conn = FrontendConnection(initial_phase=ConnectionPhase.READY)
-
-        # Send FunctionCall — transitions state machine to FUNCTION_CALL
-        conn.send(FunctionCall(function_oid=1))
-        assert conn.phase == ConnectionPhase.FUNCTION_CALL
-
-        # Server responds with FunctionCallResponse — must decode without error
-        response = FunctionCallResponse(result=b"test_result")
-        msgs = list(conn.receive(response.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], FunctionCallResponse)
-        assert msgs[0].result == b"test_result"
-
-    def test_decode_function_call_response_null_result(self):
-        """Test decoding FunctionCallResponse with NULL result via Connection."""
-        conn = FrontendConnection(initial_phase=ConnectionPhase.READY)
-        conn.send(FunctionCall(function_oid=1))
-
-        response = FunctionCallResponse(result=None)
-        msgs = list(conn.receive(response.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], FunctionCallResponse)
-        assert msgs[0].result is None
-
-
-class TestFrontendDecoding:
-    """Tests for decoding frontend (client) messages via BackendConnection."""
-
-    def test_default_initialization(self):
-        """Test connection initializes in STARTUP phase."""
-        conn = BackendConnection()
-        assert conn.phase == ConnectionPhase.STARTUP
-
-    def test_decode_query_message(self):
-        """Test decoding Query message."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-        msg = Query(query_string="SELECT * FROM users")
-
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], Query)
-        assert msgs[0].query_string == "SELECT * FROM users"
-
-    def test_decode_password_message(self):
-        """Test decoding PasswordMessage."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.AUTHENTICATING, strict=False)
-        msg = PasswordMessage(password="secret123")
-
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], PasswordMessage)
-        assert msgs[0].password == "secret123"
-
-    def test_decode_startup_message(self):
-        """Test decoding StartupMessage."""
-        conn = BackendConnection()
-        msg = StartupMessage(params={"user": "testuser", "database": "testdb"})
-
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], StartupMessage)
-        assert msgs[0].params["user"] == "testuser"
-        assert msgs[0].params["database"] == "testdb"
-
-
-class TestFeedAndRead:
-    """Tests for feed/receive mechanics."""
-
-    def test_feed_empty_data(self):
-        """Test feeding empty data is a no-op."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-        msgs = list(conn.receive(b""))
-        assert msgs == []
-
-    def test_feed_complete_message(self):
-        """Test feeding a complete message."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-        msg = Query(query_string="SELECT 1")
-
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], Query)
-        assert msgs[0].query_string == "SELECT 1"
-
-    def test_feed_partial_message(self):
-        """Test feeding partial message data."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-        wire = Query(query_string="SELECT 1").to_wire()
-
-        # Feed only half of the message
-        msgs = list(conn.receive(wire[:5]))
-        assert msgs == []  # Not enough data yet
-
-        # Feed the rest
-        msgs = list(conn.receive(wire[5:]))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], Query)
-        assert msgs[0].query_string == "SELECT 1"
-
-    def test_feed_multiple_messages(self):
-        """Test feeding multiple messages at once."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.SIMPLE_QUERY, strict=False)
-        msg1 = Query(query_string="SELECT 1")
-        msg2 = Query(query_string="SELECT 2")
-
-        msgs = list(conn.receive(msg1.to_wire() + msg2.to_wire()))
-        assert len(msgs) == 2
-        assert msgs[0].query_string == "SELECT 1"
-        assert msgs[1].query_string == "SELECT 2"
-
-    def test_feed_with_memoryview(self):
-        """Test feeding data as memoryview."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-        wire = Query(query_string="SELECT 1").to_wire()
-
-        msgs = list(conn.receive(memoryview(wire)))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], Query)
-
-    def test_feed_with_bytearray(self):
-        """Test feeding data as bytearray."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-        wire = bytearray(Query(query_string="SELECT 1").to_wire())
-
-        msgs = list(conn.receive(wire))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], Query)
-
-
-class TestStartupPhase:
-    """Tests for startup phase (identifier-less messages)."""
-
-    def test_decode_ssl_request(self):
-        """Test decoding SSLRequest."""
-        conn = BackendConnection()
-        msg = SSLRequest()
-
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], SSLRequest)
-
-    def test_decode_cancel_request(self):
-        """Test decoding CancelRequest."""
-        conn = BackendConnection()
-        msg = CancelRequest(process_id=12345, secret_key=b"test")
-
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], CancelRequest)
-        assert msgs[0].process_id == 12345
-        assert msgs[0].secret_key == b"test"
-
-    def test_startup_transitions_to_standard_after_startup_message(self):
-        """Test connection exits startup framing after StartupMessage."""
-        conn = BackendConnection()
-
-        startup_msg = StartupMessage(params={"user": "test"})
-        msgs = list(conn.receive(startup_msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], StartupMessage)
-
-        # After StartupMessage, send auth and server should decode standard messages
-        conn.send(AuthenticationOk())
-        conn.send(ReadyForQuery(status=TransactionStatus.IDLE))
-
-        # Now receive standard messages
-        query_msg = Query(query_string="SELECT 1")
-        msgs = list(conn.receive(query_msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], Query)
-
-    def test_startup_message_too_short_raises_error(self):
-        """Test that short startup message raises FramingError."""
-        conn = BackendConnection()
-        with pytest.raises(FramingError):
-            list(conn.receive(b"\x00\x00\x00\x06\x00\x01"))
-
-    def test_unknown_startup_version_raises_error(self):
-        """Test unknown startup version code raises FramingError."""
-        conn = BackendConnection()
-        wire = b"\x00\x00\x00\x08\xff\xff\xff\xff"
-        with pytest.raises(FramingError):
-            list(conn.receive(wire))
-
-
-class TestSSLNegotiation:
-    """Tests for SSL negotiation phase."""
-
-    def test_ssl_response_accepted(self):
-        """Test decoding accepted SSL response."""
-        conn = FrontendConnection()
-        conn.send(SSLRequest())
-        assert conn.phase == ConnectionPhase.SSL_NEGOTIATION
-
-        msgs = list(conn.receive(b"S"))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], SSLResponse)
-        assert msgs[0].accepted is True
-        assert conn.phase == ConnectionPhase.STARTUP
-
-    def test_ssl_response_not_accepted(self):
-        """Test decoding not-accepted SSL response."""
-        conn = FrontendConnection()
-        conn.send(SSLRequest())
-
-        msgs = list(conn.receive(b"N"))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], SSLResponse)
-        assert msgs[0].accepted is False
-        assert conn.phase == ConnectionPhase.STARTUP
-
-    def test_gss_response_accepted(self):
-        """Test decoding accepted GSS response."""
-        from pygwire.messages import GSSEncRequest
-
-        conn = FrontendConnection()
-        conn.send(GSSEncRequest())
-        assert conn.phase == ConnectionPhase.GSS_NEGOTIATION
-
-        msgs = list(conn.receive(b"G"))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], GSSResponse)
-        assert msgs[0].accepted is True
-        assert conn.phase == ConnectionPhase.STARTUP
-
-
-class TestSASLDispatch:
-    """Tests for SASL-aware 'p' identifier dispatch."""
-
-    def test_sasl_initial_response_decoded(self):
-        """Test that 'p' message is decoded as SASLInitialResponse during SASL initial phase."""
-        conn = BackendConnection()
-
-        # Startup
-        list(conn.receive(StartupMessage(params={"user": "test"}).to_wire()))
-
-        # Server sends SASL auth request
-        conn.send(AuthenticationSASL(mechanisms=["SCRAM-SHA-256"]))
-        assert conn.phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL
-
-        # Client sends SASLInitialResponse (identifier 'p')
-        sir = SASLInitialResponse(mechanism="SCRAM-SHA-256", data=b"client-first")
-        msgs = list(conn.receive(sir.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], SASLInitialResponse)
-        assert msgs[0].mechanism == "SCRAM-SHA-256"
-        assert msgs[0].data == b"client-first"
-
-    def test_sasl_response_decoded(self):
-        """Test that 'p' message is decoded as SASLResponse during SASL continue phase."""
-        conn = BackendConnection()
-
-        # Startup + SASL handshake
-        list(conn.receive(StartupMessage(params={"user": "test"}).to_wire()))
-        conn.send(AuthenticationSASL(mechanisms=["SCRAM-SHA-256"]))
-        list(
-            conn.receive(
-                SASLInitialResponse(mechanism="SCRAM-SHA-256", data=b"client-first").to_wire()
-            )
-        )
-        conn.send(AuthenticationSASLContinue(data=b"server-first"))
-        assert conn.phase == ConnectionPhase.AUTHENTICATING_SASL_CONTINUE
-
-        # Client sends SASLResponse (identifier 'p')
-        sr = SASLResponse(data=b"client-final")
-        msgs = list(conn.receive(sr.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], SASLResponse)
-        assert msgs[0].data == b"client-final"
-
-    def test_password_message_in_authenticating_phase(self):
-        """Test that 'p' message is decoded as PasswordMessage in AUTHENTICATING phase."""
-        from pygwire.messages import AuthenticationCleartextPassword
-
-        conn = BackendConnection()
-
-        # Startup + cleartext auth
-        list(conn.receive(StartupMessage(params={"user": "test"}).to_wire()))
-        conn.send(AuthenticationCleartextPassword())
-        assert conn.phase == ConnectionPhase.AUTHENTICATING
-
-        # Client sends PasswordMessage (identifier 'p')
-        pm = PasswordMessage(password="secret")
-        msgs = list(conn.receive(pm.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], PasswordMessage)
-        assert msgs[0].password == "secret"
-
-
-class TestDecoderErrors:
-    """Tests for error handling in decoders."""
-
-    def test_unknown_backend_message_identifier(self):
-        """Test that unknown backend message identifier raises error."""
-        conn = FrontendConnection(initial_phase=ConnectionPhase.READY, strict=False)
-        wire = b"x\x00\x00\x00\x04"
-        with pytest.raises(FramingError):
-            list(conn.receive(wire))
-
-    def test_unknown_frontend_message_identifier(self):
-        """Test that unknown frontend message identifier raises error."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY, strict=False)
-        wire = b"Z\x00\x00\x00\x05I"  # 'Z' is backend ReadyForQuery, not a frontend message
-        with pytest.raises(FramingError):
-            list(conn.receive(wire))
-
-
-class TestBufferManagement:
-    """Tests for internal buffer management and compaction."""
-
-    def test_buffer_compaction_after_threshold(self):
-        """Test that buffer is compacted after processing many messages."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.SIMPLE_QUERY, strict=False)
-
-        for i in range(100):
-            msg = Query(query_string=f"SELECT {i}")
-            list(conn.receive(msg.to_wire()))
-
-    def test_mixed_complete_and_incomplete_messages(self):
-        """Test handling mix of complete and incomplete messages."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.SIMPLE_QUERY, strict=False)
-
-        msg1 = Query(query_string="SELECT 1")
-        msg2 = Query(query_string="SELECT 2")
-        wire1 = msg1.to_wire()
-        wire2 = msg2.to_wire()
-
-        # Feed first complete message + partial second message
-        msgs = list(conn.receive(wire1 + wire2[:5]))
-        assert len(msgs) == 1
-        assert msgs[0].query_string == "SELECT 1"
-
-        # Feed rest of second message
-        msgs = list(conn.receive(wire2[5:]))
-        assert len(msgs) == 1
-        assert msgs[0].query_string == "SELECT 2"
-
-    def test_byte_at_a_time_feeding(self):
-        """Test feeding message one byte at a time."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-        msg = Query(query_string="SELECT 1")
-        wire = msg.to_wire()
-
-        # Feed one byte at a time
-        for byte in wire[:-1]:
-            msgs = list(conn.receive(bytes([byte])))
-            assert msgs == []
-
-        # Feed last byte
-        msgs = list(conn.receive(bytes([wire[-1]])))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], Query)
-        assert msgs[0].query_string == "SELECT 1"
-
-
-class TestRoundTrip:
-    """Round-trip tests: encode then decode."""
-
-    def test_query_round_trip(self):
-        """Test Query message round-trip."""
-        original = Query(query_string="SELECT * FROM users WHERE id = 42")
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-
-        msgs = list(conn.receive(original.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], Query)
-        assert msgs[0].query_string == original.query_string
-
-    def test_startup_message_round_trip(self):
-        """Test StartupMessage round-trip."""
-        original = StartupMessage(
-            params={
-                "user": "testuser",
-                "database": "testdb",
-                "application_name": "myapp",
-                "client_encoding": "UTF8",
-            }
-        )
-        conn = BackendConnection()
-
-        msgs = list(conn.receive(original.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], StartupMessage)
-        assert msgs[0].params == original.params
-
-    def test_data_row_with_nulls_round_trip(self):
-        """Test DataRow with NULL values round-trip."""
-        original = DataRow(columns=[b"value1", None, b"value3", None, b"value5"])
-        conn = FrontendConnection(initial_phase=ConnectionPhase.SIMPLE_QUERY, strict=False)
-
-        msgs = list(conn.receive(original.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], DataRow)
-        assert msgs[0].columns == original.columns
+from pygwire.constants import ConnectionPhase, MessageDirection
+from pygwire.messages._base import PGMessage
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class FakeMessage(PGMessage):
+    """Minimal concrete PGMessage for test assertions."""
+
+    value: str = ""
+
+
+def _make_framing_mock(
+    *,
+    return_msg: PGMessage | None = None,
+    consumed: int = 0,
+    side_effect: Exception | None = None,
+) -> MagicMock:
+    """Build a mock FramingStrategy with a configurable try_parse."""
+    framing = MagicMock()
+    if side_effect:
+        framing.try_parse.side_effect = side_effect
+    elif return_msg is not None:
+        framing.try_parse.return_value = (return_msg, consumed)
+    else:
+        framing.try_parse.return_value = None
+    return framing
+
+
+# ---------------------------------------------------------------------------
+# StreamDecoder initialisation
+# ---------------------------------------------------------------------------
+
+
+class TestStreamDecoderInit:
+    def test_initial_state_backend(self):
+        decoder = BackendMessageDecoder()
+        assert decoder.phase == ConnectionPhase.STARTUP
+        assert decoder.buffered == 0
+        assert decoder._direction == MessageDirection.BACKEND
+
+    def test_initial_state_frontend(self):
+        decoder = FrontendMessageDecoder()
+        assert decoder.phase == ConnectionPhase.STARTUP
+        assert decoder.buffered == 0
+        assert decoder._direction == MessageDirection.FRONTEND
+
+
+# ---------------------------------------------------------------------------
+# Phase property
+# ---------------------------------------------------------------------------
+
+
+class TestPhaseProperty:
+    def test_get_default_phase(self):
+        decoder = BackendMessageDecoder()
+        assert decoder.phase == ConnectionPhase.STARTUP
+
+    def test_set_phase(self):
+        decoder = BackendMessageDecoder()
+        decoder.phase = ConnectionPhase.READY
+        assert decoder.phase == ConnectionPhase.READY
+
+    def test_set_phase_multiple_times(self):
+        decoder = BackendMessageDecoder()
+        decoder.phase = ConnectionPhase.READY
+        decoder.phase = ConnectionPhase.SIMPLE_QUERY
+        assert decoder.phase == ConnectionPhase.SIMPLE_QUERY
+
+
+# ---------------------------------------------------------------------------
+# feed()
+# ---------------------------------------------------------------------------
+
+
+class TestFeed:
+    def test_feed_empty_bytes_is_noop(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"")
+        assert decoder.buffered == 0
+
+    def test_feed_empty_bytearray_is_noop(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(bytearray())
+        assert decoder.buffered == 0
+
+    def test_feed_empty_memoryview_is_noop(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(memoryview(b""))
+        assert decoder.buffered == 0
+
+    def test_feed_bytes(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"hello")
+        assert decoder.buffered == 5
+
+    def test_feed_bytearray(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(bytearray(b"hello"))
+        assert decoder.buffered == 5
+
+    def test_feed_memoryview(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(memoryview(b"hello"))
+        assert decoder.buffered == 5
+
+    def test_feed_accumulates(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"abc")
+        decoder.feed(b"def")
+        assert decoder.buffered == 6
+
+
+# ---------------------------------------------------------------------------
+# clear()
+# ---------------------------------------------------------------------------
+
+
+class TestClear:
+    def test_clear_empties_buffer(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"some data")
+        decoder.clear()
+        assert decoder.buffered == 0
+
+    def test_clear_empties_pending_messages(self):
+        decoder = BackendMessageDecoder()
+        # Manually inject a pending message
+        decoder._messages.append(FakeMessage(value="pending"))
+        decoder.clear()
+        assert len(decoder._messages) == 0
+
+    def test_clear_resets_pos(self):
+        decoder = BackendMessageDecoder()
+        decoder._pos = 42
+        decoder.clear()
+        assert decoder._pos == 0
+
+
+# ---------------------------------------------------------------------------
+# buffered property
+# ---------------------------------------------------------------------------
+
+
+class TestBuffered:
+    def test_buffered_accounts_for_pos(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"0123456789")
+        decoder._pos = 4
+        assert decoder.buffered == 6
+
+    def test_buffered_zero_when_empty(self):
+        decoder = BackendMessageDecoder()
+        assert decoder.buffered == 0
+
+
+# ---------------------------------------------------------------------------
+# _compact()
+# ---------------------------------------------------------------------------
+
+
+class TestCompact:
+    def test_compact_removes_consumed_bytes(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"abcdefgh")
+        decoder._pos = 3
+        decoder._compact()
+
+        assert decoder._pos == 0
+        assert decoder.buffered == 5
+        assert bytes(decoder._buf) == b"defgh"
+
+    def test_compact_noop_when_pos_zero(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"abcdefgh")
+        decoder._compact()
+
+        assert decoder._pos == 0
+        assert decoder.buffered == 8
+
+    def test_compact_full_consumption(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"abc")
+        decoder._pos = 3
+        decoder._compact()
+
+        assert decoder._pos == 0
+        assert decoder.buffered == 0
+
+
+# ---------------------------------------------------------------------------
+# _parse() — single message parsing
+# ---------------------------------------------------------------------------
+
+
+class TestParse:
+    @patch("pygwire.codec.lookup_framing")
+    def test_parse_returns_none_when_framing_returns_none(self, mock_lookup):
+        framing = _make_framing_mock()
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"not enough data")
+        decoder._parse()
+
+        assert len(decoder._messages) == 0
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_parse_appends_message_on_success(self, mock_lookup):
+        msg = FakeMessage(value="parsed")
+        framing = _make_framing_mock(return_msg=msg, consumed=10)
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"x" * 20)
+        decoder._parse()
+
+        assert len(decoder._messages) == 1
+        assert decoder._messages[0] is msg
+        assert decoder._pos == 10
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_parse_advances_pos_by_consumed(self, mock_lookup):
+        msg = FakeMessage(value="x")
+        framing = _make_framing_mock(return_msg=msg, consumed=7)
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"x" * 20)
+        decoder._parse()
+
+        assert decoder._pos == 7
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_parse_uses_current_phase_and_direction(self, mock_lookup):
+        framing = _make_framing_mock()
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.phase = ConnectionPhase.READY
+        decoder.feed(b"data")
+        decoder._parse()
+
+        mock_lookup.assert_called_once_with(ConnectionPhase.READY, MessageDirection.BACKEND)
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_parse_passes_memoryview_to_framing(self, mock_lookup):
+        framing = _make_framing_mock()
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"data")
+        decoder._parse()
+
+        call_args = framing.try_parse.call_args
+        assert isinstance(call_args.kwargs["buf"], memoryview)
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_parse_passes_pos_to_framing(self, mock_lookup):
+        framing = _make_framing_mock()
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"data")
+        decoder._pos = 2
+        decoder._parse()
+
+        call_args = framing.try_parse.call_args
+        assert call_args.kwargs["pos"] == 2
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_parse_triggers_compaction_over_threshold(self, mock_lookup):
+        msg = FakeMessage(value="x")
+        consumed = _COMPACTION_THRESHOLD + 1
+
+        # Use a plain function (not MagicMock) to avoid holding memoryview
+        # references in call_args, which would prevent bytearray resizing.
+        framing = MagicMock()
+        framing.try_parse = lambda **_: (msg, consumed)
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"x" * (consumed + 100))
+        decoder._parse()
+
+        # After compaction, pos should be reset to 0
+        assert decoder._pos == 0
+        assert decoder.buffered == 100
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_parse_no_compaction_under_threshold(self, mock_lookup):
+        msg = FakeMessage(value="x")
+        consumed = _COMPACTION_THRESHOLD - 1
+        framing = _make_framing_mock(return_msg=msg, consumed=consumed)
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"x" * (consumed + 50))
+        decoder._parse()
+
+        # Under threshold — pos stays advanced, no compaction
+        assert decoder._pos == consumed
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_parse_propagates_framing_exception(self, mock_lookup):
+        from pygwire.exceptions import FramingError
+
+        framing = _make_framing_mock(side_effect=FramingError("bad"))
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"bad data")
+
+        with pytest.raises(FramingError, match="bad"):
+            decoder._parse()
+
+
+# ---------------------------------------------------------------------------
+# Iterator protocol (__iter__, __next__)
+# ---------------------------------------------------------------------------
+
+
+class TestIterator:
+    def test_iter_returns_self(self):
+        decoder = BackendMessageDecoder()
+        assert iter(decoder) is decoder
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_next_returns_already_queued_message(self, mock_lookup):
+        """__next__ should return pre-queued messages before calling _parse."""
+        decoder = BackendMessageDecoder()
+        msg = FakeMessage(value="queued")
+        decoder._messages.append(msg)
+
+        result = next(decoder)
+        assert result is msg
+        # lookup_framing should NOT be called since the message was already queued
+        mock_lookup.assert_not_called()
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_next_calls_parse_when_queue_empty(self, mock_lookup):
+        msg = FakeMessage(value="parsed")
+        framing = _make_framing_mock(return_msg=msg, consumed=5)
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"x" * 10)
+
+        result = next(decoder)
+        assert result is msg
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_next_raises_stop_iteration_when_no_data(self, mock_lookup):
+        framing = _make_framing_mock()  # returns None
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"partial")
+
+        with pytest.raises(StopIteration):
+            next(decoder)
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_for_loop_yields_one_message_per_iteration(self, mock_lookup):
+        """The iterator parses one message per __next__ call."""
+        msg1 = FakeMessage(value="first")
+        msg2 = FakeMessage(value="second")
+
+        call_count = 0
+
+        def side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return (msg1, 5)
+            elif call_count == 2:
+                return (msg2, 5)
+            return None
+
+        framing = MagicMock()
+        framing.try_parse.side_effect = side_effect
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"x" * 20)
+
+        results = list(decoder)
+        assert len(results) == 2
+        assert results[0] is msg1
+        assert results[1] is msg2
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_for_loop_empty_buffer(self, mock_lookup):
+        framing = _make_framing_mock()
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        results = list(decoder)
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# _read() — internal queue drain
+# ---------------------------------------------------------------------------
+
+
+class TestRead:
+    def test_read_returns_none_when_empty(self):
+        decoder = BackendMessageDecoder()
+        assert decoder._read() is None
+
+    def test_read_returns_messages_in_fifo_order(self):
+        decoder = BackendMessageDecoder()
+        msg1 = FakeMessage(value="first")
+        msg2 = FakeMessage(value="second")
+        decoder._messages.append(msg1)
+        decoder._messages.append(msg2)
+
+        assert decoder._read() is msg1
+        assert decoder._read() is msg2
+        assert decoder._read() is None
+
+
+# ---------------------------------------------------------------------------
+# Phase changes between messages
+# ---------------------------------------------------------------------------
+
+
+class TestPhaseChangesBetweenMessages:
+    @patch("pygwire.codec.lookup_framing")
+    def test_phase_change_between_iterations(self, mock_lookup):
+        """Verify lookup_framing is called with the current phase each time _parse runs."""
+        msg1 = FakeMessage(value="first")
+        msg2 = FakeMessage(value="second")
+
+        call_count = 0
+
+        def framing_side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return (msg1, 5)
+            elif call_count == 2:
+                return (msg2, 5)
+            return None
+
+        framing = MagicMock()
+        framing.try_parse.side_effect = framing_side_effect
+        mock_lookup.return_value = framing
+
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"x" * 20)
+
+        # Get first message in STARTUP phase
+        result1 = next(decoder)
+        assert result1 is msg1
+        mock_lookup.assert_called_with(ConnectionPhase.STARTUP, MessageDirection.BACKEND)
+
+        # Change phase, get second message
+        decoder.phase = ConnectionPhase.READY
+        result2 = next(decoder)
+        assert result2 is msg2
+        mock_lookup.assert_called_with(ConnectionPhase.READY, MessageDirection.BACKEND)
+
+
+# ---------------------------------------------------------------------------
+# FrontendMessageDecoder specifics
+# ---------------------------------------------------------------------------
+
+
+class TestFrontendMessageDecoder:
+    def test_direction_is_frontend(self):
+        decoder = FrontendMessageDecoder()
+        assert decoder._direction == MessageDirection.FRONTEND
+
+    @patch("pygwire.codec.lookup_framing")
+    def test_parse_uses_frontend_direction(self, mock_lookup):
+        framing = _make_framing_mock()
+        mock_lookup.return_value = framing
+
+        decoder = FrontendMessageDecoder()
+        decoder.feed(b"data")
+        decoder._parse()
+
+        mock_lookup.assert_called_once_with(ConnectionPhase.STARTUP, MessageDirection.FRONTEND)
+
+
+# ---------------------------------------------------------------------------
+# Edge cases
+# ---------------------------------------------------------------------------
 
 
 class TestEdgeCases:
-    """Edge case tests."""
+    @patch("pygwire.codec.lookup_framing")
+    def test_compaction_at_exact_threshold(self, mock_lookup):
+        """pos == _COMPACTION_THRESHOLD should NOT trigger compaction (> not >=)."""
+        msg = FakeMessage(value="x")
+        framing = _make_framing_mock(return_msg=msg, consumed=_COMPACTION_THRESHOLD)
+        mock_lookup.return_value = framing
 
-    def test_empty_query_string(self):
-        """Test decoding Query with empty string."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-        msg = Query(query_string="")
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"x" * (_COMPACTION_THRESHOLD + 50))
+        decoder._parse()
 
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], Query)
-        assert msgs[0].query_string == ""
+        # Exactly at threshold — no compaction
+        assert decoder._pos == _COMPACTION_THRESHOLD
 
-    def test_very_large_message(self):
-        """Test decoding very large message."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-        large_query = "SELECT * FROM table WHERE " + " OR ".join(
-            [f"col{i} = {i}" for i in range(1000)]
-        )
-        msg = Query(query_string=large_query)
+    @patch("pygwire.codec.lookup_framing")
+    def test_multiple_parses_accumulate_pos(self, mock_lookup):
+        msg = FakeMessage(value="x")
 
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], Query)
-        assert msgs[0].query_string == large_query
+        call_count = 0
 
-    def test_unicode_in_query(self):
-        """Test decoding Query with Unicode characters."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-        msg = Query(query_string="SELECT '你好世界' AS greeting")
+        def side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 2:
+                return (msg, 10)
+            return None
 
-        msgs = list(conn.receive(msg.to_wire()))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], Query)
-        assert msgs[0].query_string == "SELECT '你好世界' AS greeting"
+        framing = MagicMock()
+        framing.try_parse.side_effect = side_effect
+        mock_lookup.return_value = framing
 
-    def test_v3_2_startup_message_decodes_successfully(self):
-        """Test that v3.2 StartupMessage (PG 18+) can be decoded."""
-        conn = BackendConnection()
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"x" * 30)
 
-        params = {"user": "postgres", "database": "testdb"}
-        buf = bytearray()
-        buf.extend(struct.pack("!I", ProtocolVersion.V3_2))
-        for key, value in params.items():
-            buf.extend(key.encode("utf-8"))
-            buf.append(0)
-            buf.extend(value.encode("utf-8"))
-            buf.append(0)
-        buf.append(0)
+        list(decoder)
 
-        length = len(buf) + 4
-        wire = struct.pack("!I", length) + buf
+        assert decoder._pos == 20
 
-        msgs = list(conn.receive(wire))
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], StartupMessage)
-        assert msgs[0].params == params
-        assert msgs[0].protocol_version == ProtocolVersion.V3_2
+    def test_feed_after_clear(self):
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"old data")
+        decoder.clear()
+        decoder.feed(b"new")
+        assert decoder.buffered == 3
 
+    @patch("pygwire.codec.lookup_framing")
+    def test_next_after_feed_more_data(self, mock_lookup):
+        """Feeding more data between iterations should work."""
+        msg = FakeMessage(value="x")
 
-class TestInitialPhase:
-    """Tests for initial_phase parameter."""
+        call_count = 0
 
-    def test_frontend_connection_ready_phase(self):
-        """Test FrontendConnection starting at READY phase."""
-        conn = FrontendConnection(initial_phase=ConnectionPhase.READY)
-        assert conn.phase == ConnectionPhase.READY
-        assert conn.is_ready
+        # Use a plain function to avoid MagicMock holding memoryview references
+        # in call_args, which would prevent bytearray resizing on feed().
+        def try_parse_fn(**_):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return None  # not enough data yet
+            elif call_count == 2:
+                return (msg, 10)
+            return None
 
-    def test_backend_connection_ready_phase(self):
-        """Test BackendConnection starting at READY phase."""
-        conn = BackendConnection(initial_phase=ConnectionPhase.READY)
-        assert conn.phase == ConnectionPhase.READY
-        assert conn.is_ready
+        framing = MagicMock()
+        framing.try_parse = try_parse_fn
+        mock_lookup.return_value = framing
 
-    def test_strict_false_does_not_raise(self):
-        """Test that strict=False logs warnings instead of raising."""
-        conn = FrontendConnection(initial_phase=ConnectionPhase.READY, strict=False)
-        # Sending StartupMessage in READY phase is invalid
-        conn.send(StartupMessage(params={"user": "test"}))  # Should not raise
+        decoder = BackendMessageDecoder()
+        decoder.feed(b"partial")
 
-    def test_strict_true_raises(self):
-        """Test that strict=True raises StateMachineError."""
-        from pygwire import StateMachineError
+        # First attempt — not enough data
+        with pytest.raises(StopIteration):
+            next(decoder)
 
-        conn = FrontendConnection(initial_phase=ConnectionPhase.READY, strict=True)
-        with pytest.raises(StateMachineError):
-            conn.send(StartupMessage(params={"user": "test"}))
+        # Feed more and retry
+        decoder.feed(b"more data here")
+        result = next(decoder)
+        assert result is msg

@@ -1,11 +1,21 @@
-"""Tests for the PostgreSQL wire protocol state machine."""
+"""Unit tests for pygwire.state_machine.
+
+Tests each component in isolation: _State dataclass, transition action classes,
+_StateMachineCore._process rule matching, error/hint generation, and the
+FrontendStateMachine / BackendStateMachine public API.
+"""
+
+from __future__ import annotations
+
+from dataclasses import replace
 
 import pytest
 
-from pygwire.constants import TransactionStatus
+from pygwire.constants import ConnectionPhase, TransactionStatus
 from pygwire.exceptions import StateMachineError
 from pygwire.messages import (
     AuthenticationCleartextPassword,
+    AuthenticationGSSContinue,
     AuthenticationMD5Password,
     AuthenticationOk,
     AuthenticationSASL,
@@ -14,6 +24,7 @@ from pygwire.messages import (
     BackendKeyData,
     Bind,
     BindComplete,
+    CancelRequest,
     Close,
     CloseComplete,
     CommandComplete,
@@ -27,771 +38,1076 @@ from pygwire.messages import (
     EmptyQueryResponse,
     ErrorResponse,
     Execute,
+    Flush,
     FunctionCall,
     FunctionCallResponse,
+    GSSEncRequest,
+    GSSResponse,
+    NegotiateProtocolVersion,
+    NoData,
     NoticeResponse,
     NotificationResponse,
+    ParameterDescription,
     ParameterStatus,
     Parse,
     ParseComplete,
     PasswordMessage,
+    PortalSuspended,
     Query,
     ReadyForQuery,
     RowDescription,
     SASLInitialResponse,
     SASLResponse,
     SSLRequest,
+    SSLResponse,
     StartupMessage,
     Sync,
     Terminate,
 )
 from pygwire.state_machine import (
     BackendStateMachine,
-    ConnectionPhase,
     FrontendStateMachine,
+    MessageAction,
+    _generate_hints,
+    _State,
+    _StateMachineCore,
+    _Stay,
+    _Transition,
+    copy_done,
+    ext_continue,
+    ext_rfq,
+    ext_start,
+    ext_sync,
+    stay,
+    sync_from_ready,
+    to,
 )
 
+_P = ConnectionPhase
 
-class TestFrontendStateMachine:
-    """Tests for FrontendStateMachine."""
 
-    def test_initial_state(self):
-        """Test initial state is STARTUP."""
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_core(phase: ConnectionPhase = _P.STARTUP, **state_kwargs) -> _StateMachineCore:
+    """Build a _StateMachineCore with a specific initial _State."""
+    core = _StateMachineCore(phase=phase)
+    if state_kwargs:
+        core._state = replace(core._state, **state_kwargs)
+    return core
+
+
+# ---------------------------------------------------------------------------
+# _State dataclass
+# ---------------------------------------------------------------------------
+
+
+class TestState:
+    def test_defaults(self):
+        s = _State(phase=_P.STARTUP)
+        assert s.phase == _P.STARTUP
+        assert s.in_extended_batch is False
+        assert s.pending_syncs == 0
+
+    def test_frozen(self):
+        s = _State(phase=_P.STARTUP)
+        with pytest.raises(AttributeError):
+            s.phase = _P.READY  # type: ignore[misc]
+
+    def test_replace_creates_new_instance(self):
+        s1 = _State(phase=_P.STARTUP)
+        s2 = replace(s1, phase=_P.READY)
+        assert s1.phase == _P.STARTUP
+        assert s2.phase == _P.READY
+        assert s1 is not s2
+
+
+# ---------------------------------------------------------------------------
+# Transition action classes (unit-tested against _StateMachineCore)
+# ---------------------------------------------------------------------------
+
+
+class TestTransition:
+    def test_transition_changes_phase(self):
+        core = _make_core(_P.STARTUP)
+        _Transition(_P.READY)(core)
+        assert core.phase == _P.READY
+
+    def test_to_helper_returns_transition(self):
+        t = to(_P.AUTHENTICATING)
+        assert isinstance(t, _Transition)
+        core = _make_core(_P.STARTUP)
+        t(core)
+        assert core.phase == _P.AUTHENTICATING
+
+
+class TestStay:
+    def test_stay_does_not_change_phase(self):
+        core = _make_core(_P.READY)
+        _Stay()(core)
+        assert core.phase == _P.READY
+
+    def test_stay_preserves_all_state(self):
+        core = _make_core(_P.EXTENDED_QUERY, in_extended_batch=True, pending_syncs=3)
+        state_before = core._state
+        stay(core)
+        assert core._state is state_before
+
+
+class TestExtStart:
+    def test_transitions_to_extended_query(self):
+        core = _make_core(_P.READY)
+        ext_start(core)
+        assert core.phase == _P.EXTENDED_QUERY
+
+    def test_sets_in_extended_batch(self):
+        core = _make_core(_P.READY)
+        ext_start(core)
+        assert core._state.in_extended_batch is True
+
+    def test_increments_pending_syncs(self):
+        core = _make_core(_P.READY)
+        ext_start(core)
+        assert core._state.pending_syncs == 1
+
+    def test_increments_from_existing_pending_syncs(self):
+        core = _make_core(_P.READY, pending_syncs=2)
+        ext_start(core)
+        assert core._state.pending_syncs == 3
+
+
+class TestExtContinue:
+    def test_starts_new_batch_when_not_in_batch(self):
+        core = _make_core(_P.EXTENDED_QUERY, in_extended_batch=False, pending_syncs=1)
+        ext_continue(core)
+        assert core._state.in_extended_batch is True
+        assert core._state.pending_syncs == 2
+
+    def test_noop_when_already_in_batch(self):
+        core = _make_core(_P.EXTENDED_QUERY, in_extended_batch=True, pending_syncs=1)
+        state_before = core._state
+        ext_continue(core)
+        assert core._state is state_before
+
+
+class TestExtSync:
+    def test_ends_batch_when_in_batch(self):
+        core = _make_core(_P.EXTENDED_QUERY, in_extended_batch=True, pending_syncs=1)
+        ext_sync(core)
+        assert core._state.in_extended_batch is False
+        assert core._state.pending_syncs == 1  # not changed
+
+    def test_adds_sync_point_when_not_in_batch(self):
+        core = _make_core(_P.EXTENDED_QUERY, in_extended_batch=False, pending_syncs=1)
+        ext_sync(core)
+        assert core._state.pending_syncs == 2
+
+
+class TestExtReadyForQuery:
+    def test_decrements_pending_syncs(self):
+        core = _make_core(_P.EXTENDED_QUERY, pending_syncs=3)
+        ext_rfq(core)
+        assert core._state.pending_syncs == 2
+        assert core.phase == _P.EXTENDED_QUERY
+
+    def test_returns_to_ready_when_last_sync(self):
+        core = _make_core(_P.EXTENDED_QUERY, pending_syncs=1)
+        ext_rfq(core)
+        assert core.phase == _P.READY
+        assert core._state.pending_syncs == 0
+        assert core._state.in_extended_batch is False
+
+    def test_returns_to_ready_when_zero_pending(self):
+        """Edge case: pending_syncs was 0 (shouldn't normally happen), goes to READY."""
+        core = _make_core(_P.EXTENDED_QUERY, pending_syncs=0)
+        ext_rfq(core)
+        assert core.phase == _P.READY
+        assert core._state.pending_syncs == 0
+
+
+class TestCopyDone:
+    def test_transitions_to_simple_query(self):
+        core = _make_core(_P.COPY_IN)
+        copy_done(core)
+        assert core.phase == _P.SIMPLE_QUERY
+
+    def test_from_copy_out(self):
+        core = _make_core(_P.COPY_OUT)
+        copy_done(core)
+        assert core.phase == _P.SIMPLE_QUERY
+
+
+class TestSyncFromReady:
+    def test_transitions_to_extended_query(self):
+        core = _make_core(_P.READY)
+        sync_from_ready(core)
+        assert core.phase == _P.EXTENDED_QUERY
+
+    def test_increments_pending_syncs(self):
+        core = _make_core(_P.READY)
+        sync_from_ready(core)
+        assert core._state.pending_syncs == 1
+
+    def test_sets_in_extended_batch_false(self):
+        core = _make_core(_P.READY)
+        sync_from_ready(core)
+        assert core._state.in_extended_batch is False
+
+
+# ---------------------------------------------------------------------------
+# _StateMachineCore properties
+# ---------------------------------------------------------------------------
+
+
+class TestStateMachineCoreProperties:
+    def test_phase(self):
+        core = _make_core(_P.READY)
+        assert core.phase == _P.READY
+
+    def test_is_ready_true(self):
+        core = _make_core(_P.READY)
+        assert core.is_ready is True
+
+    def test_is_ready_false(self):
+        core = _make_core(_P.STARTUP)
+        assert core.is_ready is False
+
+    def test_is_active_true(self):
+        core = _make_core(_P.READY)
+        assert core.is_active is True
+
+    def test_is_active_false_terminated(self):
+        core = _make_core(_P.TERMINATED)
+        assert core.is_active is False
+
+    def test_is_active_false_failed(self):
+        core = _make_core(_P.FAILED)
+        assert core.is_active is False
+
+    def test_pending_syncs(self):
+        core = _make_core(_P.EXTENDED_QUERY, pending_syncs=5)
+        assert core.pending_syncs == 5
+
+    def test_default_pending_syncs(self):
+        core = _make_core(_P.STARTUP)
+        assert core.pending_syncs == 0
+
+
+# ---------------------------------------------------------------------------
+# _StateMachineCore._process — rule matching
+# ---------------------------------------------------------------------------
+
+
+class TestProcessRuleMatching:
+    def test_matches_first_matching_rule(self):
         sm = FrontendStateMachine()
-        assert sm.phase == ConnectionPhase.STARTUP
-        assert not sm.is_ready
-        assert sm.is_active
-
-    def test_startup_success_flow(self):
-        """Test successful startup with cleartext auth."""
-        sm = FrontendStateMachine()
-
-        # Send StartupMessage
-        sm.send(StartupMessage(params={"user": "test"}))
-        assert sm.phase == ConnectionPhase.STARTUP
-
-        # Receive Authentication request
-        sm.receive(AuthenticationCleartextPassword())
-        assert sm.phase == ConnectionPhase.AUTHENTICATING
-
-        # Send password
-        sm.send(PasswordMessage(password="secret"))
-        assert sm.phase == ConnectionPhase.AUTHENTICATING
-
-        # Receive AuthenticationOk
-        sm.receive(AuthenticationOk())
-        assert sm.phase == ConnectionPhase.INITIALIZATION
-
-        # Receive BackendKeyData
-        sm.receive(BackendKeyData(process_id=1234, secret_key=b"secret"))
-        assert sm.phase == ConnectionPhase.INITIALIZATION
-
-        # Receive ReadyForQuery
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-        assert sm.is_ready
-        assert sm.is_active
-
-    def test_startup_md5_auth_flow(self):
-        """Test startup with MD5 authentication."""
-        sm = FrontendStateMachine()
-
-        sm.send(StartupMessage(params={"user": "test"}))
-        sm.receive(AuthenticationMD5Password(salt=b"\x00\x01\x02\x03"))
-        assert sm.phase == ConnectionPhase.AUTHENTICATING
-
-        sm.send(PasswordMessage(password="hashed"))
-        sm.receive(AuthenticationOk())
-        assert sm.phase == ConnectionPhase.INITIALIZATION
-
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_startup_sasl_auth_flow(self):
-        """Test startup with SASL authentication."""
-        sm = FrontendStateMachine()
-
-        sm.send(StartupMessage(params={"user": "test"}))
-        sm.receive(AuthenticationSASL(mechanisms=["SCRAM-SHA-256"]))
-        assert sm.phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL
-
-        sm.send(SASLInitialResponse(mechanism="SCRAM-SHA-256", data=b"client-first"))
-        assert sm.phase == ConnectionPhase.AUTHENTICATING_SASL_INITIAL
-
-        sm.receive(AuthenticationSASLContinue(data=b"server-first"))
-        assert sm.phase == ConnectionPhase.AUTHENTICATING_SASL_CONTINUE
-
-        sm.send(SASLResponse(data=b"client-final"))
-        sm.receive(AuthenticationSASLFinal(data=b"server-final"))
-        assert sm.phase == ConnectionPhase.AUTHENTICATING
-
-        sm.receive(AuthenticationOk())
-        assert sm.phase == ConnectionPhase.INITIALIZATION
-
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_ssl_request_flow(self):
-        """Test SSL request at startup."""
-        sm = FrontendStateMachine()
-
         sm.send(SSLRequest())
-        assert sm.phase == ConnectionPhase.SSL_NEGOTIATION
+        assert sm.phase == _P.SSL_NEGOTIATION
 
-        # After SSL negotiation (single-byte response, not a message),
-        # send StartupMessage
-        sm.send(StartupMessage(params={"user": "test"}))
-        assert sm.phase == ConnectionPhase.STARTUP
+    def test_raises_when_no_rule_for_phase(self):
+        sm = FrontendStateMachine(phase=_P.TERMINATED)
+        with pytest.raises(StateMachineError, match="Cannot send"):
+            sm.send(Terminate())
 
-    def test_simple_query_flow(self):
-        """Test simple query protocol."""
+    def test_raises_when_no_matching_message_type(self):
         sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        # Send query
-        sm.send(Query(query_string="SELECT 1"))
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        # Receive results
-        sm.receive(RowDescription(fields=[]))
-        sm.receive(DataRow(columns=[b"1"]))
-        sm.receive(CommandComplete(tag="SELECT 1"))
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        # Receive ReadyForQuery
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_empty_query(self):
-        """Test empty query response."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        sm.send(Query(query_string=""))
-        sm.receive(EmptyQueryResponse())
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_extended_query_flow(self):
-        """Test extended query protocol."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        # Parse
-        sm.send(Parse(statement="stmt1", query="SELECT $1", param_types=[23]))
-        assert sm.phase == ConnectionPhase.EXTENDED_QUERY
-        sm.receive(ParseComplete())
-
-        # Bind
-        sm.send(Bind(portal="", statement="stmt1", param_values=[b"42"]))
-        sm.receive(BindComplete())
-
-        # Describe
-        sm.send(Describe(kind="P", name=""))
-        sm.receive(RowDescription(fields=[]))
-
-        # Execute
-        sm.send(Execute(portal="", max_rows=0))
-        sm.receive(DataRow(columns=[b"42"]))
-        sm.receive(CommandComplete(tag="SELECT 1"))
-
-        # Sync
-        sm.send(Sync())
-        assert sm.phase == ConnectionPhase.EXTENDED_QUERY
-
-        # ReadyForQuery ends extended query
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_extended_query_close(self):
-        """Test Close in extended query protocol."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        sm.send(Parse(statement="stmt1", query="SELECT 1"))
-        sm.receive(ParseComplete())
-
-        sm.send(Close(kind="S", name="stmt1"))
-        sm.receive(CloseComplete())
-
-        sm.send(Sync())
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_copy_in_flow(self):
-        """Test COPY IN protocol."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        sm.send(Query(query_string="COPY table FROM STDIN"))
-        sm.receive(CopyInResponse(overall_format=0, col_formats=[]))
-        assert sm.phase == ConnectionPhase.COPY_IN
-
-        # Send copy data
-        sm.send(CopyData(data=b"row1\n"))
-        sm.send(CopyData(data=b"row2\n"))
-        assert sm.phase == ConnectionPhase.COPY_IN
-
-        # Send CopyDone
-        sm.send(CopyDone())
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        sm.receive(CommandComplete(tag="COPY 2"))
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_copy_in_fail(self):
-        """Test COPY IN with failure."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        sm.send(Query(query_string="COPY table FROM STDIN"))
-        sm.receive(CopyInResponse(overall_format=0, col_formats=[]))
-
-        sm.send(CopyFail(error_message="user abort"))
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        sm.receive(ErrorResponse(fields={"S": "ERROR", "M": "COPY aborted"}))
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_copy_out_flow(self):
-        """Test COPY OUT protocol."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        sm.send(Query(query_string="COPY table TO STDOUT"))
-        sm.receive(CopyOutResponse(overall_format=0, col_formats=[]))
-        assert sm.phase == ConnectionPhase.COPY_OUT
-
-        # Receive copy data
-        sm.receive(CopyData(data=b"row1\n"))
-        sm.receive(CopyData(data=b"row2\n"))
-        sm.receive(CopyDone())
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        sm.receive(CommandComplete(tag="COPY 2"))
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_function_call_flow(self):
-        """Test function call protocol."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        sm.send(FunctionCall(function_oid=123, arguments=[b"arg1"]))
-        assert sm.phase == ConnectionPhase.FUNCTION_CALL
-
-        sm.receive(FunctionCallResponse(result=b"result"))
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_terminate_from_ready(self):
-        """Test Terminate from READY state."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        sm.send(Terminate())
-        assert sm.phase == ConnectionPhase.TERMINATED
-        assert not sm.is_active
-
-    def test_terminate_from_startup(self):
-        """Test Terminate during startup."""
-        sm = FrontendStateMachine()
-        sm.send(Terminate())
-        assert sm.phase == ConnectionPhase.TERMINATED
-
-    def test_error_during_startup_fails(self):
-        """Test ErrorResponse during startup causes FAILED state."""
-        sm = FrontendStateMachine()
-
-        sm.send(StartupMessage(params={"user": "test"}))
-        sm.receive(ErrorResponse(fields={"S": "FATAL", "M": "invalid user"}))
-        assert sm.phase == ConnectionPhase.FAILED
-        assert not sm.is_active
-
-    def test_error_during_auth_fails(self):
-        """Test ErrorResponse during authentication causes FAILED state."""
-        sm = FrontendStateMachine()
-
-        sm.send(StartupMessage(params={"user": "test"}))
-        sm.receive(AuthenticationCleartextPassword())
-        sm.send(PasswordMessage(password="wrong"))
-        sm.receive(ErrorResponse(fields={"S": "FATAL", "M": "auth failed"}))
-        assert sm.phase == ConnectionPhase.FAILED
-
-    def test_error_during_query_doesnt_fail(self):
-        """Test ErrorResponse during query doesn't fail connection."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        sm.send(Query(query_string="SELECT * FROM nonexistent"))
-        sm.receive(ErrorResponse(fields={"S": "ERROR", "M": "table not found"}))
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-        assert sm.is_active
-
-    def test_notice_response_anytime(self):
-        """Test NoticeResponse can arrive in any phase."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        # In READY
-        sm.receive(NoticeResponse(fields={"S": "NOTICE", "M": "test"}))
-        assert sm.phase == ConnectionPhase.READY
-
-        # In SIMPLE_QUERY
-        sm.send(Query(query_string="SELECT 1"))
-        sm.receive(NoticeResponse(fields={"S": "NOTICE", "M": "test"}))
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        sm.receive(EmptyQueryResponse())
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-
-    def test_parameter_status_anytime(self):
-        """Test ParameterStatus can arrive in any phase."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        sm.receive(ParameterStatus(name="TimeZone", value="UTC"))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_notification_response_anytime(self):
-        """Test NotificationResponse can arrive in any phase."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        sm.receive(NotificationResponse(process_id=123, channel="test", payload="data"))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_invalid_message_in_startup(self):
-        """Test sending invalid message in STARTUP phase."""
-        sm = FrontendStateMachine()
-
         with pytest.raises(StateMachineError, match="Cannot send Query in phase STARTUP"):
             sm.send(Query(query_string="SELECT 1"))
 
-    def test_invalid_message_in_ready(self):
-        """Test receiving invalid message in READY phase."""
+    def test_error_includes_hint(self):
         sm = FrontendStateMachine()
-        self._do_startup(sm)
+        with pytest.raises(StateMachineError, match="expected"):
+            sm.send(Query(query_string="SELECT 1"))
 
-        with pytest.raises(StateMachineError, match="Cannot receive DataRow in phase READY"):
-            sm.receive(DataRow(columns=[b"1"]))
+    def test_isinstance_matching_with_tuple_of_types(self):
+        """Rules with multiple message types in a tuple should match any of them."""
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.send(Parse(statement="s", query="SELECT 1"))
+        assert sm.phase == _P.EXTENDED_QUERY
 
-    def test_invalid_message_in_simple_query(self):
-        """Test sending invalid message during simple query."""
+        sm2 = FrontendStateMachine(phase=_P.READY)
+        sm2.send(Bind(portal="", statement="s"))
+        assert sm2.phase == _P.EXTENDED_QUERY
+
+
+# ---------------------------------------------------------------------------
+# _generate_hints
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateHints:
+    def test_single_message_type(self):
+        rules = {_P.STARTUP: [((Query,), stay)]}
+        hints = _generate_hints(rules)
+        assert hints[_P.STARTUP] == "expected Query"
+
+    def test_multiple_message_types(self):
+        rules = {_P.STARTUP: [((Query, Parse), stay)]}
+        hints = _generate_hints(rules)
+        assert hints[_P.STARTUP] == "expected Query, or Parse"
+
+    def test_multiple_rules(self):
+        rules = {_P.STARTUP: [((Query,), stay), ((Terminate,), stay)]}
+        hints = _generate_hints(rules)
+        assert hints[_P.STARTUP] == "expected Query, or Terminate"
+
+    def test_empty_rules(self):
+        rules = {_P.STARTUP: []}
+        hints = _generate_hints(rules)
+        assert _P.STARTUP not in hints
+
+    def test_three_plus_types(self):
+        rules = {_P.STARTUP: [((Query, Parse, Bind), stay)]}
+        hints = _generate_hints(rules)
+        assert hints[_P.STARTUP] == "expected Query, Parse, or Bind"
+
+
+# ---------------------------------------------------------------------------
+# MessageAction enum
+# ---------------------------------------------------------------------------
+
+
+class TestMessageAction:
+    def test_send_value(self):
+        assert MessageAction.SEND == "send"
+
+    def test_receive_value(self):
+        assert MessageAction.RECEIVE == "receive"
+
+
+# ---------------------------------------------------------------------------
+# FrontendStateMachine — send/receive routing
+# ---------------------------------------------------------------------------
+
+
+class TestFrontendStateMachine:
+    def test_initial_phase_default(self):
         sm = FrontendStateMachine()
-        self._do_startup(sm)
+        assert sm.phase == _P.STARTUP
 
-        sm.send(Query(query_string="SELECT 1"))
+    def test_initial_phase_custom(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        assert sm.phase == _P.READY
 
-        # Simple query protocol does not support pipelining at all
-        with pytest.raises(StateMachineError, match="Cannot send Query in phase SIMPLE_QUERY"):
-            sm.send(Query(query_string="SELECT 2"))
-
-    def test_invalid_message_in_copy_out(self):
-        """Test sending data during COPY OUT (backend sends data)."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        sm.send(Query(query_string="COPY table TO STDOUT"))
-        sm.receive(CopyOutResponse(overall_format=0, col_formats=[]))
-
-        with pytest.raises(StateMachineError, match="Cannot send CopyData in phase COPY_OUT"):
-            sm.send(CopyData(data=b"invalid"))
-
-    def test_cannot_send_after_terminate(self):
-        """Test cannot send messages after Terminate."""
-        sm = FrontendStateMachine()
-        sm.send(Terminate())
-
-        with pytest.raises(StateMachineError, match="Cannot send Terminate in phase TERMINATED"):
-            sm.send(Terminate())
-
-    def test_cannot_receive_after_failed(self):
-        """Test cannot receive messages after FAILED."""
+    def test_send_routes_to_frontend_rules(self):
         sm = FrontendStateMachine()
         sm.send(StartupMessage(params={"user": "test"}))
-        sm.receive(ErrorResponse(fields={"S": "FATAL", "M": "error"}))
+        assert sm.phase == _P.STARTUP
 
-        with pytest.raises(StateMachineError):
-            sm.receive(AuthenticationOk())
-
-    def _do_startup(self, sm: FrontendStateMachine) -> None:
-        """Helper to complete startup sequence."""
+    def test_receive_routes_to_backend_rules(self):
+        sm = FrontendStateMachine()
         sm.send(StartupMessage(params={"user": "test"}))
         sm.receive(AuthenticationOk())
-        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
+        assert sm.phase == _P.INITIALIZATION
+
+    def test_send_invalid_raises_with_send_action(self):
+        sm = FrontendStateMachine()
+        with pytest.raises(StateMachineError, match="Cannot send"):
+            sm.send(Query(query_string="SELECT 1"))
+
+    def test_receive_invalid_raises_with_receive_action(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        with pytest.raises(StateMachineError, match="Cannot receive"):
+            sm.receive(DataRow(columns=[b"1"]))
+
+
+# ---------------------------------------------------------------------------
+# BackendStateMachine — send/receive routing
+# ---------------------------------------------------------------------------
 
 
 class TestBackendStateMachine:
-    """Tests for BackendStateMachine."""
-
-    def test_initial_state(self):
-        """Test initial state is STARTUP."""
+    def test_initial_phase_default(self):
         sm = BackendStateMachine()
-        assert sm.phase == ConnectionPhase.STARTUP
-        assert not sm.is_ready
-        assert sm.is_active
+        assert sm.phase == _P.STARTUP
 
-    def test_startup_success_flow(self):
-        """Test successful startup from backend perspective."""
+    def test_initial_phase_custom(self):
+        sm = BackendStateMachine(phase=_P.READY)
+        assert sm.phase == _P.READY
+
+    def test_receive_routes_to_frontend_rules(self):
         sm = BackendStateMachine()
-
-        # Receive StartupMessage
         sm.receive(StartupMessage(params={"user": "test"}))
-        assert sm.phase == ConnectionPhase.STARTUP
+        assert sm.phase == _P.STARTUP
 
-        # Send Authentication request
-        sm.send(AuthenticationCleartextPassword())
-        assert sm.phase == ConnectionPhase.AUTHENTICATING
-
-        # Receive password
-        sm.receive(PasswordMessage(password="secret"))
-        assert sm.phase == ConnectionPhase.AUTHENTICATING
-
-        # Send AuthenticationOk
+    def test_send_routes_to_backend_rules(self):
+        sm = BackendStateMachine()
+        sm.receive(StartupMessage(params={"user": "test"}))
         sm.send(AuthenticationOk())
-        assert sm.phase == ConnectionPhase.INITIALIZATION
+        assert sm.phase == _P.INITIALIZATION
 
-        # Send BackendKeyData
-        sm.send(BackendKeyData(process_id=1234, secret_key=b"secret"))
-        assert sm.phase == ConnectionPhase.INITIALIZATION
-
-        # Send ReadyForQuery
-        sm.send(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-        assert sm.is_ready
-
-    def test_simple_query_flow(self):
-        """Test simple query from backend perspective."""
+    def test_receive_invalid_raises_with_receive_action(self):
         sm = BackendStateMachine()
-        self._do_startup(sm)
-
-        # Receive query
-        sm.receive(Query(query_string="SELECT 1"))
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        # Send results
-        sm.send(RowDescription(fields=[]))
-        sm.send(DataRow(columns=[b"1"]))
-        sm.send(CommandComplete(tag="SELECT 1"))
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        # Send ReadyForQuery
-        sm.send(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_extended_query_flow(self):
-        """Test extended query from backend perspective."""
-        sm = BackendStateMachine()
-        self._do_startup(sm)
-
-        # Receive Parse
-        sm.receive(Parse(statement="stmt1", query="SELECT $1", param_types=[23]))
-        assert sm.phase == ConnectionPhase.EXTENDED_QUERY
-        sm.send(ParseComplete())
-
-        # Receive Bind
-        sm.receive(Bind(portal="", statement="stmt1", param_values=[b"42"]))
-        sm.send(BindComplete())
-
-        # Receive Execute
-        sm.receive(Execute(portal="", max_rows=0))
-        sm.send(DataRow(columns=[b"42"]))
-        sm.send(CommandComplete(tag="SELECT 1"))
-
-        # Receive Sync
-        sm.receive(Sync())
-        assert sm.phase == ConnectionPhase.EXTENDED_QUERY
-
-        # Send ReadyForQuery
-        sm.send(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_copy_in_flow(self):
-        """Test COPY IN from backend perspective."""
-        sm = BackendStateMachine()
-        self._do_startup(sm)
-
-        sm.receive(Query(query_string="COPY table FROM STDIN"))
-        sm.send(CopyInResponse(overall_format=0, col_formats=[]))
-        assert sm.phase == ConnectionPhase.COPY_IN
-
-        # Receive copy data
-        sm.receive(CopyData(data=b"row1\n"))
-        sm.receive(CopyData(data=b"row2\n"))
-        sm.receive(CopyDone())
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        sm.send(CommandComplete(tag="COPY 2"))
-        sm.send(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_copy_out_flow(self):
-        """Test COPY OUT from backend perspective."""
-        sm = BackendStateMachine()
-        self._do_startup(sm)
-
-        sm.receive(Query(query_string="COPY table TO STDOUT"))
-        sm.send(CopyOutResponse(overall_format=0, col_formats=[]))
-        assert sm.phase == ConnectionPhase.COPY_OUT
-
-        # Send copy data
-        sm.send(CopyData(data=b"row1\n"))
-        sm.send(CopyData(data=b"row2\n"))
-        sm.send(CopyDone())
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        sm.send(CommandComplete(tag="COPY 2"))
-        sm.send(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_terminate_received(self):
-        """Test receiving Terminate."""
-        sm = BackendStateMachine()
-        self._do_startup(sm)
-
-        sm.receive(Terminate())
-        assert sm.phase == ConnectionPhase.TERMINATED
-        assert not sm.is_active
-
-    def test_error_response_sent_during_query(self):
-        """Test sending ErrorResponse during query."""
-        sm = BackendStateMachine()
-        self._do_startup(sm)
-
-        sm.receive(Query(query_string="SELECT * FROM bad"))
-        sm.send(ErrorResponse(fields={"S": "ERROR", "M": "error"}))
-        assert sm.phase == ConnectionPhase.SIMPLE_QUERY
-
-        sm.send(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-        assert sm.is_active
-
-    def test_notice_parameter_status_anytime(self):
-        """Test backend can send notice/parameter status anytime."""
-        sm = BackendStateMachine()
-        self._do_startup(sm)
-
-        sm.send(NoticeResponse(fields={"S": "NOTICE", "M": "test"}))
-        sm.send(ParameterStatus(name="TimeZone", value="UTC"))
-        sm.send(NotificationResponse(process_id=123, channel="test", payload="data"))
-        assert sm.phase == ConnectionPhase.READY
-
-    def test_invalid_receive_in_startup(self):
-        """Test receiving invalid message in STARTUP."""
-        sm = BackendStateMachine()
-
-        with pytest.raises(StateMachineError):
+        with pytest.raises(StateMachineError, match="Cannot receive"):
             sm.receive(Query(query_string="SELECT 1"))
 
-    def test_invalid_send_in_ready(self):
-        """Test sending query results when idle."""
-        sm = BackendStateMachine()
-        self._do_startup(sm)
-
-        with pytest.raises(StateMachineError):
+    def test_send_invalid_raises_with_send_action(self):
+        sm = BackendStateMachine(phase=_P.READY)
+        with pytest.raises(StateMachineError, match="Cannot send"):
             sm.send(DataRow(columns=[b"1"]))
 
-    def _do_startup(self, sm: BackendStateMachine) -> None:
-        """Helper to complete startup sequence."""
-        sm.receive(StartupMessage(params={"user": "test"}))
-        sm.send(AuthenticationOk())
-        sm.send(ReadyForQuery(status=TransactionStatus.IDLE))
+
+# ---------------------------------------------------------------------------
+# Frontend transition rules — per-phase coverage
+# ---------------------------------------------------------------------------
 
 
-class TestPipelining:
-    """Tests for extended query pipelining."""
-
-    def test_two_pipelined_batches(self):
-        """Test two pipelined extended query batches."""
+class TestFrontendStartupRules:
+    def test_ssl_request(self):
         sm = FrontendStateMachine()
-        self._do_startup(sm)
+        sm.send(SSLRequest())
+        assert sm.phase == _P.SSL_NEGOTIATION
 
-        # First batch: Parse + Bind + Execute + Sync
-        sm.send(Parse(statement="stmt1", query="SELECT $1"))
-        assert sm.phase == ConnectionPhase.EXTENDED_QUERY
-        assert sm.pending_syncs == 1
+    def test_gss_enc_request(self):
+        sm = FrontendStateMachine()
+        sm.send(GSSEncRequest())
+        assert sm.phase == _P.GSS_NEGOTIATION
 
-        sm.send(Bind(portal="", statement="stmt1", param_values=[b"1"]))
+    def test_startup_message_stays(self):
+        sm = FrontendStateMachine()
+        sm.send(StartupMessage(params={"user": "test"}))
+        assert sm.phase == _P.STARTUP
+
+    def test_cancel_request_stays(self):
+        sm = FrontendStateMachine()
+        sm.send(CancelRequest(process_id=1, secret_key=b"\x00" * 4))
+        assert sm.phase == _P.STARTUP
+
+    def test_terminate(self):
+        sm = FrontendStateMachine()
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+
+class TestFrontendSSLNegotiationRules:
+    def test_gss_enc_request(self):
+        sm = FrontendStateMachine(phase=_P.SSL_NEGOTIATION)
+        sm.send(GSSEncRequest())
+        assert sm.phase == _P.GSS_NEGOTIATION
+
+    def test_startup_message(self):
+        sm = FrontendStateMachine(phase=_P.SSL_NEGOTIATION)
+        sm.send(StartupMessage(params={"user": "test"}))
+        assert sm.phase == _P.STARTUP
+
+    def test_terminate(self):
+        sm = FrontendStateMachine(phase=_P.SSL_NEGOTIATION)
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+
+class TestFrontendGSSNegotiationRules:
+    def test_startup_message(self):
+        sm = FrontendStateMachine(phase=_P.GSS_NEGOTIATION)
+        sm.send(StartupMessage(params={"user": "test"}))
+        assert sm.phase == _P.STARTUP
+
+    def test_terminate(self):
+        sm = FrontendStateMachine(phase=_P.GSS_NEGOTIATION)
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+
+class TestFrontendAuthenticatingRules:
+    def test_password_stays(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING)
+        sm.send(PasswordMessage(password="secret"))
+        assert sm.phase == _P.AUTHENTICATING
+
+    def test_terminate(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING)
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+
+class TestFrontendSASLInitialRules:
+    def test_sasl_initial_response_stays(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING_SASL_INITIAL)
+        sm.send(SASLInitialResponse(mechanism="SCRAM-SHA-256", data=b"x"))
+        assert sm.phase == _P.AUTHENTICATING_SASL_INITIAL
+
+    def test_terminate(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING_SASL_INITIAL)
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+
+class TestFrontendSASLContinueRules:
+    def test_sasl_response_stays(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING_SASL_CONTINUE)
+        sm.send(SASLResponse(data=b"x"))
+        assert sm.phase == _P.AUTHENTICATING_SASL_CONTINUE
+
+    def test_terminate(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING_SASL_CONTINUE)
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+
+class TestFrontendReadyRules:
+    def test_query(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.send(Query(query_string="SELECT 1"))
+        assert sm.phase == _P.SIMPLE_QUERY
+
+    def test_parse_starts_extended(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.send(Parse(statement="s", query="SELECT 1"))
+        assert sm.phase == _P.EXTENDED_QUERY
+        assert sm._state.in_extended_batch is True
+        assert sm._state.pending_syncs == 1
+
+    def test_bind_starts_extended(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.send(Bind(portal="", statement="s"))
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_execute_starts_extended(self):
+        sm = FrontendStateMachine(phase=_P.READY)
         sm.send(Execute(portal="", max_rows=0))
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_describe_starts_extended(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.send(Describe(kind="S", name="s"))
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_close_starts_extended(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.send(Close(kind="S", name="s"))
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_sync_from_ready(self):
+        sm = FrontendStateMachine(phase=_P.READY)
         sm.send(Sync())
+        assert sm.phase == _P.EXTENDED_QUERY
+        assert sm._state.in_extended_batch is False
+        assert sm._state.pending_syncs == 1
 
-        # Second batch: Parse + Bind + Execute + Sync (pipelined without waiting for first batch)
-        sm.send(Parse(statement="stmt2", query="SELECT $1"))
-        assert sm.pending_syncs == 2  # Now tracking two batches
+    def test_flush_stays(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.send(Flush())
+        assert sm.phase == _P.READY
 
-        sm.send(Bind(portal="", statement="stmt2", param_values=[b"2"]))
-        sm.send(Execute(portal="", max_rows=0))
+    def test_function_call(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.send(FunctionCall(function_oid=1))
+        assert sm.phase == _P.FUNCTION_CALL
+
+    def test_terminate(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+
+class TestFrontendSimpleQueryRules:
+    def test_terminate_only_allowed_send(self):
+        sm = FrontendStateMachine(phase=_P.SIMPLE_QUERY)
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+    def test_no_pipelining(self):
+        sm = FrontendStateMachine(phase=_P.SIMPLE_QUERY)
+        with pytest.raises(StateMachineError):
+            sm.send(Query(query_string="SELECT 2"))
+
+
+class TestFrontendExtendedQueryRules:
+    def test_parse_continues(self):
+        sm = FrontendStateMachine(phase=_P.EXTENDED_QUERY)
+        sm._state = replace(sm._state, in_extended_batch=True, pending_syncs=1)
+        sm.send(Parse(statement="s", query="q"))
+        assert sm._state.pending_syncs == 1
+
+    def test_sync_ends_batch(self):
+        sm = FrontendStateMachine(phase=_P.EXTENDED_QUERY)
+        sm._state = replace(sm._state, in_extended_batch=True, pending_syncs=1)
         sm.send(Sync())
+        assert sm._state.in_extended_batch is False
+        assert sm._state.pending_syncs == 1
 
-        # Receive responses for first batch
-        sm.receive(ParseComplete())
-        sm.receive(BindComplete())
+    def test_sync_without_batch_adds_sync_point(self):
+        sm = FrontendStateMachine(phase=_P.EXTENDED_QUERY)
+        sm._state = replace(sm._state, in_extended_batch=False, pending_syncs=1)
+        sm.send(Sync())
+        assert sm._state.pending_syncs == 2
+
+    def test_flush_stays(self):
+        sm = FrontendStateMachine(phase=_P.EXTENDED_QUERY)
+        sm._state = replace(sm._state, in_extended_batch=True, pending_syncs=1)
+        sm.send(Flush())
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_terminate(self):
+        sm = FrontendStateMachine(phase=_P.EXTENDED_QUERY)
+        sm._state = replace(sm._state, pending_syncs=1)
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+
+class TestFrontendCopyInRules:
+    def test_copy_data_stays(self):
+        sm = FrontendStateMachine(phase=_P.COPY_IN)
+        sm.send(CopyData(data=b"row"))
+        assert sm.phase == _P.COPY_IN
+
+    def test_copy_done(self):
+        sm = FrontendStateMachine(phase=_P.COPY_IN)
+        sm.send(CopyDone())
+        assert sm.phase == _P.SIMPLE_QUERY
+
+    def test_copy_fail(self):
+        sm = FrontendStateMachine(phase=_P.COPY_IN)
+        sm.send(CopyFail(error_message="abort"))
+        assert sm.phase == _P.SIMPLE_QUERY
+
+    def test_terminate(self):
+        sm = FrontendStateMachine(phase=_P.COPY_IN)
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+    def test_cannot_send_query(self):
+        sm = FrontendStateMachine(phase=_P.COPY_IN)
+        with pytest.raises(StateMachineError):
+            sm.send(Query(query_string="SELECT 1"))
+
+
+class TestFrontendCopyOutRules:
+    def test_terminate_only(self):
+        sm = FrontendStateMachine(phase=_P.COPY_OUT)
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+    def test_cannot_send_copy_data(self):
+        sm = FrontendStateMachine(phase=_P.COPY_OUT)
+        with pytest.raises(StateMachineError):
+            sm.send(CopyData(data=b"x"))
+
+
+class TestFrontendFunctionCallRules:
+    def test_terminate_only(self):
+        sm = FrontendStateMachine(phase=_P.FUNCTION_CALL)
+        sm.send(Terminate())
+        assert sm.phase == _P.TERMINATED
+
+
+# ---------------------------------------------------------------------------
+# Backend receive rules (messages FROM the server)
+# ---------------------------------------------------------------------------
+
+
+class TestBackendMsgStartupRules:
+    def test_negotiate_protocol_version_stays(self):
+        sm = FrontendStateMachine()
+        sm.send(StartupMessage(params={"user": "test"}))
+        sm.receive(NegotiateProtocolVersion(newest_minor=0, unrecognized=[]))
+        assert sm.phase == _P.STARTUP
+
+    def test_auth_ok_to_initialization(self):
+        sm = FrontendStateMachine()
+        sm.send(StartupMessage(params={"user": "test"}))
+        sm.receive(AuthenticationOk())
+        assert sm.phase == _P.INITIALIZATION
+
+    def test_auth_sasl_to_sasl_initial(self):
+        sm = FrontendStateMachine()
+        sm.send(StartupMessage(params={"user": "test"}))
+        sm.receive(AuthenticationSASL(mechanisms=["SCRAM-SHA-256"]))
+        assert sm.phase == _P.AUTHENTICATING_SASL_INITIAL
+
+    def test_auth_cleartext_to_authenticating(self):
+        sm = FrontendStateMachine()
+        sm.send(StartupMessage(params={"user": "test"}))
+        sm.receive(AuthenticationCleartextPassword())
+        assert sm.phase == _P.AUTHENTICATING
+
+    def test_auth_md5_to_authenticating(self):
+        sm = FrontendStateMachine()
+        sm.send(StartupMessage(params={"user": "test"}))
+        sm.receive(AuthenticationMD5Password(salt=b"\x00" * 4))
+        assert sm.phase == _P.AUTHENTICATING
+
+    def test_error_to_failed(self):
+        sm = FrontendStateMachine()
+        sm.send(StartupMessage(params={"user": "test"}))
+        sm.receive(ErrorResponse(fields={"S": "FATAL", "M": "err"}))
+        assert sm.phase == _P.FAILED
+
+
+class TestBackendMsgAuthenticatingRules:
+    def test_auth_ok(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING)
+        sm.receive(AuthenticationOk())
+        assert sm.phase == _P.INITIALIZATION
+
+    def test_auth_sasl_transition(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING)
+        sm.receive(AuthenticationSASL(mechanisms=["SCRAM-SHA-256"]))
+        assert sm.phase == _P.AUTHENTICATING_SASL_INITIAL
+
+    def test_cleartext_stays(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING)
+        sm.receive(AuthenticationCleartextPassword())
+        assert sm.phase == _P.AUTHENTICATING
+
+    def test_md5_stays(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING)
+        sm.receive(AuthenticationMD5Password(salt=b"\x00" * 4))
+        assert sm.phase == _P.AUTHENTICATING
+
+    def test_gss_continue_stays(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING)
+        sm.receive(AuthenticationGSSContinue(data=b"x"))
+        assert sm.phase == _P.AUTHENTICATING
+
+    def test_error_to_failed(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING)
+        sm.receive(ErrorResponse(fields={"S": "FATAL", "M": "err"}))
+        assert sm.phase == _P.FAILED
+
+
+class TestBackendMsgSASLRules:
+    def test_sasl_continue_from_initial(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING_SASL_INITIAL)
+        sm.receive(AuthenticationSASLContinue(data=b"x"))
+        assert sm.phase == _P.AUTHENTICATING_SASL_CONTINUE
+
+    def test_auth_ok_from_initial(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING_SASL_INITIAL)
+        sm.receive(AuthenticationOk())
+        assert sm.phase == _P.INITIALIZATION
+
+    def test_sasl_final_from_continue(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING_SASL_CONTINUE)
+        sm.receive(AuthenticationSASLFinal(data=b"x"))
+        assert sm.phase == _P.AUTHENTICATING
+
+    def test_sasl_continue_stays_in_continue(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING_SASL_CONTINUE)
+        sm.receive(AuthenticationSASLContinue(data=b"x"))
+        assert sm.phase == _P.AUTHENTICATING_SASL_CONTINUE
+
+    def test_auth_ok_from_continue(self):
+        sm = FrontendStateMachine(phase=_P.AUTHENTICATING_SASL_CONTINUE)
+        sm.receive(AuthenticationOk())
+        assert sm.phase == _P.INITIALIZATION
+
+
+class TestBackendMsgInitializationRules:
+    def test_backend_key_data_stays(self):
+        sm = FrontendStateMachine(phase=_P.INITIALIZATION)
+        sm.receive(BackendKeyData(process_id=1, secret_key=b"\x00" * 4))
+        assert sm.phase == _P.INITIALIZATION
+
+    def test_ready_for_query(self):
+        sm = FrontendStateMachine(phase=_P.INITIALIZATION)
+        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
+        assert sm.phase == _P.READY
+
+    def test_notice_stays(self):
+        sm = FrontendStateMachine(phase=_P.INITIALIZATION)
+        sm.receive(NoticeResponse(fields={"S": "NOTICE", "M": "x"}))
+        assert sm.phase == _P.INITIALIZATION
+
+    def test_parameter_status_stays(self):
+        sm = FrontendStateMachine(phase=_P.INITIALIZATION)
+        sm.receive(ParameterStatus(name="x", value="y"))
+        assert sm.phase == _P.INITIALIZATION
+
+    def test_error_to_failed(self):
+        sm = FrontendStateMachine(phase=_P.INITIALIZATION)
+        sm.receive(ErrorResponse(fields={"S": "FATAL", "M": "err"}))
+        assert sm.phase == _P.FAILED
+
+
+class TestBackendMsgReadyRules:
+    def test_notice_stays(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.receive(NoticeResponse(fields={"S": "NOTICE", "M": "x"}))
+        assert sm.phase == _P.READY
+
+    def test_parameter_status_stays(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.receive(ParameterStatus(name="x", value="y"))
+        assert sm.phase == _P.READY
+
+    def test_notification_stays(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.receive(NotificationResponse(process_id=1, channel="c", payload="p"))
+        assert sm.phase == _P.READY
+
+    def test_error_stays(self):
+        sm = FrontendStateMachine(phase=_P.READY)
+        sm.receive(ErrorResponse(fields={"S": "ERROR", "M": "x"}))
+        assert sm.phase == _P.READY
+
+
+class TestBackendMsgSimpleQueryRules:
+    def test_row_description_stays(self):
+        sm = FrontendStateMachine(phase=_P.SIMPLE_QUERY)
+        sm.receive(RowDescription(fields=[]))
+        assert sm.phase == _P.SIMPLE_QUERY
+
+    def test_data_row_stays(self):
+        sm = FrontendStateMachine(phase=_P.SIMPLE_QUERY)
         sm.receive(DataRow(columns=[b"1"]))
+        assert sm.phase == _P.SIMPLE_QUERY
+
+    def test_command_complete_stays(self):
+        sm = FrontendStateMachine(phase=_P.SIMPLE_QUERY)
         sm.receive(CommandComplete(tag="SELECT 1"))
+        assert sm.phase == _P.SIMPLE_QUERY
+
+    def test_empty_query_response_stays(self):
+        sm = FrontendStateMachine(phase=_P.SIMPLE_QUERY)
+        sm.receive(EmptyQueryResponse())
+        assert sm.phase == _P.SIMPLE_QUERY
+
+    def test_ready_for_query(self):
+        sm = FrontendStateMachine(phase=_P.SIMPLE_QUERY)
         sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
+        assert sm.phase == _P.READY
 
-        # Still in EXTENDED_QUERY because second batch is pending
-        assert sm.phase == ConnectionPhase.EXTENDED_QUERY
-        assert sm.pending_syncs == 1
+    def test_copy_in_response(self):
+        sm = FrontendStateMachine(phase=_P.SIMPLE_QUERY)
+        sm.receive(CopyInResponse(overall_format=0, col_formats=[]))
+        assert sm.phase == _P.COPY_IN
 
-        # Receive responses for second batch
+    def test_copy_out_response(self):
+        sm = FrontendStateMachine(phase=_P.SIMPLE_QUERY)
+        sm.receive(CopyOutResponse(overall_format=0, col_formats=[]))
+        assert sm.phase == _P.COPY_OUT
+
+    def test_error_stays(self):
+        sm = FrontendStateMachine(phase=_P.SIMPLE_QUERY)
+        sm.receive(ErrorResponse(fields={"S": "ERROR", "M": "x"}))
+        assert sm.phase == _P.SIMPLE_QUERY
+
+
+class TestBackendMsgExtendedQueryRules:
+    def _make_sm(self, pending_syncs=1, in_batch=True):
+        sm = FrontendStateMachine(phase=_P.EXTENDED_QUERY)
+        sm._state = replace(sm._state, pending_syncs=pending_syncs, in_extended_batch=in_batch)
+        return sm
+
+    def test_parse_complete_stays(self):
+        sm = self._make_sm()
         sm.receive(ParseComplete())
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_bind_complete_stays(self):
+        sm = self._make_sm()
         sm.receive(BindComplete())
-        sm.receive(DataRow(columns=[b"2"]))
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_close_complete_stays(self):
+        sm = self._make_sm()
+        sm.receive(CloseComplete())
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_no_data_stays(self):
+        sm = self._make_sm()
+        sm.receive(NoData())
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_parameter_description_stays(self):
+        sm = self._make_sm()
+        sm.receive(ParameterDescription(type_oids=[23]))
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_row_description_stays(self):
+        sm = self._make_sm()
+        sm.receive(RowDescription(fields=[]))
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_data_row_stays(self):
+        sm = self._make_sm()
+        sm.receive(DataRow(columns=[b"1"]))
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_command_complete_stays(self):
+        sm = self._make_sm()
         sm.receive(CommandComplete(tag="SELECT 1"))
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_portal_suspended_stays(self):
+        sm = self._make_sm()
+        sm.receive(PortalSuspended())
+        assert sm.phase == _P.EXTENDED_QUERY
+
+    def test_ready_for_query_resolves_sync(self):
+        sm = self._make_sm(pending_syncs=2)
         sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
+        assert sm.phase == _P.EXTENDED_QUERY
+        assert sm._state.pending_syncs == 1
 
-        # Now back to READY
-        assert sm.phase == ConnectionPhase.READY
-        assert sm.pending_syncs == 0
-
-    def test_pipelining_disabled(self):
-        """Test that pipelining always works (pipelining is always enabled)."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        # First batch
-        sm.send(Parse(statement="stmt1", query="SELECT 1"))
-        sm.send(Bind(portal="", statement="stmt1"))
-        sm.send(Execute(portal="", max_rows=0))
-        sm.send(Sync())
-
-        # Second batch should succeed (pipelining is always enabled)
-        sm.send(Parse(statement="stmt2", query="SELECT 2"))
-        assert sm.pending_syncs == 2
-
-    def test_sync_before_batch(self):
-        """Test sending Sync before starting a batch."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
-
-        # Send standalone Sync from READY
-        sm.send(Sync())
-        assert sm.phase == ConnectionPhase.EXTENDED_QUERY
-        assert sm.pending_syncs == 1
-
-        # Receive ReadyForQuery
+    def test_ready_for_query_last_sync_returns_ready(self):
+        sm = self._make_sm(pending_syncs=1)
         sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-        assert sm.pending_syncs == 0
+        assert sm.phase == _P.READY
+        assert sm._state.pending_syncs == 0
 
-    def test_multiple_syncs_in_batch(self):
-        """Test multiple Sync messages in a single batch."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
+    def test_copy_in_response(self):
+        sm = self._make_sm()
+        sm.receive(CopyInResponse(overall_format=0, col_formats=[]))
+        assert sm.phase == _P.COPY_IN
 
-        # Parse + Sync + Parse + Sync
-        sm.send(Parse(statement="stmt1", query="SELECT 1"))
-        sm.send(Sync())
-        assert sm.pending_syncs == 1
+    def test_copy_out_response(self):
+        sm = self._make_sm()
+        sm.receive(CopyOutResponse(overall_format=0, col_formats=[]))
+        assert sm.phase == _P.COPY_OUT
 
-        sm.send(Parse(statement="stmt2", query="SELECT 2"))
-        sm.send(Sync())
-        assert sm.pending_syncs == 2
+    def test_error_stays(self):
+        sm = self._make_sm()
+        sm.receive(ErrorResponse(fields={"S": "ERROR", "M": "x"}))
+        assert sm.phase == _P.EXTENDED_QUERY
 
-        # Receive first batch response
-        sm.receive(ParseComplete())
+
+class TestBackendMsgCopyInRules:
+    def test_command_complete_stays(self):
+        sm = FrontendStateMachine(phase=_P.COPY_IN)
+        sm.receive(CommandComplete(tag="COPY 0"))
+        assert sm.phase == _P.COPY_IN
+
+    def test_ready_for_query(self):
+        sm = FrontendStateMachine(phase=_P.COPY_IN)
         sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.pending_syncs == 1
+        assert sm.phase == _P.READY
 
-        # Receive second batch response
-        sm.receive(ParseComplete())
+    def test_error_stays(self):
+        sm = FrontendStateMachine(phase=_P.COPY_IN)
+        sm.receive(ErrorResponse(fields={"S": "ERROR", "M": "x"}))
+        assert sm.phase == _P.COPY_IN
+
+
+class TestBackendMsgCopyOutRules:
+    def test_copy_data_stays(self):
+        sm = FrontendStateMachine(phase=_P.COPY_OUT)
+        sm.receive(CopyData(data=b"row"))
+        assert sm.phase == _P.COPY_OUT
+
+    def test_copy_done(self):
+        sm = FrontendStateMachine(phase=_P.COPY_OUT)
+        sm.receive(CopyDone())
+        assert sm.phase == _P.SIMPLE_QUERY
+
+    def test_command_complete_stays(self):
+        sm = FrontendStateMachine(phase=_P.COPY_OUT)
+        sm.receive(CommandComplete(tag="COPY 2"))
+        assert sm.phase == _P.COPY_OUT
+
+    def test_ready_for_query(self):
+        sm = FrontendStateMachine(phase=_P.COPY_OUT)
         sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-        assert sm.pending_syncs == 0
+        assert sm.phase == _P.READY
 
-    def test_pending_syncs_counter(self):
-        """Test that pending_syncs counter increments and decrements correctly."""
-        sm = FrontendStateMachine()
-        self._do_startup(sm)
+    def test_error_stays(self):
+        sm = FrontendStateMachine(phase=_P.COPY_OUT)
+        sm.receive(ErrorResponse(fields={"S": "ERROR", "M": "x"}))
+        assert sm.phase == _P.COPY_OUT
 
-        assert sm.pending_syncs == 0
 
-        # Send three pipelined batches
-        for i in range(3):
-            sm.send(Parse(statement=f"stmt{i}", query="SELECT 1"))
-            sm.send(Sync())
-            assert sm.pending_syncs == i + 1
+class TestBackendMsgFunctionCallRules:
+    def test_function_call_response(self):
+        sm = FrontendStateMachine(phase=_P.FUNCTION_CALL)
+        sm.receive(FunctionCallResponse(result=b"x"))
+        assert sm.phase == _P.SIMPLE_QUERY
 
-        # Process responses one by one
-        for i in range(3):
-            sm.receive(ParseComplete())
+    def test_command_complete_stays(self):
+        sm = FrontendStateMachine(phase=_P.FUNCTION_CALL)
+        sm.receive(CommandComplete(tag="x"))
+        assert sm.phase == _P.FUNCTION_CALL
+
+    def test_ready_for_query(self):
+        sm = FrontendStateMachine(phase=_P.FUNCTION_CALL)
+        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
+        assert sm.phase == _P.READY
+
+    def test_error_to_simple_query(self):
+        sm = FrontendStateMachine(phase=_P.FUNCTION_CALL)
+        sm.receive(ErrorResponse(fields={"S": "ERROR", "M": "x"}))
+        assert sm.phase == _P.SIMPLE_QUERY
+
+
+class TestBackendMsgSSLNegotiationRules:
+    def test_ssl_response(self):
+        sm = FrontendStateMachine(phase=_P.SSL_NEGOTIATION)
+        sm.receive(SSLResponse(accepted=True))
+        assert sm.phase == _P.STARTUP
+
+    def test_error_to_failed(self):
+        sm = FrontendStateMachine(phase=_P.SSL_NEGOTIATION)
+        sm.receive(ErrorResponse(fields={"S": "FATAL", "M": "err"}))
+        assert sm.phase == _P.FAILED
+
+
+class TestBackendMsgGSSNegotiationRules:
+    def test_gss_response(self):
+        sm = FrontendStateMachine(phase=_P.GSS_NEGOTIATION)
+        sm.receive(GSSResponse(accepted=True))
+        assert sm.phase == _P.STARTUP
+
+    def test_error_to_failed(self):
+        sm = FrontendStateMachine(phase=_P.GSS_NEGOTIATION)
+        sm.receive(ErrorResponse(fields={"S": "FATAL", "M": "err"}))
+        assert sm.phase == _P.FAILED
+
+
+# ---------------------------------------------------------------------------
+# Terminal phases
+# ---------------------------------------------------------------------------
+
+
+class TestTerminalPhases:
+    def test_terminated_rejects_frontend_send(self):
+        sm = FrontendStateMachine(phase=_P.TERMINATED)
+        with pytest.raises(StateMachineError):
+            sm.send(Terminate())
+
+    def test_terminated_rejects_backend_receive(self):
+        sm = FrontendStateMachine(phase=_P.TERMINATED)
+        with pytest.raises(StateMachineError):
             sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-            expected_pending = 2 - i
-            assert sm.pending_syncs == expected_pending
 
-        assert sm.phase == ConnectionPhase.READY
-        assert sm.pending_syncs == 0
+    def test_failed_rejects_frontend_send(self):
+        sm = FrontendStateMachine(phase=_P.FAILED)
+        with pytest.raises(StateMachineError):
+            sm.send(Terminate())
 
-    def test_backend_pipelining(self):
-        """Test pipelining from backend perspective."""
-        sm = BackendStateMachine()
-        self._do_startup(sm)
-
-        # Receive two pipelined batches
-        sm.receive(Parse(statement="stmt1", query="SELECT 1"))
-        sm.receive(Sync())
-        assert sm.pending_syncs == 1
-
-        sm.receive(Parse(statement="stmt2", query="SELECT 2"))
-        sm.receive(Sync())
-        assert sm.pending_syncs == 2
-
-        # Send responses for first batch
-        sm.send(ParseComplete())
-        sm.send(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.pending_syncs == 1
-
-        # Send responses for second batch
-        sm.send(ParseComplete())
-        sm.send(ReadyForQuery(status=TransactionStatus.IDLE))
-        assert sm.phase == ConnectionPhase.READY
-        assert sm.pending_syncs == 0
-
-    def _do_startup(self, sm):
-        """Helper to complete startup sequence."""
-        if isinstance(sm, FrontendStateMachine):
-            sm.send(StartupMessage(params={"user": "test"}))
+    def test_failed_rejects_backend_receive(self):
+        sm = FrontendStateMachine(phase=_P.FAILED)
+        with pytest.raises(StateMachineError):
             sm.receive(AuthenticationOk())
-            sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
-        else:  # BackendStateMachine
-            sm.receive(StartupMessage(params={"user": "test"}))
-            sm.send(AuthenticationOk())
-            sm.send(ReadyForQuery(status=TransactionStatus.IDLE))
 
 
-class TestConnectionPhaseEnum:
-    """Tests for ConnectionPhase enum."""
+# ---------------------------------------------------------------------------
+# Pipelining edge cases (unit-level)
+# ---------------------------------------------------------------------------
 
-    def test_all_phases_defined(self):
-        """Test all expected phases are defined."""
-        expected_phases = [
-            "STARTUP",
-            "SSL_NEGOTIATION",
-            "GSS_NEGOTIATION",
-            "AUTHENTICATING",
-            "INITIALIZATION",
-            "READY",
-            "SIMPLE_QUERY",
-            "EXTENDED_QUERY",
-            "COPY_IN",
-            "COPY_OUT",
-            "FUNCTION_CALL",
-            "TERMINATED",
-            "FAILED",
-        ]
-        for phase_name in expected_phases:
-            assert hasattr(ConnectionPhase, phase_name)
 
-    def test_phase_enum_values(self):
-        """Test phase enum values are unique."""
-        phases = list(ConnectionPhase)
-        assert len(phases) == len(set(phases))
+class TestPipeliningEdgeCases:
+    def test_ext_continue_after_sync_starts_new_batch(self):
+        """After Sync ends a batch, the next Parse starts a new batch."""
+        sm = FrontendStateMachine(phase=_P.EXTENDED_QUERY)
+        sm._state = replace(sm._state, in_extended_batch=False, pending_syncs=1)
+        sm.send(Parse(statement="s", query="q"))
+        assert sm._state.in_extended_batch is True
+        assert sm._state.pending_syncs == 2
+
+    def test_multiple_syncs_increment_pending(self):
+        sm = FrontendStateMachine(phase=_P.EXTENDED_QUERY)
+        sm._state = replace(sm._state, in_extended_batch=False, pending_syncs=1)
+        sm.send(Sync())
+        assert sm._state.pending_syncs == 2
+        sm.send(Sync())
+        assert sm._state.pending_syncs == 3
+
+    def test_ready_for_query_clamps_to_zero(self):
+        """If pending_syncs somehow goes negative, it clamps to 0."""
+        sm = FrontendStateMachine(phase=_P.EXTENDED_QUERY)
+        sm._state = replace(sm._state, pending_syncs=0)
+        sm.receive(ReadyForQuery(status=TransactionStatus.IDLE))
+        assert sm._state.pending_syncs == 0
+        assert sm.phase == _P.READY
