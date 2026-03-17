@@ -5,6 +5,7 @@ import struct
 import pytest
 
 from pygwire.codec import BackendMessageDecoder, FrontendMessageDecoder
+from pygwire.constants import ProtocolVersion
 from pygwire.exceptions import DecodingError, FramingError
 from pygwire.messages import (
     AuthenticationSASL,
@@ -163,6 +164,27 @@ class TestTruncatedPayloads:
             decoder.feed(truncated)
             next(decoder)
 
+    def test_cancel_request_truncated(self):
+        """Test CancelRequest with valid version code but truncated payload.
+
+        CancelRequest uses startup framing (no identifier byte). This exercises
+        the StartupFraming struct.error catch path when decode fails on a
+        too-short payload.
+        """
+        decoder = FrontendMessageDecoder()
+        decoder.phase = ConnectionPhase.STARTUP
+
+        # CancelRequest wire format: Int32(length) + Int32(cancel_code) + Int32(pid) + secret_key
+        # Craft a message with valid cancel code but truncated before process_id
+        cancel_code = int(ProtocolVersion.CANCEL_REQUEST)
+        payload = struct.pack("!I", cancel_code)  # version code only, no pid/key
+        length = 4 + len(payload)  # length includes itself
+        wire = struct.pack("!I", length) + payload
+
+        with pytest.raises(FramingError, match="truncated or malformed"):
+            decoder.feed(wire)
+            next(decoder)
+
 
 class TestInvalidCountFields:
     """Tests for negative or zero-length count fields where unexpected."""
@@ -251,12 +273,8 @@ class TestOversizedDeclaredLengths:
 
         # The decoder should wait for more data but not crash
         # We can't complete the message with this oversized claim
-        try:
+        with pytest.raises(StopIteration):
             next(decoder)
-            raise AssertionError("Should not have parsed incomplete message")
-        except StopIteration:
-            # Expected - not enough data
-            pass
 
 
 class TestEmbeddedNulls:
@@ -400,11 +418,8 @@ class TestPartialMessages:
         decoder.feed(wire)
 
         # Should not be able to parse yet (incomplete)
-        try:
+        with pytest.raises(StopIteration):
             next(decoder)
-            raise AssertionError("Should not have parsed incomplete header")
-        except StopIteration:
-            pass  # Expected
 
         # Send rest of header + payload
         wire2 = b"\x00\x08" + struct.pack("!I", 0)  # AuthenticationOk
@@ -438,11 +453,8 @@ class TestPartialMessages:
         decoder.feed(wire[:mid])
 
         # Should not be able to parse yet (incomplete)
-        try:
+        with pytest.raises(StopIteration):
             next(decoder)
-            raise AssertionError("Should not have parsed incomplete payload")
-        except StopIteration:
-            pass  # Expected
 
         # Feed second half
         decoder.feed(wire[mid:])
