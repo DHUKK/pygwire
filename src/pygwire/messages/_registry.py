@@ -1,11 +1,11 @@
 """Message registry system for PostgreSQL wire protocol.
 
 This module provides the registry infrastructure that maps message identifiers
-and version codes to message classes. It supports three types of registries
+and request codes to message classes. It supports three types of registries
 for different framing modes:
 
 - StandardMessageRegistry: Standard framed messages (Byte1 + Int32 + payload)
-- StartupMessageRegistry: Startup messages (Int32 + payload, version code discriminator)
+- StartupMessageRegistry: Startup messages (Int32 + payload, request code discriminator)
 - NegotiationMessageRegistry: SSL/GSS negotiation (single byte messages)
 """
 
@@ -107,9 +107,9 @@ class StandardMessageRegistry:
 
 
 class StartupMessageRegistry:
-    """Registry for startup messages (Int32 + payload, version code discriminator).
+    """Registry for startup messages (Int32 + payload, request code discriminator).
 
-    Startup messages have no identifier byte. Instead, they use a 4-byte version
+    Startup messages have no identifier byte. Instead, they use a 4-byte request
     code at the start of the payload to distinguish message types:
         - 0x00030000: StartupMessage
         - 80877103: SSLRequest
@@ -120,38 +120,38 @@ class StartupMessageRegistry:
     """
 
     def __init__(self) -> None:
-        # Key: version_code → message class
+        # Key: request_code → message class
         self._registry: dict[int, type[PGMessage]] = {}
 
-    def register(self, version_code: int) -> Callable[[type[PGMessage]], type[PGMessage]]:
+    def register(self, request_code: int) -> Callable[[type[PGMessage]], type[PGMessage]]:
         """Decorator to register a startup message class.
 
         Args:
-            version_code: 32-bit version/request code
+            request_code: 32-bit version/request code
 
         Example::
 
-            @STARTUP_REGISTRY.register(version_code=0x00030000)
+            @STARTUP_REGISTRY.register(request_code=0x00030000)
             class StartupMessage(SpecialMessage):
                 ...
         """
 
         def decorator(cls: type[PGMessage]) -> type[PGMessage]:
-            self._registry[version_code] = cls
+            self._registry[request_code] = cls
             return cls
 
         return decorator
 
-    def lookup(self, version_code: int) -> type[PGMessage] | None:
-        """Find message class by version code.
+    def lookup(self, request_code: int) -> type[PGMessage] | None:
+        """Find message class by request code.
 
         Args:
-            version_code: 32-bit version/request code
+            request_code: 32-bit version/request code
 
         Returns:
             Message class or None if not found
         """
-        return self._registry.get(version_code)
+        return self._registry.get(request_code)
 
 
 class NegotiationMessageRegistry:

@@ -102,24 +102,24 @@ class TestStartupFraming:
                 memoryview(wire), 0, ConnectionPhase.STARTUP, MessageDirection.FRONTEND
             )
 
-    def test_payload_too_short_for_version_code(self):
+    def test_payload_too_short_for_request_code(self):
         """Test that payload shorter than 4 bytes raises FramingError."""
         # Length = 5 (header) + 2 (payload) = 7, but payload needs 4 bytes for version
         wire = struct.pack("!I", 6) + b"ab"
 
         framing = StartupFraming()
-        with pytest.raises(FramingError, match="payload too short for version code"):
+        with pytest.raises(FramingError, match="payload too short for request code"):
             framing.try_parse(
                 memoryview(wire), 0, ConnectionPhase.STARTUP, MessageDirection.FRONTEND
             )
 
-    def test_unknown_version_code_raises_error(self):
-        """Test that unknown version code raises FramingError."""
-        # Create message with invalid version code
-        wire = struct.pack("!II", 8, 0xDEADBEEF)  # Invalid version code
+    def test_unknown_request_code_raises_error(self):
+        """Test that unknown request code raises FramingError."""
+        # Create message with invalid request code
+        wire = struct.pack("!II", 8, 0xDEADBEEF)  # Invalid request code
 
         framing = StartupFraming()
-        with pytest.raises(FramingError, match="Unknown startup message version code"):
+        with pytest.raises(FramingError, match="Unknown startup message request code"):
             framing.try_parse(
                 memoryview(wire), 0, ConnectionPhase.STARTUP, MessageDirection.FRONTEND
             )

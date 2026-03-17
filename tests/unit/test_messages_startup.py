@@ -2,7 +2,7 @@
 
 import pytest
 
-from pygwire.constants import ProtocolVersion
+from pygwire.constants import StartupRequestCode
 from pygwire.exceptions import DecodingError
 from pygwire.messages import (
     CancelRequest,
@@ -20,9 +20,9 @@ class TestStartupMessage:
         msg = StartupMessage(params={})
         wire = msg.encode()
 
-        # Should contain version code + final null terminator
+        # Should contain request code + final null terminator
         assert len(wire) >= 5
-        assert wire[:4] == ProtocolVersion.V3_0.to_bytes(4, "big")
+        assert wire[:4] == StartupRequestCode.V3_0.to_bytes(4, "big")
         assert wire[-1:] == b"\x00"
 
     def test_encode_single_param(self):
@@ -94,7 +94,7 @@ class TestStartupMessage:
         decoded = StartupMessage.decode(memoryview(wire))
 
         assert decoded.params == original.params
-        assert decoded.protocol_version == ProtocolVersion.V3_0  # Default version
+        assert decoded.protocol_version == StartupRequestCode.V3_0  # Default version
 
     def test_unicode_in_params(self):
         """Test encoding/decoding with Unicode characters."""
@@ -129,7 +129,7 @@ class TestStartupMessage:
     def test_decode_unterminated_string_raises_error(self):
         """Test that unterminated string raises DecodingError."""
         # Create malformed payload: version + "user" without null terminator
-        wire = ProtocolVersion.V3_0.to_bytes(4, "big") + b"user"
+        wire = StartupRequestCode.V3_0.to_bytes(4, "big") + b"user"
 
         with pytest.raises(DecodingError, match="Unterminated string"):
             StartupMessage.decode(memoryview(wire))
@@ -154,7 +154,7 @@ class TestStartupMessage:
         # Create a v3.2 startup message manually (client would send this)
         params = {"user": "testuser", "database": "testdb"}
         buf = bytearray()
-        buf.extend(ProtocolVersion.V3_2.to_bytes(4, "big"))
+        buf.extend(StartupRequestCode.V3_2.to_bytes(4, "big"))
         for key, value in params.items():
             buf.extend(key.encode("utf-8"))
             buf.append(0)
@@ -165,15 +165,15 @@ class TestStartupMessage:
         # Decode should work since StartupMessage is registered for both v3.0 and v3.2
         decoded = StartupMessage.decode(memoryview(buf))
         assert decoded.params == params
-        assert decoded.protocol_version == ProtocolVersion.V3_2
+        assert decoded.protocol_version == StartupRequestCode.V3_2
 
     def test_encode_with_v3_2_protocol_version(self):
         """Test encoding StartupMessage with explicit v3.2 protocol version."""
-        msg = StartupMessage(params={"user": "testuser"}, protocol_version=ProtocolVersion.V3_2)
+        msg = StartupMessage(params={"user": "testuser"}, protocol_version=StartupRequestCode.V3_2)
         wire = msg.encode()
 
-        # Should contain v3.2 version code
-        assert wire[:4] == ProtocolVersion.V3_2.to_bytes(4, "big")
+        # Should contain v3.2 request code
+        assert wire[:4] == StartupRequestCode.V3_2.to_bytes(4, "big")
         assert b"user\x00testuser\x00\x00" in wire
 
     def test_encode_defaults_to_v3_0(self):
@@ -181,14 +181,14 @@ class TestStartupMessage:
         msg = StartupMessage(params={"user": "testuser"})
         wire = msg.encode()
 
-        # Should contain v3.0 version code by default
-        assert wire[:4] == ProtocolVersion.V3_0.to_bytes(4, "big")
+        # Should contain v3.0 request code by default
+        assert wire[:4] == StartupRequestCode.V3_0.to_bytes(4, "big")
 
     def test_v3_2_round_trip(self):
         """Test encode/decode round-trip with v3.2."""
         original = StartupMessage(
             params={"user": "alice", "database": "production"},
-            protocol_version=ProtocolVersion.V3_2,
+            protocol_version=StartupRequestCode.V3_2,
         )
 
         wire = original.encode()
@@ -196,7 +196,7 @@ class TestStartupMessage:
 
         # Both params and protocol_version should be preserved
         assert decoded.params == original.params
-        assert decoded.protocol_version == ProtocolVersion.V3_2
+        assert decoded.protocol_version == StartupRequestCode.V3_2
 
 
 class TestSSLRequest:
@@ -209,11 +209,11 @@ class TestSSLRequest:
 
         # Should be exactly 4 bytes (the SSL request code)
         assert len(wire) == 4
-        assert wire == ProtocolVersion.SSL_REQUEST.to_bytes(4, "big")
+        assert wire == StartupRequestCode.SSL_REQUEST.to_bytes(4, "big")
 
     def test_decode(self):
         """Test decoding SSLRequest."""
-        wire = ProtocolVersion.SSL_REQUEST.to_bytes(4, "big")
+        wire = StartupRequestCode.SSL_REQUEST.to_bytes(4, "big")
         decoded = SSLRequest.decode(memoryview(wire))
 
         assert isinstance(decoded, SSLRequest)
@@ -254,11 +254,11 @@ class TestGSSEncRequest:
 
         # Should be exactly 4 bytes (the GSSENC request code)
         assert len(wire) == 4
-        assert wire == ProtocolVersion.GSSENC_REQUEST.to_bytes(4, "big")
+        assert wire == StartupRequestCode.GSSENC_REQUEST.to_bytes(4, "big")
 
     def test_decode(self):
         """Test decoding GSSEncRequest."""
-        wire = ProtocolVersion.GSSENC_REQUEST.to_bytes(4, "big")
+        wire = StartupRequestCode.GSSENC_REQUEST.to_bytes(4, "big")
         decoded = GSSEncRequest.decode(memoryview(wire))
 
         assert isinstance(decoded, GSSEncRequest)
@@ -299,7 +299,7 @@ class TestCancelRequest:
 
         # Should contain: cancel code (4) + process_id (4) + secret_key (4)
         assert len(wire) == 12
-        assert wire[:4] == ProtocolVersion.CANCEL_REQUEST.to_bytes(4, "big")
+        assert wire[:4] == StartupRequestCode.CANCEL_REQUEST.to_bytes(4, "big")
 
     def test_encode_v3_2(self):
         """Test encoding CancelRequest with variable-length secret key (Protocol 3.2)."""
