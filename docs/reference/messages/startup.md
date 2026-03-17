@@ -18,7 +18,7 @@ Connection initialization. Sent as the first message from a client.
 | Field | Type | Description |
 |-------|------|-------------|
 | `params` | `dict[str, str]` | Key-value parameters (`user`, `database`, etc.) |
-| `protocol_version` | `int` | Protocol version code (default: `ProtocolVersion.V3_0`) |
+| `protocol_version` | `int` | Startup request code (default: `StartupRequestCode.V3_0`) |
 
 ```python
 from pygwire.messages import StartupMessage

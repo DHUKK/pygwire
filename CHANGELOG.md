@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `ProtocolVersion` enum renamed to `StartupRequestCode`. The `version_code` parameter on `StartupMessageRegistry.register()` and `.lookup()` is now `request_code`.
+
 ## [0.1.0] - 2026-03-11
 
 ### Added

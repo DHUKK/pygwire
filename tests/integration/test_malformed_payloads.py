@@ -5,7 +5,7 @@ import struct
 import pytest
 
 from pygwire.codec import BackendMessageDecoder, FrontendMessageDecoder
-from pygwire.constants import ProtocolVersion
+from pygwire.constants import StartupRequestCode
 from pygwire.exceptions import DecodingError, FramingError
 from pygwire.messages import (
     AuthenticationSASL,
@@ -165,7 +165,7 @@ class TestTruncatedPayloads:
             next(decoder)
 
     def test_cancel_request_truncated(self):
-        """Test CancelRequest with valid version code but truncated payload.
+        """Test CancelRequest with valid request code but truncated payload.
 
         CancelRequest uses startup framing (no identifier byte). This exercises
         the StartupFraming struct.error catch path when decode fails on a
@@ -176,8 +176,8 @@ class TestTruncatedPayloads:
 
         # CancelRequest wire format: Int32(length) + Int32(cancel_code) + Int32(pid) + secret_key
         # Craft a message with valid cancel code but truncated before process_id
-        cancel_code = int(ProtocolVersion.CANCEL_REQUEST)
-        payload = struct.pack("!I", cancel_code)  # version code only, no pid/key
+        cancel_code = int(StartupRequestCode.CANCEL_REQUEST)
+        payload = struct.pack("!I", cancel_code)  # request code only, no pid/key
         length = 4 + len(payload)  # length includes itself
         wire = struct.pack("!I", length) + payload
 

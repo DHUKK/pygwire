@@ -3,7 +3,7 @@ from enum import Enum, IntEnum, StrEnum, auto
 __all__ = [
     "ConnectionPhase",
     "MessageDirection",
-    "ProtocolVersion",
+    "StartupRequestCode",
     "TransactionStatus",
 ]
 
@@ -80,8 +80,13 @@ class ConnectionPhase(Enum):
     FAILED = auto()
 
 
-class ProtocolVersion(IntEnum):
-    """PostgreSQL Protocol Versions."""
+class StartupRequestCode(IntEnum):
+    """32-bit codes sent in the startup packet version field.
+
+    The first 4 bytes of every startup packet are read as a request code.
+    V3_0 and V3_2 are actual protocol versions; SSL_REQUEST, GSSENC_REQUEST,
+    and CANCEL_REQUEST are magic numbers that share the same wire position.
+    """
 
     V3_0 = 0x00030000  # Standard for PG 14-17
     V3_2 = 0x00030002  # New for PG 18+ (Variable length cancel keys)

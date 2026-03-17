@@ -33,9 +33,9 @@ Protocol-level enums and constants.
 | `FRONTEND` | `"frontend"` | Message sent by client |
 | `BACKEND` | `"backend"` | Message sent by server |
 
-## `ProtocolVersion`
+## `StartupRequestCode`
 
-`IntEnum` of PostgreSQL protocol version codes. Used in `StartupMessage` and special request messages.
+`IntEnum` of 32-bit codes sent in the startup packet request code field. Used in `StartupMessage` and special request messages.
 
 | Member | Value | Description |
 |--------|-------|-------------|

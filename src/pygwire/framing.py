@@ -97,12 +97,12 @@ class StartupFraming(FramingStrategy):
 
     Wire format:
         Bytes 0-3:   Int32 length (including these 4 bytes)
-        Bytes 4-7:   Int32 version_code (part of payload)
+        Bytes 4-7:   Int32 request_code (part of payload)
         Bytes 8+:    Remaining payload
 
     Example:
-        StartupMessage: length=52, version_code=0x00030000, params...
-        SSLRequest:     length=8,  version_code=80877103
+        StartupMessage: length=52, request_code=0x00030000, params...
+        SSLRequest:     length=8,  request_code=80877103
     """
 
     def try_parse(
@@ -129,13 +129,13 @@ class StartupFraming(FramingStrategy):
         payload_end = pos + length
         payload = buf[payload_start:payload_end]
         if len(payload) < 4:
-            raise FramingError("Startup message payload too short for version code")
+            raise FramingError("Startup message payload too short for request code")
 
-        (version_code,) = _LENGTH_STRUCT.unpack_from(payload)
+        (request_code,) = _LENGTH_STRUCT.unpack_from(payload)
 
-        msg_cls = STARTUP_REGISTRY.lookup(version_code)
+        msg_cls = STARTUP_REGISTRY.lookup(request_code)
         if msg_cls is None:
-            raise FramingError(f"Unknown startup message version code: {version_code:#010x}")
+            raise FramingError(f"Unknown startup message request code: {request_code:#010x}")
         try:
             msg = msg_cls.decode(payload)
         except struct.error as e:

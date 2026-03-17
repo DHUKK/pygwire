@@ -6,7 +6,7 @@ import struct
 from dataclasses import dataclass, field
 from typing import Self
 
-from pygwire.constants import ProtocolVersion
+from pygwire.constants import StartupRequestCode
 
 from ._base import SpecialMessage, _read_cstring
 from ._registry import STARTUP_REGISTRY
@@ -14,15 +14,15 @@ from ._registry import STARTUP_REGISTRY
 _INT32 = struct.Struct("!I")
 
 
-@STARTUP_REGISTRY.register(version_code=ProtocolVersion.V3_0)
-@STARTUP_REGISTRY.register(version_code=ProtocolVersion.V3_2)
+@STARTUP_REGISTRY.register(request_code=StartupRequestCode.V3_0)
+@STARTUP_REGISTRY.register(request_code=StartupRequestCode.V3_2)
 @dataclass(slots=True)
 class StartupMessage(SpecialMessage):
     """StartupMessage — initial connection packet (Protocol 3.0 & 3.2).
 
     Contains key-value parameters (user, database, options, etc.)
     terminated by a final null byte.  The ``encode()`` method returns
-    the full payload including the Int32 version code.
+    the full payload including the Int32 request code.
 
     Note: The message format is identical in v3.0 and v3.2. Protocol version
     3.2 (PostgreSQL 18+) only differs in CancelRequest and BackendKeyData
@@ -30,7 +30,7 @@ class StartupMessage(SpecialMessage):
     """
 
     params: dict[str, str] = field(default_factory=dict)
-    protocol_version: int = ProtocolVersion.V3_0
+    protocol_version: int = StartupRequestCode.V3_0
 
     def encode(self) -> bytes:
         buf = bytearray(_INT32.pack(self.protocol_version))
@@ -54,7 +54,7 @@ class StartupMessage(SpecialMessage):
         return cls(params=params, protocol_version=protocol_version)
 
 
-@STARTUP_REGISTRY.register(version_code=ProtocolVersion.SSL_REQUEST)
+@STARTUP_REGISTRY.register(request_code=StartupRequestCode.SSL_REQUEST)
 @dataclass(slots=True)
 class SSLRequest(SpecialMessage):
     """SSLRequest — asks if the server supports SSL.
@@ -63,14 +63,14 @@ class SSLRequest(SpecialMessage):
     """
 
     def encode(self) -> bytes:
-        return _INT32.pack(ProtocolVersion.SSL_REQUEST)
+        return _INT32.pack(StartupRequestCode.SSL_REQUEST)
 
     @classmethod
     def decode(cls, payload: memoryview) -> Self:
         return cls()
 
 
-@STARTUP_REGISTRY.register(version_code=ProtocolVersion.GSSENC_REQUEST)
+@STARTUP_REGISTRY.register(request_code=StartupRequestCode.GSSENC_REQUEST)
 @dataclass(slots=True)
 class GSSEncRequest(SpecialMessage):
     """GSSEncRequest — asks if the server supports GSS encryption.
@@ -79,14 +79,14 @@ class GSSEncRequest(SpecialMessage):
     """
 
     def encode(self) -> bytes:
-        return _INT32.pack(ProtocolVersion.GSSENC_REQUEST)
+        return _INT32.pack(StartupRequestCode.GSSENC_REQUEST)
 
     @classmethod
     def decode(cls, payload: memoryview) -> Self:
         return cls()
 
 
-@STARTUP_REGISTRY.register(version_code=ProtocolVersion.CANCEL_REQUEST)
+@STARTUP_REGISTRY.register(request_code=StartupRequestCode.CANCEL_REQUEST)
 @dataclass(slots=True)
 class CancelRequest(SpecialMessage):
     """CancelRequest — asks the server to cancel a running query.
@@ -101,7 +101,7 @@ class CancelRequest(SpecialMessage):
 
     def encode(self) -> bytes:
         return (
-            _INT32.pack(ProtocolVersion.CANCEL_REQUEST)
+            _INT32.pack(StartupRequestCode.CANCEL_REQUEST)
             + _INT32.pack(self.process_id)
             + self.secret_key
         )
