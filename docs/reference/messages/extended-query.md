@@ -18,25 +18,6 @@ The extended query protocol separates parsing, binding, and execution into disti
 | `NoData` | Backend | No rows will be returned |
 | `PortalSuspended` | Backend | Portal execution suspended |
 
-Typical flow:
-
-```
-Client                    Server
-  │                         │
-  │──── Parse ─────────────>│
-  │──── Bind ──────────────>│
-  │──── Describe (Portal) ─>│
-  │──── Execute ───────────>│
-  │──── Sync ──────────────>│
-  │                         │
-  │<─── ParseComplete ──────│
-  │<─── BindComplete ───────│
-  │<─── RowDescription ─────│
-  │<─── DataRow ────────────│
-  │<─── CommandComplete ────│
-  │<─── ReadyForQuery ──────│
-```
-
 ---
 
 ## Frontend messages

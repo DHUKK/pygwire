@@ -11,20 +11,6 @@ The simple query protocol sends a SQL string and receives results in a single ro
 | `EmptyQueryResponse` | Backend | Empty query string received |
 | `ReadyForQuery` | Backend | Server ready for next command |
 
-Typical flow:
-
-```
-Client                Server
-  │                     │
-  │──── Query ─────────>│
-  │                     │
-  │<─── RowDescription ─│
-  │<─── DataRow ────────│
-  │<─── DataRow ────────│
-  │<─── CommandComplete ─│
-  │<─── ReadyForQuery ──│
-```
-
 ---
 
 ## `Query`
