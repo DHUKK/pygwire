@@ -112,14 +112,37 @@ Same as `FrontendStateMachine`.
 
 ### Typical phase flow
 
-```
-STARTUP → AUTHENTICATING → INITIALIZATION → READY
-                                              ↕
-                                         SIMPLE_QUERY
-                                         EXTENDED_QUERY
-                                         COPY_IN / COPY_OUT
-                                              ↓
-                                          TERMINATED
+```mermaid
+stateDiagram-v2
+    [*] --> STARTUP
+
+    state "Negotiation (optional)" as negotiation {
+        SSL_NEGOTIATION
+        GSS_NEGOTIATION
+    }
+
+    state "Authentication" as auth {
+        AUTHENTICATING
+        AUTHENTICATING_SASL_INITIAL
+        AUTHENTICATING_SASL_CONTINUE
+    }
+
+    state "Active" as active {
+        SIMPLE_QUERY
+        EXTENDED_QUERY
+        COPY_IN
+        COPY_OUT
+    }
+
+    STARTUP --> negotiation
+    negotiation --> STARTUP
+    STARTUP --> auth
+    auth --> INITIALIZATION
+    INITIALIZATION --> READY
+    READY --> active
+    active --> READY
+    READY --> TERMINATED
+    TERMINATED --> [*]
 ```
 
 ---
