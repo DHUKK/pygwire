@@ -54,18 +54,6 @@ One row of query results.
 |-------|------|-------------|
 | `columns` | `list[bytes \| None]` | Column values (`None` for SQL NULL) |
 
-```python
-from pygwire.messages import DataRow
-
-# Check results
-if isinstance(msg, DataRow):
-    for col in msg.columns:
-        if col is None:
-            print("NULL")
-        else:
-            print(col.decode())
-```
-
 ## `CommandComplete`
 
 Indicates the command finished successfully.

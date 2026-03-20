@@ -104,16 +104,6 @@ Client password response. Used for cleartext, MD5, and as a transport for SASL/G
 |-------|------|-------------|
 | `password` | `str \| bytes` | Password (cleartext string, MD5-hashed string, or SASL/GSSAPI binary data) |
 
-```python
-from pygwire.messages import PasswordMessage
-
-# Cleartext
-msg = PasswordMessage(password="mypassword")
-
-# MD5 (pre-hashed)
-msg = PasswordMessage(password="md5abc123...")
-```
-
 ### `SASLInitialResponse`
 
 SASL initial response from client.

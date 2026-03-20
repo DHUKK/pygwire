@@ -17,27 +17,9 @@ Messages for errors, warnings, async notifications, and runtime parameter change
 |-------|------|-------------|
 | `fields` | `dict[str, str]` | Error fields keyed by single-char code |
 
-Common field keys:
-
-| Key | Meaning |
-|-----|---------|
-| `S` | Severity (`ERROR`, `FATAL`, `WARNING`, etc.) |
-| `V` | Severity (non-localized) |
-| `C` | SQLSTATE error code |
-| `M` | Message text |
-| `D` | Detail |
-| `H` | Hint |
+Fields are keyed by single-character codes. See the [PostgreSQL error field documentation](https://www.postgresql.org/docs/current/protocol-error-fields.html) for the full list.
 
 Convenience properties: `severity`, `code`, `message`.
-
-```python
-from pygwire.messages import ErrorResponse
-
-if isinstance(msg, ErrorResponse):
-    print(f"{msg.severity}: {msg.message} [{msg.code}]")
-    # Or access fields directly
-    print(msg.fields.get("D"))  # Detail
-```
 
 ## `NoticeResponse`
 
