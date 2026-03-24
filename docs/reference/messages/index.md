@@ -24,6 +24,9 @@ These are primarily useful for type hints and `isinstance` checks.
 |-----------|-------------|
 | `PygwireError` | Base exception for all pygwire errors |
 | `ProtocolError` | Wire protocol violation |
+| `FramingError` | Invalid message framing (bad size, unknown identifier, truncation) |
+| `DecodingError` | Message payload cannot be decoded (corrupt payload data) |
+| `StateMachineError` | Message is not valid for the current connection phase |
 
 ## Encoding and decoding
 

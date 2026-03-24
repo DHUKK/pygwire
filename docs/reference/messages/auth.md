@@ -5,6 +5,7 @@ Messages exchanged during the authentication phase. The server sends authenticat
 | Message | Direction | Description |
 |---------|-----------|-------------|
 | `SSLResponse` | Backend | Response to SSL negotiation |
+| `GSSResponse` | Backend | Response to GSS encryption negotiation |
 | `AuthenticationOk` | Backend | Authentication successful |
 | `AuthenticationCleartextPassword` | Backend | Request cleartext password |
 | `AuthenticationMD5Password` | Backend | Request MD5 password (includes salt) |
@@ -31,6 +32,14 @@ Single-byte response to SSL negotiation. This is an `Enum`, not a standard messa
 |-------|------|---------|
 | `b"S"` | `SUPPORTED` | Server supports SSL |
 | `b"N"` | `NOT_SUPPORTED` | Server does not support SSL |
+
+### `GSSResponse`
+
+Single-byte response to GSS encryption negotiation. Decoded only during `GSS_NEGOTIATION` phase.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `accepted` | `bool` | `True` if GSS encryption was accepted (`G`), `False` if rejected (`N`) |
 
 ### `AuthenticationOk`
 
@@ -104,16 +113,6 @@ Client password response. Used for cleartext, MD5, and as a transport for SASL/G
 |-------|------|-------------|
 | `password` | `str \| bytes` | Password (cleartext string, MD5-hashed string, or SASL/GSSAPI binary data) |
 
-```python
-from pygwire.messages import PasswordMessage
-
-# Cleartext
-msg = PasswordMessage(password="mypassword")
-
-# MD5 (pre-hashed)
-msg = PasswordMessage(password="md5abc123...")
-```
-
 ### `SASLInitialResponse`
 
 SASL initial response from client.
@@ -130,3 +129,9 @@ SASL continuation response from client.
 | Field | Type | Description |
 |-------|------|-------------|
 | `data` | `bytes` | SASL response data |
+
+---
+
+## SASL authentication flow
+
+The SASL messages above implement the SCRAM-SHA-256 handshake. For a full description of the exchange, see the [PostgreSQL SASL authentication documentation](https://www.postgresql.org/docs/current/sasl-authentication.html).

@@ -18,25 +18,6 @@ The extended query protocol separates parsing, binding, and execution into disti
 | `NoData` | Backend | No rows will be returned |
 | `PortalSuspended` | Backend | Portal execution suspended |
 
-Typical flow:
-
-```
-Client                    Server
-  │                         │
-  │──── Parse ─────────────>│
-  │──── Bind ──────────────>│
-  │──── Describe (Portal) ─>│
-  │──── Execute ───────────>│
-  │──── Sync ──────────────>│
-  │                         │
-  │<─── ParseComplete ──────│
-  │<─── BindComplete ───────│
-  │<─── RowDescription ─────│
-  │<─── DataRow ────────────│
-  │<─── CommandComplete ────│
-  │<─── ReadyForQuery ──────│
-```
-
 ---
 
 ## Frontend messages
@@ -51,12 +32,6 @@ Prepare a SQL statement.
 | `query` | `str` | SQL query with `$1`, `$2` placeholders |
 | `param_types` | `list[int]` | Parameter type OIDs (0 = let server infer) |
 
-```python
-from pygwire.messages import Parse
-
-msg = Parse(statement="", query="SELECT $1::int", param_types=[0])
-```
-
 ### `Bind`
 
 Bind parameter values to a prepared statement, creating a portal.
@@ -68,18 +43,6 @@ Bind parameter values to a prepared statement, creating a portal.
 | `param_formats` | `list[int]` | Parameter format codes (0 = text, 1 = binary) |
 | `param_values` | `list[bytes \| None]` | Parameter values (`None` for NULL) |
 | `result_formats` | `list[int]` | Result column format codes |
-
-```python
-from pygwire.messages import Bind
-
-msg = Bind(
-    portal="",
-    statement="",
-    param_formats=[0],
-    param_values=[b"42"],
-    result_formats=[0],
-)
-```
 
 ### `Describe`
 

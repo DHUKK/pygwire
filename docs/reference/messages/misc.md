@@ -50,10 +50,3 @@ Result of a `FunctionCall`.
 ## `Terminate`
 
 Gracefully close the connection. No fields.
-
-```python
-from pygwire.messages import Terminate
-
-msg = Terminate()
-wire_bytes = msg.to_wire()
-```

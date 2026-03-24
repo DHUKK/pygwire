@@ -11,20 +11,6 @@ The simple query protocol sends a SQL string and receives results in a single ro
 | `EmptyQueryResponse` | Backend | Empty query string received |
 | `ReadyForQuery` | Backend | Server ready for next command |
 
-Typical flow:
-
-```
-Client                Server
-  │                     │
-  │──── Query ─────────>│
-  │                     │
-  │<─── RowDescription ─│
-  │<─── DataRow ────────│
-  │<─── DataRow ────────│
-  │<─── CommandComplete ─│
-  │<─── ReadyForQuery ──│
-```
-
 ---
 
 ## `Query`
@@ -67,18 +53,6 @@ One row of query results.
 | Field | Type | Description |
 |-------|------|-------------|
 | `columns` | `list[bytes \| None]` | Column values (`None` for SQL NULL) |
-
-```python
-from pygwire.messages import DataRow
-
-# Check results
-if isinstance(msg, DataRow):
-    for col in msg.columns:
-        if col is None:
-            print("NULL")
-        else:
-            print(col.decode())
-```
 
 ## `CommandComplete`
 

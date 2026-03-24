@@ -112,14 +112,55 @@ Same as `FrontendStateMachine`.
 
 ### Typical phase flow
 
+```mermaid
+stateDiagram-v2
+    [*] --> STARTUP
+
+    state "Negotiation (optional)" as negotiation {
+        SSL_NEGOTIATION
+        GSS_NEGOTIATION
+    }
+
+    state "Authentication" as auth {
+        AUTHENTICATING
+        AUTHENTICATING_SASL_INITIAL
+        AUTHENTICATING_SASL_CONTINUE
+    }
+
+    state "Active" as active {
+        SIMPLE_QUERY
+        EXTENDED_QUERY
+        COPY_IN
+        COPY_OUT
+    }
+
+    STARTUP --> negotiation
+    negotiation --> STARTUP
+    STARTUP --> auth
+    auth --> INITIALIZATION
+    INITIALIZATION --> READY
+    READY --> active
+    active --> READY
+    READY --> TERMINATED
+    TERMINATED --> [*]
 ```
-STARTUP → AUTHENTICATING → INITIALIZATION → READY
-                                              ↕
-                                         SIMPLE_QUERY
-                                         EXTENDED_QUERY
-                                         COPY_IN / COPY_OUT
-                                              ↓
-                                          TERMINATED
+
+---
+
+## Extended query pipelining and `pending_syncs`
+
+The `pending_syncs` counter tracks in-flight extended query batches. 
+
+In extended query pipelining, a client can send multiple `Parse`/`Bind`/`Execute` sequences before receiving any responses. Each batch is terminated by a `Sync` message, and the server replies to each `Sync` with a `ReadyForQuery`.
+
+- A `Sync` sent by the frontend **increments** `pending_syncs`.
+- A `ReadyForQuery` received from the backend **decrements** `pending_syncs`.
+- The connection transitions back to `READY` only when `pending_syncs` reaches `0`.
+
+For example, a pool receiving `ReadyForQuery` shouldn't return the connection to the pool until the state is `READY`.
+
+```python
+--8<-- "examples/docs/state_machine_pipelining.py"
 ```
 
 ---
