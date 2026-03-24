@@ -1,6 +1,6 @@
 # Startup Messages
 
-These are `SpecialMessage` subclasses. They have no identifier byte and use a length-only framing format. The decoder handles this automatically when `startup=True`.
+These are `SpecialMessage` subclasses. They have no identifier byte and use a length-only framing format. The decoder handles this automatically based on the current connection phase.
 
 | Message | Direction | Description |
 |---------|-----------|-------------|

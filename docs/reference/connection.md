@@ -4,17 +4,23 @@ The `Connection` classes coordinate a decoder and state machine together, provid
 
 ## Overview
 
-Without Connection, you manage a decoder and state machine separately:
+`Connection` coordinates a decoder and state machine so you don't have to manage them separately or remember to sync their phases after each message.
 
-```python
---8<-- "examples/docs/connection_overview_without.py"
-```
+=== "With `Connection`"
 
-With Connection, both are coordinated in a single object:
+    Both decoder and state machine are coordinated in a single object:
 
-```python
---8<-- "examples/docs/connection_overview_with.py"
-```
+    ```python
+    --8<-- "examples/docs/connection_overview_with.py"
+    ```
+
+=== "Without `Connection`"
+
+    Managing a decoder and state machine separately requires manual phase synchronisation:
+
+    ```python
+    --8<-- "examples/docs/connection_overview_without.py"
+    ```
 
 ## Connection types
 

@@ -147,6 +147,24 @@ stateDiagram-v2
 
 ---
 
+## Extended query pipelining and `pending_syncs`
+
+The `pending_syncs` counter tracks in-flight extended query batches. 
+
+In extended query pipelining, a client can send multiple `Parse`/`Bind`/`Execute` sequences before receiving any responses. Each batch is terminated by a `Sync` message, and the server replies to each `Sync` with a `ReadyForQuery`.
+
+- A `Sync` sent by the frontend **increments** `pending_syncs`.
+- A `ReadyForQuery` received from the backend **decrements** `pending_syncs`.
+- The connection transitions back to `READY` only when `pending_syncs` reaches `0`.
+
+For example, a pool receiving `ReadyForQuery` shouldn't return the connection to the pool until the state is `READY`.
+
+```python
+--8<-- "examples/docs/state_machine_pipelining.py"
+```
+
+---
+
 ## `StateMachineError`
 
 ```python

@@ -14,7 +14,7 @@ class SocketConnection(FrontendConnection):
         self.sock = sock
 
     def on_send(self, data: bytes) -> None:
-        sock.send(data)
+        self.sock.send(data)
 
     def on_receive(self, msg: PGMessage) -> None:
         print(f"Received: {msg}")

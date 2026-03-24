@@ -8,7 +8,12 @@ from pygwire.connection import (
     Connection,
     FrontendConnection,
 )
-from pygwire.constants import ConnectionPhase, StartupRequestCode, TransactionStatus
+from pygwire.constants import (
+    ConnectionPhase,
+    MessageDirection,
+    StartupRequestCode,
+    TransactionStatus,
+)
 from pygwire.exceptions import (
     DecodingError,
     FramingError,
@@ -34,6 +39,7 @@ __all__ = [
     "FrontendConnection",
     "FrontendMessageDecoder",
     "FrontendStateMachine",
+    "MessageDirection",
     "ProtocolError",
     "StartupRequestCode",
     "PygwireError",

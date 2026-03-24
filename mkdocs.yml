@@ -36,7 +36,6 @@ nav:
   - Quick Start: quickstart.md
   - API Reference:
       - Connection: reference/connection.md
-      - Codec: reference/codec.md
       - Messages:
           - Overview: reference/messages/index.md
           - Startup: reference/messages/startup.md
@@ -46,7 +45,9 @@ nav:
           - COPY: reference/messages/copy.md
           - Errors and Notices: reference/messages/errors.md
           - Miscellaneous: reference/messages/misc.md
+      - Codec: reference/codec.md
       - State Machine: reference/state-machine.md
+      - Framing: reference/framing.md
       - Constants: reference/constants.md
   - Examples:
       - Authentication Proxy: examples/auth-proxy.md

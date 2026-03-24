@@ -56,8 +56,6 @@ The decoder automatically uses phase-aware framing based on the current connecti
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `feed(data)` | `None` | Append bytes to the internal buffer and parse complete messages |
-| `read()` | `PGMessage \| None` | Return next decoded message, or `None` |
-| `read_all()` | `list[PGMessage]` | Drain and return all decoded messages |
 | `clear()` | `None` | Discard all buffered data and pending messages |
 
 ## Properties
@@ -69,10 +67,15 @@ The decoder automatically uses phase-aware framing based on the current connecti
 
 ## Iteration
 
-Both decoders implement `__iter__` and `__next__`:
+Both decoders implement `__iter__` and `__next__`. Use `next(decoder)` to pull one message, or iterate to drain all available:
 
 ```python
 decoder.feed(raw_bytes)
+
+# Single message
+msg = next(decoder)
+
+# All available messages
 for msg in decoder:
     print(type(msg).__name__)
 ```
